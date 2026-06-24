@@ -1,0 +1,20 @@
+# Secrets
+.env
+*.key
+*.pem
+auth.json
+
+# WhatsApp session (contains encryption keys and credentials)
+session/
+platforms/
+
+# Hermes runtime
+.hermes/
+
+# Logs that may contain secrets or message content
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db

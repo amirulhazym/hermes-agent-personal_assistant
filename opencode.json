@@ -1,0 +1,36 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "plan",
+  "share": "manual",
+  "permission": {
+    "*": "ask",
+    "edit": "allow",
+    "task": "ask",
+    "webfetch": "ask",
+    "bash": {
+      "*": "ask",
+      "pwd": "allow",
+      "ls *": "allow",
+      "cat *": "allow",
+      "grep *": "allow",
+      "rg *": "allow",
+      "git status": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git add *": "ask",
+      "git commit *": "ask",
+      "git push *": "deny",
+      "rm *": "deny",
+      "mv *": "ask",
+      "sudo *": "deny",
+      "systemctl *": "ask",
+      "docker *": "ask",
+      "npm install -g *": "deny"
+    },
+    "external_directory": {
+      "~/.hermes/**": "ask",
+      "~/.codex/**": "ask",
+      "~/.config/opencode/**": "ask"
+    }
+  }
+}

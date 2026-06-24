@@ -1,0 +1,127 @@
+# DECISIONS.md — Hermes Personal AI Agent
+
+> Record of verified facts, decisions made, source links checked, reasons, and human approvals.
+> Maintained per PRD §0.
+
+## Phase 0 — Pre-flight Verification (24 June 2026)
+
+### Decision: Proceed to Phase 1
+
+**Status**: APPROVED (conditional on A1-A2 amendments → applied)
+
+### Verified Documentation Links
+
+All links from PRD §6 verified against live pages on 2026-06-24:
+
+| Link | Status | Notes |
+|---|---|---|
+| hermes-agent.nousresearch.com | LIVE | v0.17.0 (v2026.6.19) |
+| github.com/NousResearch/hermes-agent | LIVE | 201k stars, MIT, 12,677 commits |
+| hermes-agent.nousresearch.com/docs/ | LIVE | Full documentation available |
+| api-docs.deepseek.com | LIVE | Models confirmed |
+| api-docs.deepseek.com/quick_start/pricing | LIVE | Pricing matches PRD exactly |
+| api-docs.deepseek.com/quick_start/agent_integrations/hermes | LIVE | Hermes integration guide confirmed |
+| github.com/WhiskeySockets/Baileys | LIVE | v7.0.0-rc13, 9.9k stars, actively maintained |
+| core.telegram.org/bots/api | NOT FETCHED | Standard, well-known; not verified (low risk) |
+| docs.oracle.com/.../Always_Free_Resources.htm | LIVE | Limits confirmed: 2 OCPUs, 12 GB, 200 GB |
+| opencode.ai/docs/config/ | LIVE | Schema confirmed, PRD's opencode.json valid |
+| opencode.ai/docs/permissions/ | LIVE | v1.1.1+, granular rules confirmed |
+
+### Verified Facts
+
+#### Hermes Agent (as of 2026-06-24)
+- **Current version**: v0.17.0 (tag: v2026.6.19, released 2026-06-19)
+- **Install command**: `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`
+- **Windows install**: `iex (irm https://hermes-agent.nousresearch.com/install.ps1)`
+- **Hermes home**: `~/.hermes/`
+- **Config file**: `~/.hermes/config.yaml` (YAML format)
+- **Secrets file**: `~/.hermes/.env`
+- **Memory files**: `~/.hermes/memories/MEMORY.md` + `USER.md` (profile-scoped, shared across all platforms)
+- **Persona file**: `~/.hermes/SOUL.md`
+- **WhatsApp session**: `~/.hermes/platforms/whatsapp/session/`
+- **Gateway service**: `hermes gateway install` (user service) or `sudo hermes gateway install --system`
+- **Cron**: Anti-loop built-in, 60s scheduler tick, file-locked at `~/.hermes/cron/.tick.lock`
+- **Jobs storage**: `~/.hermes/cron/jobs.json`
+- **Circuit breaker**: Per-adapter, auto-pause on failures, `/platform list` for inspection
+- **Model wizard**: `hermes model` (interactive, not `hermes model setup`)
+- **DeepSeek provider**: First-class support via `DEEPSEEK_API_KEY`
+
+#### DeepSeek API (as of 2026-06-24)
+- **Current model IDs**: `deepseek-v4-flash`, `deepseek-v4-pro`
+- **Legacy aliases**: `deepseek-chat`, `deepseek-reasoner` → deprecated 2026-07-24 15:59 UTC
+- **Base URL (OpenAI format)**: `https://api.deepseek.com`
+- **Base URL (Anthropic format)**: `https://api.deepseek.com/anthropic`
+- **Context window**: 1M tokens input
+- **Max output**: 384K tokens
+- **Concurrency limits**: Flash 2500, Pro 500
+- **Context caching**: Automatic disk-based, enabled by default, best-effort
+- **Pricing (per 1M tokens)**:
+  - Flash cache-hit input: $0.0028
+  - Flash cache-miss input: $0.14
+  - Flash output: $0.28
+  - Pro cache-hit input: $0.003625
+  - Pro cache-miss input: $0.435
+  - Pro output: $0.87
+- **Spending-limit API**: None. Only manual balance monitoring. Credits deducted from topped-up or granted balance.
+
+#### Baileys (WhatsApp Bridge)
+- **Status**: Actively maintained by WhiskeySockets / Rajeh Taher
+- **Latest release**: v7.0.0-rc13 (2026-05-21)
+- **Stats**: 9.9k stars, 3.1k forks, 2,256 commits, 46 releases
+- **Risk**: Unofficial reverse-engineered protocol. WhatsApp can break compatibility.
+- **Hermes mitigation**: Circuit breaker, session persistence, re-pair flow, `/platform` monitoring
+- **Upgrade path**: Hermes supports WhatsApp Business Cloud API as an official alternative adapter
+
+#### Oracle Cloud Always Free (as of 2026-06-24)
+- **ARM compute**: 1,500 OCPU hours + 9,000 GB hours monthly = 2 OCPUs + 12 GB memory
+- **Block volume**: 200 GB total (boot + block)
+- **Minimum boot volume**: 47 GB (default 50 GB for compute instances)
+- **Images**: Ubuntu is Always Free-eligible
+- **Idle reclamation**: CPU < 20% (95th %ile), network < 20%, memory < 20% over 7 days
+- **Capacity risk**: "Out of host capacity" errors possible; retry or choose different AD
+- **Identity verification**: Credit/debit card required
+
+#### OpenCode Configuration (as of 2026-06-23)
+- **Schema URL**: `https://opencode.ai/config.json` — current
+- **Version**: v1.1.1+ (permissions refactored, legacy `tools` boolean config deprecated)
+- **PRD's opencode.json**: Fully valid against current schema
+- **Permission keys**: `read`, `edit`, `glob`, `grep`, `bash`, `task`, `skill`, `question`, `webfetch`, `websearch`, `lsp`, `external_directory`, `doom_loop`
+- **Default permission model**: Most permissions default to `"allow"`, `.env` files denied by default for `read`
+- **Added**: `"task": "ask"` to gate subagent launches (not in original PRD config)
+- **Granular bash rules**: Wildcard pattern matching with `*` and `?`. Last matching rule wins.
+
+### Deviations from Original PRD
+
+1. **WhatsApp session path**: Docs show `~/.hermes/platforms/whatsapp/session/`, not `~/.hermes/.env`. PRD amended (A5).
+2. **WhatsApp phone format**: Docs require country code WITHOUT leading `+`. PRD amended (A5).
+3. **CLI command**: `hermes model` is the interactive wizard. `hermes model setup` does not exist.
+4. **Config keys**: Actual Hermes config uses `model.provider` + `model.default` structure.
+5. **Memory sharing**: Confirmed profile-scoped across all platforms — architecture matches PRD intent exactly.
+6. **Circuit breaker**: Built into Hermes — PRD amended (A3).
+7. **Cron anti-loop**: Hermes enforces this natively. PRD acknowledged.
+8. **WhatsApp Cloud API**: Hermes supports official Meta path — PRD amended (A8).
+
+### PRD Amendments Applied
+
+| # | Section | Change | Priority |
+|---|---|---|---|
+| A1 | §15 Risks | Added "DeepSeek API outage/rate-limit/degraded" risk row | Critical |
+| A2 | New §4.4 | Added hard spend cap mechanism (monthly budget, cron guard, per-job budgets) | Critical |
+| A3 | §5 Architecture | Added circuit breaker documentation | High |
+| A4 | §9 Phase 2 | Added Hermes version pin to v0.17.0 (v2026.6.19) | High |
+| A5 | §8.1 Env vars | Corrected WhatsApp session path and phone format | Medium |
+| A6 | §9 Phase 9, §11.1 | Marked free web lookup as best-effort only | Medium |
+| A7 | §8.4 Gateway config | Verified YAML nesting already correct (no change needed) | Low |
+| A8 | §13.3 Platform risk | Documented WhatsApp Cloud API as official upgrade path | Low |
+
+### Open Questions (Awaiting User)
+
+1. Host target: Oracle Cloud ARM vs. owned hardware?
+2. Coding agent: OpenCode confirmed? Codex also?
+3. DeepSeek API key acquired and ready?
+4. Dedicated WhatsApp bot number acquired?
+5. Telegram account ready for BotFather setup?
+6. Oracle credit/debit card ready (if Oracle chosen)?
+7. Timezone: Default `Asia/Kuala_Lumpur` or other?
+8. Monthly DeepSeek spend cap amount (USD)?
+9. Proactive message caps: 3/day + 2/week acceptable?
