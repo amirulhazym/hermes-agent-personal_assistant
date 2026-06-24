@@ -39,19 +39,47 @@
 
 ## Phase 2 — Install Hermes Agent
 
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-06-24)
+
+- Installed WSL2 distro named `hermes-agent` on F:\wsl\hermes-agent\ (1.32 GB VHDX)
+- Ubuntu 24.04.4 LTS, user: amirul
+- Hermes Agent v0.17.0 (2026.6.19) installed via official installer
+- Python 3.11.15, Node.js v22.23.1
+- All 95 Python dependencies installed, 72 skills synced
+- Missing: ripgrep (grep fallback), ffmpeg (TTS limited)
 
 ## Phase 3 — Configure DeepSeek V4
 
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-06-24)
+
+- Provider: deepseek
+- Default model: deepseek-v4-flash
+- Base URL: https://api.deepseek.com
+- Auxiliary tasks (compression/approval/extraction) routed to main provider
+- Verified: `hermes chat -q "..."` returns correct response
+- DEEPSEEK_API_KEY configured in .env
 
 ## Phase 4 — Connect Telegram
 
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-06-24)
+
+- Bot created via @BotFather on user's main Telegram account
+- TELEGRAM_BOT_TOKEN configured in .env
+- TELEGRAM_ALLOWED_USERS=679729206 (user ID from @userinfobot)
+- TELEGRAM_HOME_CHANNEL=679729206
+- Verified: user sends "Hello", Hermes responds via DeepSeek (447 chars)
+- Gateway logs confirm: "✓ telegram connected"
 
 ## Phase 5 — Connect WhatsApp
 
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-06-24)
+
+- WHATSAPP_ENABLED=true, WHATSAPP_MODE=bot
+- WHATSAPP_ALLOWED_USERS=601166557800 (user's personal number)
+- Bot number: Hotlink SIM (60175407200) - scanned QR via Linked Devices
+- Session saved at ~/.hermes/whatsapp/session/ (creds.json + pre-keys)
+- Verified: user sends message from personal phone, Hermes responds
+- Gateway logs confirm: "✓ whatsapp connected"
 
 ## Phase 6 — Always-on Gateway
 

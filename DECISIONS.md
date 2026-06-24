@@ -114,14 +114,22 @@ All links from PRD §6 verified against live pages on 2026-06-24:
 | A7 | §8.4 Gateway config | Verified YAML nesting already correct (no change needed) | Low |
 | A8 | §13.3 Platform risk | Documented WhatsApp Cloud API as official upgrade path | Low |
 
-### Open Questions (Awaiting User)
+### Decisions Made (2026-06-24)
 
-1. Host target: Oracle Cloud ARM vs. owned hardware?
-2. Coding agent: OpenCode confirmed? Codex also?
-3. DeepSeek API key acquired and ready?
-4. Dedicated WhatsApp bot number acquired?
-5. Telegram account ready for BotFather setup?
-6. Oracle credit/debit card ready (if Oracle chosen)?
-7. Timezone: Default `Asia/Kuala_Lumpur` or other?
-8. Monthly DeepSeek spend cap amount (USD)?
-9. Proactive message caps: 3/day + 2/week acceptable?
+1. **Host target**: Owned hardware — WSL2 on user's Windows 11 PC, distro stored at `F:\wsl\hermes-agent\` (zero C: drive impact). Ryzen 5 5600G, 16 GB RAM, F: drive 250+ GB free.
+2. **DeepSeek API key**: Ready and configured
+3. **WhatsApp bot number**: Hotlink SIM — 60175407200 (registered on WhatsApp, scanned QR for Baileys bridge)
+4. **WhatsApp user number**: Personal number — 601166557800 (allowlisted, can message bot)
+5. **Telegram**: Bot created via @BotFather on main Telegram account. User ID: 679729206
+6. **Spend cap**: RM25 (~$5.30 USD) for first-month monitoring. Reassess after one month.
+7. **Timezone**: Asia/Kuala_Lumpur (default)
+8. **Proactive caps**: 3/day + 2/week (default)
+9. **Coding agent**: OpenCode (currently in use)
+10. **WSL2 distro**: Named `hermes-agent`, Ubuntu 24.04.4 LTS, user: amirul
+11. **Hermes version**: v0.17.0 (2026.6.19) — matches pinned version
+12. **Both platforms verified working**: Telegram responds via DeepSeek V4 Flash. WhatsApp responds via DeepSeek V4 Flash. Gateway connects both platforms from single process.
+
+### Still Open
+
+All infrastructure and account questions resolved. Remaining decisions:
+- Gateway service type (user service vs system service) — decide in Phase 6
