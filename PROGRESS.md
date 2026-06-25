@@ -202,7 +202,7 @@
 ### Deliverables
 - [x] RUNBOOK.md — operational documentation (11 sections)
 - [x] ADVANCED-IDEAS.md — 10 advanced Hermes use cases
-- [x] F:\\hermes\\status.ps1 — monitoring dashboard (gateway, cron, watchdog, disk, logs)
+- [x] F:\\\\hermes\\\\status.ps1 — monitoring dashboard (gateway, cron, watchdog, disk, logs)
 - [x] Watchdog script — fixed output redirect to gateway.log
 - [x] README.md — comprehensive project README (7 sections, combined beginner/technical/narrative)
 - [x] PRD.md amendments applied (A1-A8)
@@ -218,9 +218,13 @@
 - [x] Obsidian 1.12.7 portable installed to `F:\Obsidian\` (zero C: drive)
 - [x] Obsidian skill verified: read, search, create, edit all functional
 - [x] First notes created: Máistorage tracker, Hermes setup overview, setup documentation, note templates
+- [x] Medication schedule & health tracking note (`2-areas/Personal/Health.md`) with verified medication timing info
+- [x] **5 medication reminder cron jobs** deployed (06:00, 08:00, 12:00, 16:00, 20:00 daily to WhatsApp)
+- [x] Web-verified: Akurit-4 must be taken on empty stomach; calcium/vitamin D timing verified against TB drug interactions
 
 ### Verified
 - [x] `read_file` works on vault notes
 - [x] `search_files` works on vault notes (content + filename)
 - [x] Obsidian skill available and ready
 - [x] Vault path correctly resolved via environment variable
+- [x] Health.md updated with verified schedule and cron job tracking

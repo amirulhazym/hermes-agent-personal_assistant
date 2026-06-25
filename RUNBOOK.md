@@ -53,6 +53,11 @@ Obsidian vault (F:\obsidian-vault\)
 | Daily Health | 09:00 daily | Telegram | Gateway uptime report |
 | Log Rotate | 06:00 Sunday | Local (script) | Rotate log files |
 | Gateway Watchdog | Every 5 min | Local (script) | Auto-restart if dead |
+| Akurit-4 + Pyridoxine | 06:00 daily | WhatsApp | Medication reminder (empty stomach) |
+| Dexa #1 + Letram | 08:00 daily | WhatsApp | Medication reminder (morning) |
+| Dexa #2 + Vit D + Calcium | 12:00 daily | WhatsApp | Medication reminder (noon) |
+| Dexa #3 | 16:00 daily | WhatsApp | Medication reminder (critical last dose) |
+| Letram malam | 20:00 daily | WhatsApp | Medication reminder (evening) |
 
 ---
 
