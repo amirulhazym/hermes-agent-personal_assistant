@@ -196,9 +196,9 @@
 - [x] D6: Admin commands configured (allow_admin_from verified)
 - [x] D8: Cost/inisights working (1,058,741 total tokens)
 - [x] D9: Log leak test passed (no secrets in logs)
+- [x] D7: Watchdog crash recovery test PASSED (stop → watchdog restarts → platforms reconnect)
 - [ ] D1: Model test — user: try `/model deepseek:deepseek-v4-pro` from Telegram
 - [ ] D2: Memory test — user: teach fact on WA → recall on Telegram
 - [ ] D3: Web search test — user: search from both platforms
 - [ ] D4: Cron test — verify evening check-in fires at 21:00
 - [ ] D5: Access control test — user: non-allowlisted person tries to message
-- [ ] D7: Watchdog crash recovery test — stop gateway, verify watchdog restarts
