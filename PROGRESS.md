@@ -204,4 +204,4 @@
 - [x] ADVANCED-IDEAS.md — 10 advanced Hermes use cases
 - [x] F:\hermes\status.ps1 — monitoring dashboard (gateway, cron, watchdog, disk, logs)
 - [x] Watchdog script — fixed output redirect to gateway.log
-- [x] Linux crontab watchdog — independent from Hermes gateway (every 5 min)
+- [x] README.md — comprehensive project README (7 sections, combined beginner/technical/narrative)
