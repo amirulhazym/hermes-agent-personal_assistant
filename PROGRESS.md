@@ -121,7 +121,20 @@
 
 ## Phase 8 — Proactive Cron Layer
 
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-06-25)
+
+### Completed
+- [x] Timezone: Asia/Kuala_Lumpur (UTC+8)
+- [x] Morning Briefing (84f1c76a) — 07:00 daily, WhatsApp
+- [x] Evening Check-in (fdb1a6c5) — 21:00 daily, WhatsApp (next: TODAY)
+- [x] Goal Check-in (ff0c952e) — Mon/Wed/Fri 20:00, WhatsApp
+- [x] Weekly Review (be706510) — Sunday 10:00, Telegram
+- [x] Daily Usage Report (dab454f9) — 08:00 daily, Telegram
+- [x] Daily Health Report — already exists from Phase 6 (ad5a112a, 09:00, Telegram)
+- [x] Log Rotate — already exists from Phase 6 (22daea84, Sunday 06:00, local)
+- [x] Proactive controls: quiet hours 23:00-07:00, max 3 pings/day, max 2 check-ins/week
+- [x] All schedules verified outside quiet hours
+- [x] Cron test triggered: Daily Usage Report manually queued for delivery test
 
 ## Phase 9 — Capability Skills
 
