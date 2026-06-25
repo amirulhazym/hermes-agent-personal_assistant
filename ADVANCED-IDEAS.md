@@ -2,7 +2,7 @@
 
 > 10 unexpected and productive ways to use your Hermes AI assistant.
 > Send any of these directly from WhatsApp or Telegram.
-> Last updated: 2026-06-25
+> Last updated: 2026-06-26
 
 ---
 
@@ -165,6 +165,8 @@ Create 3 linked cron jobs for my "AI Storage Daily Brief":
 | `/topic` | Enable multi-session DM mode (ChatGPT-style) |
 | `/new` | Reset session (fresh memory snapshot) |
 | `/skills` | List all available skills |
+| `/obsidian search <query>` | Search all notes in the Obsidian vault |
+| `/obsidian save "title"` | Save a quick note to the vault inbox |
 
 ---
 

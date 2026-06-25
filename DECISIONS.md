@@ -145,3 +145,11 @@ All infrastructure and account questions resolved.
 | 4 | **Watchdog cron** | Every 5 min, no-agent ($0), auto-restarts gateway if dead. |
 | 5 | **RUNBOOK.md written** | Complete operational documentation covering all procedures. |
 | 6 | **Phase 10 security audit** | All 5 items passed. Allowlists, secrets, logs, permissions verified. |
+
+### Decisions Made (2026-06-26)
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Obsidian vault** created on F: drive at `F:\obsidian-vault\` with numbered PARA structure | Second brain / knowledge base accessible to Hermes via Obsidian skill. Plain .md files, zero lock-in. Portable app, zero C: drive impact. |
+| 2 | **PARA folder system** adopted (0-inbox → 5-journal + templates) | Structured knowledge management: 0-inbox for quick capture, 1-projects for active work, 2-areas for ongoing responsibilities, 3-resources for reference, 4-archive for completed, 5-journal for daily logs. |
+| 3 | **reasoning_effort** kept at xhigh (maps to max on DeepSeek API) | Evaluated high vs max cost difference. Max provides better reasoning quality. Cost overhead (~$0.0002-0.0007/query) negligible within RM25 monthly cap. Changed to high briefly but reverted — max stays as default. |

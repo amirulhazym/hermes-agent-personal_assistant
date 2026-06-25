@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/badge/hermes-v0.17.0-blue)](https://github.com/NousResearch/hermes-agent)
 [![Model](https://img.shields.io/badge/DeepSeek-V4%20Flash%20%2F%20Pro-blueviolet)](https://api-docs.deepseek.com)
 [![Platforms](https://img.shields.io/badge/WhatsApp%20%2B%20Telegram-brightgreen)]()
-[![Status](https://img.shields.io/badge/phase-9%2F10%20complete-success)]()
+[![Status](https://img.shields.io/badge/phase-11%2F11%20complete-success)]()
 
 **One brain, many faces.** A personal AI assistant that lives across WhatsApp and Telegram — same memory, same persona, same skills. Powered by DeepSeek V4. Operational since June 2026.
 
@@ -27,9 +27,9 @@
 
 ### ⚡ What Hermes Can Do
 
-| 💬 Chat | 🔍 Search | 🧠 Memory | ⏰ Proactive | 🔄 Switch |
-|---|---|---|---|---|
-| Natural conversation in Malay/English/rojak across both platforms | DDGS (DuckDuckGo) web search from any chat | Remembers facts, preferences, deadlines across platforms | 7 scheduled cron jobs: briefings, check-ins, usage reports | `/model` to switch between DeepSeek Flash and Pro instant |
+| 💬 Chat | 🔍 Search | 🧠 Memory | 📓 Knowledge Base | ⏰ Proactive | 🔄 Switch |
+|---|---|---|---|---|---|
+| Natural conversation in Malay/English/rojak across both platforms | DDGS (DuckDuckGo) web search from any chat | Remembers facts, preferences, deadlines across platforms | Obsidian vault with PARA structure — Hermes reads, searches, creates notes | 7 scheduled cron jobs: briefings, check-ins, usage reports | `/model` to switch between DeepSeek Flash and Pro instant |
 
 ---
 
@@ -57,6 +57,8 @@ F:\
 │       ├── cron\               ← 7 scheduled jobs
 │       ├── whatsapp\session\   ← WhatsApp credentials (chmod 700)
 │       └── logs\               ← gateway.log, agent.log, errors.log, watchdog.log
+├── obsidian-vault\             ← Knowledge base (PARA structure, plain .md)
+├── Obsidian\                   ← Obsidian 1.12.7 portable app
 ├── hermes\                     ← Startup scripts + status dashboard
 │   ├── gateway-start.ps1       ← 3-layer auto-start entry point
 │   └── status.ps1              ← One-command monitoring dashboard
@@ -126,6 +128,7 @@ DeepSeek API (https://api.deepseek.com)
 | Web search | DDGS v9.14 (DuckDuckGo) | Free unlimited search backend |
 | Memory | MEMORY.md + USER.md + FTS5 SQLite | Cross-platform durable + session search |
 | Voice transcription | faster-whisper (base model, local, free) | Speech-to-text for voice notes |
+| Knowledge base | Obsidian 1.12.7 portable (F:) + vault (F:) | Second brain with PARA structure, accessible to both Hermes and user |
 | Cron | Hermes built-in + Linux crontab | 7 scheduled jobs + watchdog |
 | Monitoring | status.ps1 (PowerShell) + logs + Telegram alerts | Gateway health, disk space, cron status |
 | Source control | Git + GitHub (private repo) | All config, docs, decisions tracked |
@@ -237,6 +240,7 @@ The project connects to my work interest in the **MaiStorage/Phison ecosystem** 
 | **8** — Cron | 7 proactive jobs, quiet hours, caps, scheduling | First evening check-in fired at 21:00 |
 | **9** — Web | DDGS (DuckDuckGo) free search, voice transcription | Web search limited by API keys, DDGS resolved it |
 | **10** — Harden | Security audit, RUNBOOK.md, monitoring dashboard, VPS migration guide | 5/5 security items passed; no secrets in logs |
+| **11** — Obsidian | Knowledge base vault (PARA structure), Obsidian portable app, skill verified | Zero C: drive — vault + app on F: only |
 
 ### 🎓 Key Decisions & Lessons Learned
 
@@ -254,6 +258,9 @@ Docker Desktop stores WSL2 distros on C: drive by default — consuming precious
 
 **5. Cross-Platform Memory Is Harder Than It Looks**
 Hermes uses a "frozen snapshot" pattern — memory loads at session start, not mid-session. Teaching a fact on WhatsApp won't appear on Telegram until the Telegram session resets (idle timeout or `/new`). **Solution**: reduced idle timeout from 24h to 4h, added `session_search` instruction in SOUL.md. Trade-off accepted.
+
+**6. Obsidian — Second Brain for Under RM0**
+Added a plain-file knowledge base accessible to both Hermes and the user. No subscriptions, no cloud, no lock-in. Hermes reads, searches, creates notes directly in the vault via the Obsidian skill. Portable app on F: drive, zero C: impact. PARA structure keeps things organised from day one. The entire setup took under 30 minutes — vault, app, skill, and first notes all live.
 
 ---
 
@@ -396,4 +403,4 @@ Shows: gateway health, platform connections, cron jobs, watchdog status, disk sp
 
 ---
 
-*Powered by DeepSeek V4 · GitHub · Private repo · Last updated June 2026*
+*Powered by DeepSeek V4 · GitHub · Private repo · Last updated June 26, 2026*

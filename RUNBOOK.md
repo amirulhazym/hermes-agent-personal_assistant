@@ -1,7 +1,7 @@
 # RUNBOOK — Hermes Personal AI Agent
 
 > Operational handover for the Hermes AI assistant running on WSL2 / Windows 11.
-> Last updated: 2026-06-25
+> Last updated: 2026-06-26
 
 ---
 
@@ -22,6 +22,15 @@ Windows 11 PC
               ├── cron/jobs.json      (scheduled tasks)
               ├── whatsapp/session/   (WhatsApp credentials)
               └── logs/               (gateway.log, agent.log, errors.log)
+
+Obsidian vault (F:\obsidian-vault\)
+  ├── 0-inbox/         (quick capture)
+  ├── 1-projects/      (active work: Maistorage, Hermes setup)
+  ├── 2-areas/         (ongoing responsibilities: hermes-infra)
+  ├── 3-resources/     (reference material)
+  ├── 4-archive/       (completed projects)
+  ├── 5-journal/       (daily logs)
+  └── templates/       (note templates)
 ```
 
 ### Key Credentials
@@ -325,6 +334,8 @@ hermes insights --days 30
 | `F:\wsl\hermes-agent\` | F: | WSL2 distro (hermes VHDX) | ~1.3 GB |
 | `F:\wsl\docker\` | F: | Docker Desktop data | ~280 MB |
 | `F:\hermes\` | F: | PowerShell startup script + logs | ~10 KB |
+| `F:\obsidian-vault\` | F: | Obsidian vault (PARA structure, all .md notes) | ~50 KB |
+| `F:\Obsidian\` | F: | Obsidian 1.12.7 portable app | ~356 MB |
 | `F:\AI Prep\OVIS\Hermes Agent\MJay\` | F: | Project repo | ~500 KB |
 | `C:\Users\amiru\AppData\Local\Docker\wsl\` | C: | Docker Desktop (moved to F:) | 0 |
 

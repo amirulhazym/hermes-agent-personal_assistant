@@ -202,6 +202,25 @@
 ### Deliverables
 - [x] RUNBOOK.md — operational documentation (11 sections)
 - [x] ADVANCED-IDEAS.md — 10 advanced Hermes use cases
-- [x] F:\hermes\status.ps1 — monitoring dashboard (gateway, cron, watchdog, disk, logs)
+- [x] F:\\hermes\\status.ps1 — monitoring dashboard (gateway, cron, watchdog, disk, logs)
 - [x] Watchdog script — fixed output redirect to gateway.log
 - [x] README.md — comprehensive project README (7 sections, combined beginner/technical/narrative)
+- [x] PRD.md amendments applied (A1-A8)
+
+## Phase 11 — Obsidian Knowledge Base
+
+**Status**: COMPLETED (2026-06-26)
+
+### Completed
+- [x] Obsidian vault created at `F:\obsidian-vault\` (WSL: `/mnt/f/obsidian-vault/`)
+- [x] PARA folder structure: 0-inbox, 1-projects, 2-areas, 3-resources, 4-archive, 5-journal, templates
+- [x] `OBSIDIAN_VAULT_PATH=/mnt/f/obsidian-vault` added to `~/.hermes/.env`
+- [x] Obsidian 1.12.7 portable installed to `F:\Obsidian\` (zero C: drive)
+- [x] Obsidian skill verified: read, search, create, edit all functional
+- [x] First notes created: Máistorage tracker, Hermes setup overview, setup documentation, note templates
+
+### Verified
+- [x] `read_file` works on vault notes
+- [x] `search_files` works on vault notes (content + filename)
+- [x] Obsidian skill available and ready
+- [x] Vault path correctly resolved via environment variable
