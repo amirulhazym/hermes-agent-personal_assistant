@@ -130,7 +130,7 @@ If WhatsApp disconnects (session expired, QR re-link needed):
 wsl -d hermes-agent -- bash -l -c "hermes whatsapp"
 ```
 
-QR code will appear in terminal. On the **Hotlink phone** (60175407200):
+QR code will appear in terminal. On the **dedicated bot phone**:
 1. Open WhatsApp
 2. Settings → Linked Devices → Link a Device
 3. Scan the QR code

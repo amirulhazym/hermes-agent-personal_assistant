@@ -5,7 +5,7 @@
 [![Platforms](https://img.shields.io/badge/WhatsApp%20%2B%20Telegram-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-9%2F10%20complete-success)]()
 
-**One brain, many faces.** A personal AI assistant that lives across WhatsApp and Telegram — same memory, same persona, same skills. Powered by DeepSeek V4. Built by Amirul. Operational since June 2026.
+**One brain, many faces.** A personal AI assistant that lives across WhatsApp and Telegram — same memory, same persona, same skills. Powered by DeepSeek V4. Operational since June 2026.
 
 ```
                          USER
@@ -25,7 +25,7 @@
          (cross-platform)   Flash / Pro
 ```
 
-### What Hermes Can Do
+### ⚡ What Hermes Can Do
 
 | 💬 Chat | 🔍 Search | 🧠 Memory | ⏰ Proactive | 🔄 Switch |
 |---|---|---|---|---|
@@ -33,9 +33,9 @@
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
-### What You Need
+### 📋 What You Need
 
 | Item | Purpose |
 |---|---|
@@ -44,7 +44,7 @@
 | Telegram account | BotFather access to create the bot |
 | Windows 11 PC | Or any always-on Linux host (see VPS migration below) |
 
-### Where Everything Lives
+### 📁 Where Everything Lives
 
 ```
 F:\
@@ -63,14 +63,14 @@ F:\
 └── AI Prep\OVIS\Hermes Agent\MJay\  ← This repo (all docs + config)
 ```
 
-### How to Chat with Hermes
+### 💬 How to Chat with Hermes
 
 | Platform | How | Example |
 |---|---|---|
 | **Telegram** | DM your bot | `Hello` → Hermes responds |
 | **WhatsApp** | Message bot's Hotlink number | `Pagi boss` → Hermes responds |
 
-### Quick Commands (from chat)
+### ⌨️ Quick Commands (from chat)
 
 | Command | What it does |
 |---|---|
@@ -87,9 +87,9 @@ F:\
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
-### System Diagram
+### 🖥️ System Diagram
 
 ```
 User message (WhatsApp/Telegram)
@@ -114,7 +114,7 @@ DeepSeek API (https://api.deepseek.com)
     └── Escalation: deepseek-v4-pro ($0.003625/M cache-hit)
 ```
 
-### Technology Stack
+### 📊 Technology Stack
 
 | Component | Technology | Purpose |
 |---|---|---|
@@ -130,7 +130,7 @@ DeepSeek API (https://api.deepseek.com)
 | Monitoring | status.ps1 (PowerShell) + logs + Telegram alerts | Gateway health, disk space, cron status |
 | Source control | Git + GitHub (private repo) | All config, docs, decisions tracked |
 
-### Data Flow
+### 🔄 Data Flow
 
 1. **User sends message** on WhatsApp or Telegram → platform adapter receives it
 2. **Session store** loads conversation context (SQLite FTS5) + **durable memory** (MEMORY.md/USER.md) injected into system prompt
@@ -138,7 +138,7 @@ DeepSeek API (https://api.deepseek.com)
 4. **DeepSeek API** generates response (Flash default, Pro on escalation)
 5. **Response delivered** back to same platform, session updated
 
-### Security Model (7 Layers)
+### 🔒 Security Model (7 Layers)
 
 | Layer | Mechanism | Status |
 |---|---|---|
@@ -150,7 +150,7 @@ DeepSeek API (https://api.deepseek.com)
 | 6 — Context injection scanning | `.env` and prompt injection patterns blocked | ✅ Active |
 | 7 — Git safety | `.gitignore` covers all secret paths, commits verified clean | ✅ Verified |
 
-### Gateway Resilience (3-Layer Auto-Start)
+### 🚨 Gateway Resilience (3-Layer Auto-Start)
 
 ```
 PC power on / Windows login
@@ -169,7 +169,7 @@ Layer 3: Daily Health Report → Telegram 09:00
 Gateway always recovered within 5 minutes of any failure
 ```
 
-### Same-Brain Memory Architecture
+### 🧠 Same-Brain Memory Architecture
 
 ```
 WhatsApp session (chat: 13186...@lid)
@@ -194,7 +194,7 @@ WhatsApp session (chat: 13186...@lid)
 - `session_search` tool finds past conversations from ALL platforms via FTS5 SQLite
 - Architecture matches PRD design exactly — confirmed working in cross-platform tests
 
-### Cron Orchestration
+### 📅 Cron Orchestration
 
 | Job | Schedule | To | Purpose |
 |---|---|---|---|
@@ -214,15 +214,15 @@ WhatsApp session (chat: 13186...@lid)
 
 ---
 
-## The Build Journey
+## 📖 The Build Journey
 
-### Why I Built This
+### 🎯 Why I Built This
 
 I wanted a personal AI assistant that **lives where I already communicate** — WhatsApp for daily chat, Telegram for admin/review work. Not another app. Not a web dashboard. Something that feels human, remembers me, and proactively helps. Built on the open-source Nous Research Hermes Agent framework, powered by DeepSeek (the only paid component at ~RM2-3/month).
 
 The project connects to my work interest in the **MaiStorage/Phison ecosystem** (enterprise storage, on-premise AI, edge AI infrastructure). Building Hermes was partly about learning how AI agents work end-to-end — from LLM inference to persistent memory to cross-platform messaging to self-healing infrastructure.
 
-### Phase Timeline (June 2026)
+### 📈 Phase Timeline (June 2026)
 
 | Phase | What | Key Moment |
 |---|---|---|
@@ -238,7 +238,7 @@ The project connects to my work interest in the **MaiStorage/Phison ecosystem** 
 | **9** — Web | DDGS (DuckDuckGo) free search, voice transcription | Web search limited by API keys, DDGS resolved it |
 | **10** — Harden | Security audit, RUNBOOK.md, monitoring dashboard, VPS migration guide | 5/5 security items passed; no secrets in logs |
 
-### Key Decisions & Lessons Learned
+### 🎓 Key Decisions & Lessons Learned
 
 **1. Oracle Cloud vs WSL2 on Owned Hardware**
 Oracle Always Free ARM (2 OCPU, 12 GB RAM) was the original target. But Oracle requires a credit card for identity verification — my debit cards were rejected. Moved to WSL2 on my Windows 11 PC. Bonus: zero cloud billing anxiety, zero reclamation risk, and the architecture is identical to a future Linux VPS.
@@ -257,15 +257,15 @@ Hermes uses a "frozen snapshot" pattern — memory loads at session start, not m
 
 ---
 
-## VPS / Cloud Migration
+## ☁️ VPS / Cloud Migration
 
-### When to Migrate
+### ⏰ When to Migrate
 
 - You need **24/7 uptime** beyond your PC's availability
 - Your home internet is unreliable (mobile hotspot)
 - You want external access without keeping your PC on
 
-### Prerequisites
+### 📦 Prerequisites
 
 | Item | Recommendation | Cost |
 |---|---|---|
@@ -274,7 +274,7 @@ Hermes uses a "frozen snapshot" pattern — memory loads at session start, not m
 | Domain | Optional — for Telegram webhook mode | ~$10/year |
 | Node.js | v22 LTS (for WhatsApp bridge) | Free |
 
-### Migration Steps
+### 📋 Migration Steps
 
 **Step 1 — Backup everything**
 ```bash
@@ -327,9 +327,9 @@ systemctl --user start hermes-gateway
 
 ---
 
-## Operations & Monitoring
+## 🛠️ Operations & Monitoring
 
-### One-Command Dashboard
+### 📊 One-Command Dashboard
 
 ```powershell
 powershell -File "F:\hermes\status.ps1"
@@ -340,7 +340,7 @@ powershell -File "F:\hermes\status.ps1" -watch
 
 Shows: gateway health, platform connections, cron jobs, watchdog status, disk space, recent logs, quick action commands.
 
-### Common Maintenance
+### 🔧 Common Maintenance
 
 | Task | Command |
 |---|---|
@@ -353,7 +353,7 @@ Shows: gateway health, platform connections, cron jobs, watchdog status, disk sp
 | Backup config | `wsl -d hermes-agent -- tar czf /mnt/f/backups/hermes-$(date +%Y%m%d).tar.gz ~/.hermes/` |
 | C: drive check | PowerShell: `Get-PSDrive C \| Select Free` |
 
-### Documentation Index
+### 📚 Documentation Index
 
 | Document | What It Contains |
 |---|---|
@@ -366,23 +366,23 @@ Shows: gateway health, platform connections, cron jobs, watchdog status, disk sp
 
 ---
 
-## Quick Reference
+## 📋 Quick Reference
 
-### Platform Config
+### 📞 Platform Config
 
-| Platform | Bot Number/ID | User Number/ID |
-|---|---|---|
-| WhatsApp | 60175407200 (Hotlink) | 601166557800 (personal) |
-| Telegram | @bot (via BotFather) | 679729206 |
+| Platform | Purpose |
+|---|---|
+| WhatsApp | Daily chat via dedicated bot number |
+| Telegram | Admin surface via BotFather-created bot |
 
-### Model Pricing (DeepSeek, per 1M tokens)
+### 💰 Model Pricing (DeepSeek, per 1M tokens)
 
 | Model | Cache Hit | Cache Miss | Output |
 |---|---|---|---|
 | Flash | $0.0028 | $0.14 | $0.28 |
 | Pro | $0.003625 | $0.435 | $0.87 |
 
-### Cron Jobs Summary
+### ⏰ Cron Jobs Summary
 
 | Time | Platform | What |
 |---|---|---|
@@ -396,6 +396,4 @@ Shows: gateway health, platform connections, cron jobs, watchdog status, disk sp
 
 ---
 
-*Built with [Hermes Agent](https://github.com/NousResearch/hermes-agent) by Nous Research · [DeepSeek V4](https://api-docs.deepseek.com) · [Baileys](https://github.com/WhiskeySockets/Baileys) · OpenCode*
-
-*MIT License · Private Repository · Last updated June 2026*
+*Powered by DeepSeek V4 · GitHub · Private repo · Last updated June 2026*

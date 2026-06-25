@@ -118,9 +118,9 @@ All links from PRD §6 verified against live pages on 2026-06-24:
 
 1. **Host target**: Owned hardware — WSL2 on user's Windows 11 PC, distro stored at `F:\wsl\hermes-agent\` (zero C: drive impact). Ryzen 5 5600G, 16 GB RAM, F: drive 250+ GB free.
 2. **DeepSeek API key**: Ready and configured
-3. **WhatsApp bot number**: Hotlink SIM — 60175407200 (registered on WhatsApp, scanned QR for Baileys bridge)
-4. **WhatsApp user number**: Personal number — 601166557800 (allowlisted, can message bot)
-5. **Telegram**: Bot created via @BotFather on main Telegram account. User ID: 679729206
+3. **WhatsApp bot number**: Dedicated SIM registered for WhatsApp (Baileys bridge)
+4. **WhatsApp user number**: Owner's personal number (allowlisted, can message bot)
+5. **Telegram**: Bot created via @BotFather. User allowlisted.
 6. **Spend cap**: RM25 (~$5.30 USD) for first-month monitoring. Reassess after one month.
 7. **Timezone**: Asia/Kuala_Lumpur (default)
 8. **Proactive caps**: 3/day + 2/week (default)
@@ -128,8 +128,8 @@ All links from PRD §6 verified against live pages on 2026-06-24:
 10. **WSL2 distro**: Named `hermes-agent`, Ubuntu 24.04.4 LTS, user: amirul
 11. **Hermes version**: v0.17.0 (2026.6.19) — matches pinned version
 12. **Both platforms verified working**: Telegram responds via DeepSeek V4 Flash. WhatsApp responds via DeepSeek V4 Flash. Gateway connects both platforms from single process.
-13. **DeepSeek Pro escalation**: To use `deepseek-v4-pro` for hard tasks, send `/model deepseek:deepseek-v4-pro` in any chat or run `hermes config set model.default deepseek-v4-pro` + gateway restart. Pro is owner/admin-only (gated via `allow_admin_from`). Recommended for: debugging, planning, large synthesis, high-stakes analysis. Flash is restored with `/model deepseek:deepseek-v4-flash`.
-14. **Access control**: Non-allowlisted users denied by default (`GATEWAY_ALLOW_ALL_USERS` not set). Telegram allowlist: user ID 679729206. WhatsApp allowlist: 601166557800. Admin/user split configured: user 679729206 has admin access.
+13. **DeepSeek Pro escalation**: To use `deepseek-v4-pro` for hard tasks, send `/model deepseek:deepseek-v4-pro` in any chat or run `hermes config set model.default deepseek-v4-pro` + gateway restart. Pro is owner/admin-only (gated via `allow_admin_from`). Flash is restored with `/model deepseek:deepseek-v4-flash`.
+14. **Access control**: Non-allowlisted users denied by default (`GATEWAY_ALLOW_ALL_USERS` not set). Telegram allowlist: owner user ID. WhatsApp allowlist: owner's personal number. Admin/user split configured: owner has admin access.
 
 ### Still Open
 

@@ -65,8 +65,8 @@
 
 - Bot created via @BotFather on user's main Telegram account
 - TELEGRAM_BOT_TOKEN configured in .env
-- TELEGRAM_ALLOWED_USERS=679729206 (user ID from @userinfobot)
-- TELEGRAM_HOME_CHANNEL=679729206
+- TELEGRAM_ALLOWED_USERS= (owner's user ID from @userinfobot)
+- TELEGRAM_HOME_CHANNEL= (owner's DM chat ID)
 - Verified: user sends "Hello", Hermes responds via DeepSeek (447 chars)
 - Gateway logs confirm: "✓ telegram connected"
 
@@ -75,8 +75,8 @@
 **Status**: COMPLETED (2026-06-24)
 
 - WHATSAPP_ENABLED=true, WHATSAPP_MODE=bot
-- WHATSAPP_ALLOWED_USERS=601166557800 (user's personal number)
-- Bot number: Hotlink SIM (60175407200) - scanned QR via Linked Devices
+- WHATSAPP_ALLOWED_USERS= (owner's personal number)
+- Bot number: Dedicated SIM - scanned QR via Linked Devices
 - Session saved at ~/.hermes/whatsapp/session/ (creds.json + pre-keys)
 - Verified: user sends message from personal phone, Hermes responds
 - Gateway logs confirm: "✓ whatsapp connected"
@@ -99,7 +99,7 @@
 - **Phase 0-6 audit**: All gaps closed (2026-06-25)
   - G1: Non-allowlisted Telegram user denied (config confirmed, default behavior)
   - G2: Non-allowlisted WhatsApp sender denied (config confirmed, default behavior)
-  - G3: Admin/user split configured (`allow_admin_from` for user 679729206)
+  - G3: Admin/user split configured (`allow_admin_from` for owner user)
   - G4: Token usage verified via `hermes insights` (28,693 max session tokens)
   - G5: DeepSeek Pro escalation documented in DECISIONS.md
   - G6: WhatsApp session chmod 700 enforced
@@ -170,7 +170,7 @@
 **Status**: IN PROGRESS
 
 ### Section A — Security Audit (PASSED)
-- [x] A1: Allowlists verified (Telegram: 679729206, WhatsApp: 601166557800, no wildcard)
+- [x] A1: Allowlists verified (Telegram and WhatsApp: owner only, no wildcard)
 - [x] A2: Admin commands configured (admin split with allow_admin_from)
 - [x] A3: .gitignore reviewed (covers all patterns, no secrets leaked)
 - [x] A4: Secret permissions checked (.env: 600, config.yaml: 600, session: 700)
