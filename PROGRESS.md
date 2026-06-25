@@ -167,4 +167,38 @@
 
 ## Phase 10 — Hardening and Handover
 
-**Status**: NOT STARTED
+**Status**: IN PROGRESS
+
+### Section A — Security Audit (PASSED)
+- [x] A1: Allowlists verified (Telegram: 679729206, WhatsApp: 601166557800, no wildcard)
+- [x] A2: Admin commands configured (admin split with allow_admin_from)
+- [x] A3: .gitignore reviewed (covers all patterns, no secrets leaked)
+- [x] A4: Secret permissions checked (.env: 600, config.yaml: 600, session: 700)
+- [x] A5: Logs checked for leaks (none found)
+
+### Section B — Budget & Cron (PASSED)
+- [x] B1: All 8 cron schedules verified outside quiet hours (23:00-07:00)
+- [x] B2: RM25 soft cap documented, daily usage report monitors spend
+
+### Section C — RUNBOOK.md (DONE)
+- [x] C1: System Overview
+- [x] C2: Startup/Shutdown procedures
+- [x] C3-C4: Backup and Restore
+- [x] C5: WhatsApp Re-pairing
+- [x] C6: Key Rotation (Telegram, DeepSeek, WhatsApp)
+- [x] C7: Model Switching (Flash/Pro)
+- [x] C8: Monitoring & Usage
+- [x] C9: Troubleshooting guide
+- [x] C10: Budget management
+- [x] C11: File locations on disk
+
+### Section D — Final Test Plan
+- [x] D6: Admin commands configured (allow_admin_from verified)
+- [x] D8: Cost/inisights working (1,058,741 total tokens)
+- [x] D9: Log leak test passed (no secrets in logs)
+- [ ] D1: Model test — user: try `/model deepseek:deepseek-v4-pro` from Telegram
+- [ ] D2: Memory test — user: teach fact on WA → recall on Telegram
+- [ ] D3: Web search test — user: search from both platforms
+- [ ] D4: Cron test — verify evening check-in fires at 21:00
+- [ ] D5: Access control test — user: non-allowlisted person tries to message
+- [ ] D7: Watchdog crash recovery test — stop gateway, verify watchdog restarts

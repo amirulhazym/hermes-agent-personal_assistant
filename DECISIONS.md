@@ -134,3 +134,14 @@ All links from PRD §6 verified against live pages on 2026-06-24:
 ### Still Open
 
 All infrastructure and account questions resolved.
+
+### Decisions Made (2026-06-25)
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Systemd disabled** in WSL2 | Systemd caused WSL2 hangs and killed background gateway processes. Default WSL2 init handles `setsid`/`nohup` correctly. |
+| 2 | **Docker Desktop moved to F:** | Freed 4.8 GB on C: drive. All WSL distros now on F:\wsl\. |
+| 3 | **Gateway startup script (v2)** | Uses `pgrep` exit codes instead of text parsing for reliable detection. Located at `F:\hermes\gateway-start.ps1`. |
+| 4 | **Watchdog cron** | Every 5 min, no-agent ($0), auto-restarts gateway if dead. |
+| 5 | **RUNBOOK.md written** | Complete operational documentation covering all procedures. |
+| 6 | **Phase 10 security audit** | All 5 items passed. Allowlists, secrets, logs, permissions verified. |
