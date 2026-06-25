@@ -83,7 +83,18 @@
 
 ## Phase 6 — Always-on Gateway
 
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-06-25)
+
+- Installed user systemd service: `hermes-gateway.service`
+- Enabled lingering with `loginctl enable-linger` (survives logout)
+- Enabled systemd in WSL2 via `/etc/wsl.conf` (`[boot] systemd=true`)
+- Service commands: `hermes gateway stop/start/status`
+- Created Windows Startup script at `shell:startup\hermes-gateway.bat`
+- Auto-starts on Windows login: `wsl -d hermes-agent -- setsid hermes gateway`
+- Crash recovery tested: stop → start → both platforms reconnect in ~12s
+- Daily health cron created: "Daily Health" at 09:00 to Telegram (ad5a112aaf25)
+- Logs at `~/.hermes/logs/`: agent.log, gateway.log, errors.log
+- Verified: `Gateway running with 2 platform(s)`, channel directory with 2 targets
 
 ## Phase 7 — Persona, Memory, Same-Brain
 
