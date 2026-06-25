@@ -207,6 +207,18 @@ hermes gateway restart
 
 ## 8. Monitoring & Usage
 
+### Quick Dashboard
+
+```powershell
+# One command to see everything
+powershell -File "F:\hermes\status.ps1"
+
+# Auto-refresh every 60 seconds
+powershell -File "F:\hermes\status.ps1" -watch
+```
+
+The dashboard shows: gateway health, platform connections, cron jobs, watchdog status, disk space, recent logs, and quick action commands.
+
 ### Daily Usage
 
 ```bash

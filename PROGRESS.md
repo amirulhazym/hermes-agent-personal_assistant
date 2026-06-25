@@ -193,12 +193,15 @@
 - [x] C11: File locations on disk
 
 ### Section D — Final Test Plan
-- [x] D6: Admin commands configured (allow_admin_from verified)
-- [x] D8: Cost/inisights working (1,058,741 total tokens)
-- [x] D9: Log leak test passed (no secrets in logs)
-- [x] D7: Watchdog crash recovery test PASSED (stop → watchdog restarts → platforms reconnect)
-- [ ] D1: Model test — user: try `/model deepseek:deepseek-v4-pro` from Telegram
-- [ ] D2: Memory test — user: teach fact on WA → recall on Telegram
-- [ ] D3: Web search test — user: search from both platforms
-- [ ] D4: Cron test — verify evening check-in fires at 21:00
-- [ ] D5: Access control test — user: non-allowlisted person tries to message
+- [x] D1: Model test PASSED (user verified `/model deepseek:deepseek-v4-pro` works)
+- [x] D2: Memory test PASSED (cross-platform teach/recall verified)
+- [x] D3: Web search test PASSED (DDGS search works on both platforms)
+- [ ] D4: Cron test — auto at 21:00 tonight (Evening Check-in)
+- [ ] D5: Access test — skipped (config verified, non-allowlisted deny = default)
+
+### Deliverables
+- [x] RUNBOOK.md — operational documentation (11 sections)
+- [x] ADVANCED-IDEAS.md — 10 advanced Hermes use cases
+- [x] F:\hermes\status.ps1 — monitoring dashboard (gateway, cron, watchdog, disk, logs)
+- [x] Watchdog script — fixed output redirect to gateway.log
+- [x] Linux crontab watchdog — independent from Hermes gateway (every 5 min)
