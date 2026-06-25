@@ -21,7 +21,7 @@
 
 ## Phase 1 — Project Guardrails
 
-**Status**: IN PROGRESS
+**Status**: COMPLETED (2026-06-24)
 
 ### Completed
 - [x] Initialize git repository
@@ -107,7 +107,17 @@
 
 ## Phase 7 — Persona, Memory, Same-Brain
 
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-06-25)
+
+### Completed
+- [x] `SOUL.md` written (2616 bytes) — persona, same-brain rules, memory policy, behavior rules, session_search instruction
+- [x] `USER.md` written (937 chars) — Amirul's profile
+- [x] Memory config verified (`memory_enabled=true`, `write_approval=false`, limits 2200/1375)
+- [x] Idle timeout reduced: 24h → 4h for faster cross-platform memory sync
+- [x] Cross-platform session_search instruction added to SOUL.md
+- [x] Gateway restarted with new persona
+- [x] Same-brain test passed: taught "fav color: black" on Telegram → recalled on WhatsApp
+- [x] Verify unrelated live threads stay separate (separate session keys per platform)
 
 ## Phase 8 — Proactive Cron Layer
 
