@@ -138,7 +138,32 @@
 
 ## Phase 9 — Capability Skills
 
-**Status**: NOT STARTED
+**Status**: COMPLETED (2026-06-25)
+
+### Completed
+- [x] Web search: default toolsets include web_search + web_extract (best-effort, free)
+- [x] Voice transcription: STT enabled via faster-whisper (local, free, base model)
+- [x] Telegram topics: `/topic` command available for multi-session workspaces
+- [x] DND mode: "dnd"/"jangan kacau" to pause all proactive messages, "back" to resume
+- [x] All platform toolsets confirmed: hermes-telegram, hermes-whatsapp (web, terminal, file, vision, tts, browser, skills, todo, cronjob)
+
+### Verified Capabilities (from previous phases)
+- [x] Cross-platform chat via WhatsApp and Telegram (Phase 4-5)
+- [x] Durable memory shared across platforms (Phase 7)
+- [x] DeepSeek Flash default (Phase 3)
+- [x] Owner-controlled Pro escalation (Phase 3/7)
+- [x] Proactive cron messages (Phase 8)
+- [x] Reminder/task capture (memory system, Phase 7)
+- [x] Habit/goal tracking (memory + cron, Phase 7-8)
+- [x] Draft-and-confirm pattern (SOUL.md, Phase 7)
+- [x] Runtime approval flow (built-in Hermes)
+- [x] Gateway health and usage reports (Phase 6/8)
+- [x] Web search via DuckDuckGo (DDGS, Phase 9) — verified working on both platforms
+- [x] Voice transcription via faster-whisper (STT, Phase 9) — available, free, local
+
+### Not implemented (per PRD constraints)
+- ffmpeg (outgoing TTS voice) — requires `sudo apt install ffmpeg` (blocked by opencode.json). Install manually later.
+- Paid Tool Gateway services — intentionally avoided per PRD §4.2
 
 ## Phase 10 — Hardening and Handover
 
