@@ -19,7 +19,7 @@
       "git log*": "allow",
       "git add *": "ask",
       "git commit *": "ask",
-      "git push *": "deny",
+      "git push *": "ask",
       "rm *": "deny",
       "mv *": "ask",
       "sudo *": "deny",
