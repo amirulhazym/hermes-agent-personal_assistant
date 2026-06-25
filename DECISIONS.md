@@ -128,8 +128,9 @@ All links from PRD §6 verified against live pages on 2026-06-24:
 10. **WSL2 distro**: Named `hermes-agent`, Ubuntu 24.04.4 LTS, user: amirul
 11. **Hermes version**: v0.17.0 (2026.6.19) — matches pinned version
 12. **Both platforms verified working**: Telegram responds via DeepSeek V4 Flash. WhatsApp responds via DeepSeek V4 Flash. Gateway connects both platforms from single process.
+13. **DeepSeek Pro escalation**: To use `deepseek-v4-pro` for hard tasks, send `/model deepseek:deepseek-v4-pro` in any chat or run `hermes config set model.default deepseek-v4-pro` + gateway restart. Pro is owner/admin-only (gated via `allow_admin_from`). Recommended for: debugging, planning, large synthesis, high-stakes analysis. Flash is restored with `/model deepseek:deepseek-v4-flash`.
+14. **Access control**: Non-allowlisted users denied by default (`GATEWAY_ALLOW_ALL_USERS` not set). Telegram allowlist: user ID 679729206. WhatsApp allowlist: 601166557800. Admin/user split configured: user 679729206 has admin access.
 
 ### Still Open
 
-All infrastructure and account questions resolved. Remaining decisions:
-- Gateway service type (user service vs system service) — decide in Phase 6
+All infrastructure and account questions resolved.

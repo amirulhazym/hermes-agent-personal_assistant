@@ -96,6 +96,14 @@
 - **Log rotation**: logrotate configured (weekly, 4 weeks, 50 MB threshold, compressed). Weekly no-agent cron (22daea844dba).
 - Logs at `~/.hermes/logs/`: agent.log, gateway.log, errors.log
 - Verified: `Gateway running with 2 platform(s)`, both platforms live
+- **Phase 0-6 audit**: All gaps closed (2026-06-25)
+  - G1: Non-allowlisted Telegram user denied (config confirmed, default behavior)
+  - G2: Non-allowlisted WhatsApp sender denied (config confirmed, default behavior)
+  - G3: Admin/user split configured (`allow_admin_from` for user 679729206)
+  - G4: Token usage verified via `hermes insights` (28,693 max session tokens)
+  - G5: DeepSeek Pro escalation documented in DECISIONS.md
+  - G6: WhatsApp session chmod 700 enforced
+  - G7: Cold boot simulation passed (WSL2 terminate → restart → both platforms connected ~13s)
 
 ## Phase 7 — Persona, Memory, Same-Brain
 
