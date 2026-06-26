@@ -29,7 +29,7 @@
 
 | 💬 Chat | 🔍 Search | 🧠 Memory | 📓 Knowledge Base | ⏰ Proactive | 🔄 Switch |
 |---|---|---|---|---|---|
-| Natural conversation in Malay/English/rojak across both platforms | DDGS (DuckDuckGo) web search from any chat | Remembers facts, preferences, deadlines across platforms | Obsidian vault with PARA structure — Hermes reads, searches, creates notes | 7 scheduled cron jobs: briefings, check-ins, usage reports | `/model` to switch between DeepSeek Flash and Pro instant |
+| Natural conversation in Malay/English/rojak across both platforms | DDGS (DuckDuckGo) web search from any chat | Remembers facts, preferences, deadlines across platforms | Obsidian vault with PARA structure — Hermes reads, searches, creates notes | 27 scheduled jobs: briefings, check-ins, usage reports, **medication reminders** | `/model` to switch between DeepSeek Flash and Pro instant |
 
 ---
 
@@ -54,7 +54,7 @@ F:\
 │       ├── .env                ← API keys, tokens (chmod 600)
 │       ├── SOUL.md             ← Persona and behavior rules
 │       ├── memories\           ← USER.md + MEMORY.md (shared across platforms)
-│       ├── cron\               ← 7 scheduled jobs
+│       ├── cron\\               ← 27+ scheduled jobs (incl. 20 med reminders)
 │       ├── whatsapp\session\   ← WhatsApp credentials (chmod 700)
 │       └── logs\               ← gateway.log, agent.log, errors.log, watchdog.log
 ├── obsidian-vault\             ← Knowledge base (PARA structure, plain .md)
@@ -129,7 +129,7 @@ DeepSeek API (https://api.deepseek.com)
 | Memory | MEMORY.md + USER.md + FTS5 SQLite | Cross-platform durable + session search |
 | Voice transcription | faster-whisper (base model, local, free) | Speech-to-text for voice notes |
 | Knowledge base | Obsidian 1.12.7 portable (F:) + vault (F:) | Second brain with PARA structure, accessible to both Hermes and user |
-| Cron | Hermes built-in + Linux crontab | 7 scheduled jobs + watchdog |
+| Cron | Hermes built-in + Linux crontab | 27+ scheduled jobs + watchdog (incl. 20 med reminders) |
 | Monitoring | status.ps1 (PowerShell) + logs + Telegram alerts | Gateway health, disk space, cron status |
 | Source control | Git + GitHub (private repo) | All config, docs, decisions tracked |
 
@@ -199,6 +199,8 @@ WhatsApp session (chat: 13186...@lid)
 
 ### 📅 Cron Orchestration
 
+#### System Jobs (7)
+
 | Job | Schedule | To | Purpose |
 |---|---|---|---|
 | Morning Briefing | 07:00 daily | WhatsApp | Today's commitments + habit nudge |
@@ -208,6 +210,18 @@ WhatsApp session (chat: 13186...@lid)
 | Evening Check-in | 21:00 daily | WhatsApp | EOD review + carry-forward |
 | Weekly Review | 10:00 Sunday | Telegram | Open loops + weekly priorities |
 | Log Rotate | 06:00 Sunday | Local | Logrotate (no-agent, $0 cost) |
+
+#### Medication Reminder System (20 jobs)
+
+| Time | Initial Reminder | +15 min | +30 min | +45 min |
+|------|:----------------:|:-------:|:-------:|:-------:|
+| **06:00** | Akurit-4 + Pyridoxine | ⏰ | ⏰ | ⏰ |
+| **08:00** | Dexamethasone #1 + Letram | ⏰ | ⏰ | ⏰ |
+| **12:00** | Dexamethasone #2 + Vit D + Ca | ⏰ | ⏰ | ⏰ |
+| **16:00** | Dexamethasone #3 (last dose) | ⏰ | ⏰ | ⏰ |
+| **20:00** | Letram (evening) | ⏰ | ⏰ | ⏰ |
+
+Each slot: initial reminder + 3 follow-ups every 15 min until confirmed. Single separate messages, never bundled.
 
 **Controls:**
 - Quiet hours: 23:00–07:00 MYT (no proactive messages)
@@ -240,7 +254,7 @@ The project connects to my work interest in the **MaiStorage/Phison ecosystem** 
 | **8** — Cron | 7 proactive jobs, quiet hours, caps, scheduling | First evening check-in fired at 21:00 |
 | **9** — Web | DDGS (DuckDuckGo) free search, voice transcription | Web search limited by API keys, DDGS resolved it |
 | **10** — Harden | Security audit, RUNBOOK.md, monitoring dashboard, VPS migration guide | 5/5 security items passed; no secrets in logs |
-| **11** — Obsidian | Knowledge base vault (PARA structure), Obsidian portable app, skill verified | Zero C: drive — vault + app on F: only |
+| **11** — Obsidian + Health | Knowledge base vault (PARA), portable app, medication reminder system (20 cron jobs) | Zero C: drive — vault + app on F:. 20 medication reminders with 15-min escalation. |
 
 ### 🎓 Key Decisions & Lessons Learned
 
@@ -259,8 +273,8 @@ Docker Desktop stores WSL2 distros on C: drive by default — consuming precious
 **5. Cross-Platform Memory Is Harder Than It Looks**
 Hermes uses a "frozen snapshot" pattern — memory loads at session start, not mid-session. Teaching a fact on WhatsApp won't appear on Telegram until the Telegram session resets (idle timeout or `/new`). **Solution**: reduced idle timeout from 24h to 4h, added `session_search` instruction in SOUL.md. Trade-off accepted.
 
-**6. Obsidian — Second Brain for Under RM0**
-Added a plain-file knowledge base accessible to both Hermes and the user. No subscriptions, no cloud, no lock-in. Hermes reads, searches, creates notes directly in the vault via the Obsidian skill. Portable app on F: drive, zero C: impact. PARA structure keeps things organised from day one. The entire setup took under 30 minutes — vault, app, skill, and first notes all live.
+**6. Obsidian — Second Brain for Under RM0, Now With Health Tracking**
+Added a plain-file knowledge base accessible to both Hermes and the user. No subscriptions, no cloud, no lock-in. Hermes reads, searches, creates notes directly in the vault via the Obsidian skill. Portable app on F: drive, zero C: impact. PARA structure keeps things organised from day one. The entire setup took under 30 minutes — vault, app, skill, and first notes all live. **Expanded to include medication tracking**: 20 daily reminder cron jobs with 15-min escalation, Health.md as source of truth for medication schedule, verified online before committing.
 
 ---
 
@@ -393,13 +407,20 @@ Shows: gateway health, platform connections, cron jobs, watchdog status, disk sp
 
 | Time | Platform | What |
 |---|---|---|
+| 06:00-06:45 | WhatsApp | Medication: Akurit-4 + Pyridoxine (4 jobs) |
 | 07:00 | WhatsApp | Morning briefing |
+| 08:00-08:45 | WhatsApp | Medication: Dexa #1 + Letram (4 jobs) |
 | 08:00 | Telegram | Usage report |
 | 09:00 | Telegram | Health report |
+| 12:00-12:45 | WhatsApp | Medication: Dexa #2 + Vit D + Ca (4 jobs) |
+| 16:00-16:45 | WhatsApp | Medication: Dexa #3 (4 jobs) |
 | 20:00 (M/W/F) | WhatsApp | Goal check-in |
+| 20:00-20:45 | WhatsApp | Medication: Letram malam (4 jobs) |
 | 21:00 | WhatsApp | Evening check-in |
 | Sun 06:00 | Local | Log rotate |
 | Sun 10:00 | Telegram | Weekly review |
+
+**Total: 27 active cron jobs** (7 system + 20 medication reminders)
 
 ---
 
