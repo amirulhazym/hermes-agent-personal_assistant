@@ -54,10 +54,25 @@ Obsidian vault (F:\obsidian-vault\)
 | Log Rotate | 06:00 Sunday | Local (script) | Rotate log files |
 | Gateway Watchdog | Every 5 min | Local (script) | Auto-restart if dead |
 | Akurit-4 + Pyridoxine | 06:00 daily | WhatsApp | Medication reminder (empty stomach) |
+| ⏰ Follow-up Akurit-4 #1 | 06:15 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Akurit-4 #2 | 06:30 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Akurit-4 #3 | 06:45 daily | WhatsApp | Last call follow-up |
 | Dexa #1 + Letram | 08:00 daily | WhatsApp | Medication reminder (morning) |
+| ⏰ Follow-up Dexa #1 #1 | 08:15 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Dexa #1 #2 | 08:30 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Dexa #1 #3 | 08:45 daily | WhatsApp | Last call follow-up |
 | Dexa #2 + Vit D + Calcium | 12:00 daily | WhatsApp | Medication reminder (noon) |
+| ⏰ Follow-up Dexa #2 #1 | 12:15 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Dexa #2 #2 | 12:30 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Dexa #2 #3 | 12:45 daily | WhatsApp | Last call follow-up |
 | Dexa #3 | 16:00 daily | WhatsApp | Medication reminder (critical last dose) |
+| ⏰ Follow-up Dexa #3 #1 | 16:15 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Dexa #3 #2 | 16:30 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Dexa #3 #3 | 16:45 daily | WhatsApp | Last call follow-up |
 | Letram malam | 20:00 daily | WhatsApp | Medication reminder (evening) |
+| ⏰ Follow-up Letram #1 | 20:15 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Letram #2 | 20:30 daily | WhatsApp | Follow-up if unconfirmed |
+| ⏰ Follow-up Letram #3 | 20:45 daily | WhatsApp | Last call follow-up |
 
 ---
 
