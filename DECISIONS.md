@@ -135,16 +135,20 @@ All links from PRD §6 verified against live pages on 2026-06-24:
 
 All infrastructure and account questions resolved.
 
-### Decisions Made (2026-06-25)
+### Decisions Made (2026-06-26)
 
 | # | Decision | Rationale |
 |---|---|---|
-| 1 | **Systemd disabled** in WSL2 | Systemd caused WSL2 hangs and killed background gateway processes. Default WSL2 init handles `setsid`/`nohup` correctly. |
-| 2 | **Docker Desktop moved to F:** | Freed 4.8 GB on C: drive. All WSL distros now on F:\wsl\. |
-| 3 | **Gateway startup script (v2)** | Uses `pgrep` exit codes instead of text parsing for reliable detection. Located at `F:\hermes\gateway-start.ps1`. |
-| 4 | **Watchdog cron** | Every 5 min, no-agent ($0), auto-restarts gateway if dead. |
-| 5 | **RUNBOOK.md written** | Complete operational documentation covering all procedures. |
-| 6 | **Phase 10 security audit** | All 5 items passed. Allowlists, secrets, logs, permissions verified. |
+| 7 | **Persona renamed to MarryJane (MJ)** | User evolved SOUL.md from "Hermes" to "MarryJane" — a female PA persona with high EQ/IQ. Name "Jane" used in self-reference. Evidence-first, dislikes hallucinations. |
+| 8 | **reasoning_effort set to xhigh** | After evaluation, user chose maximum reasoning depth. DeepSeek Pro supports thinking mode with best analysis quality. |
+| 9 | **Obsidian integration** | Vault at `F:\obsidian-vault\` (PARA structure: 0-inbox through 5-journal + templates). `OBSIDIAN_VAULT_PATH` in `.env` connects Hermes to vault. Obsidian 1.12.7 portable at `F:\Obsidian\` (zero C: drive). Hermes can read, search, create, edit vault notes via Obsidian skill. |
+| 10 | **Medication reminder system** | 20 cron jobs: 5 medication slots (Akurit-4, Dexa x3, Letram) + 15 follow-ups (+15/+30/+45 min each). Web-verified with Mayo Clinic, PubMed. Tracked in Health.md. User wants SERIOUS medical compliance. |
+| 11 | **Total 27 cron jobs** | 7 system (from Phase 6-8) + 20 medication + DeepSeek Balance Check script. All active. |
+| 12 | **Computer use attempt** | User tried but failed. Computer-use skill exists but isn't configured properly. Desired for remote desktop control from phone. Parked pending investigation. |
+| 13 | **Gateway reliability fix (startup v3)** | Internet-check-before-start, post-start validation, 3-retry loop. Prevents gateway starting before hotspot connects. |
+| 14 | **opencode.json push rule** | Changed from `"deny"` to `"ask"` — user can push with approval. GitHub also switched to SSH auth (no token). |
+| 15 | **DeepSeek Balance Check** | No-agent cron script (`check_ds_balance.sh`) runs Mon/Fri to Telegram. Monitors DeepSeek credits via API. |
+| 16 | **User calls MJ "Jane"** | Evolved organically through chat. SOUL.md updated: "When I refer to myself, use 'Jane'."
 
 ### Decisions Made (2026-06-26)
 

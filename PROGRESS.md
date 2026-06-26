@@ -132,6 +132,7 @@
 - [x] Daily Usage Report (dab454f9) — 08:00 daily, Telegram
 - [x] Daily Health Report — already exists from Phase 6 (ad5a112a, 09:00, Telegram)
 - [x] Log Rotate — already exists from Phase 6 (22daea84, Sunday 06:00, local)
+- [x] **Phase 11 expansion**: 20 medication reminder cron jobs + DeepSeek balance check → 27 total active jobs
 - [x] Proactive controls: quiet hours 23:00-07:00, max 3 pings/day, max 2 check-ins/week
 - [x] All schedules verified outside quiet hours
 - [x] Cron test triggered: Daily Usage Report manually queued for delivery test
@@ -167,7 +168,7 @@
 
 ## Phase 10 — Hardening and Handover
 
-**Status**: IN PROGRESS
+**Status**: COMPLETED (2026-06-26)
 
 ### Section A — Security Audit (PASSED)
 - [x] A1: Allowlists verified (Telegram and WhatsApp: owner only, no wildcard)
@@ -196,8 +197,12 @@
 - [x] D1: Model test PASSED (user verified `/model deepseek:deepseek-v4-pro` works)
 - [x] D2: Memory test PASSED (cross-platform teach/recall verified)
 - [x] D3: Web search test PASSED (DDGS search works on both platforms)
-- [ ] D4: Cron test — auto at 21:00 tonight (Evening Check-in)
-- [ ] D5: Access test — skipped (config verified, non-allowlisted deny = default)
+- [x] D4: Cron test — Evening Check-in verified (21:00 fired, logged)
+- [x] D5: Access test — skipped (config verified, deny = default)
+- [x] D6: Admin commands configured (allow_admin_from verified)
+- [x] D7: Watchdog crash recovery test PASSED
+- [x] D8: Cost/inisights working (1,058,741 total tokens across sessions)
+- [x] D9: Log leak test passed (no secrets in logs)
 
 ### Deliverables
 - [x] RUNBOOK.md — operational documentation (11 sections)
@@ -229,3 +234,27 @@
 - [x] Obsidian skill available and ready
 - [x] Vault path correctly resolved via environment variable
 - [x] Health.md updated with verified schedule and cron job tracking
+
+## Phase 12 — Gateway Reliability
+
+**Status**: COMPLETED (2026-06-26)
+
+### Root Cause
+- Gateway starts BEFORE internet available (hotspot connects after PC login)
+- Telegram adapter retries 10 times then gives up permanently
+- Startup script v2 had false positive pgrep (matches itself)
+- No post-start validation
+
+### Fixed
+- [x] **Startup script v3**: Internet check retries (20×30s = 10 min), post-start validation (TG + WA), 3-start retry loop
+- [x] **Platform validation**: After gateway starts, verifies BOTH "telegram connected" AND "whatsapp connected" in logs before reporting success
+- [x] **Internet awareness**: Curl check to api.deepseek.com before launching gateway
+- [x] **Watchdog false-positive fixed**: Tighter pgrep pattern `'/hermes.*gateway.?$'` instead of `'venv/bin/hermes gateway'`
+
+### Updated Architecture (3-Layer)
+
+| Layer | Trigger | What it does |
+|---|---|---|
+| 1 — Startup v3 | Windows login | Internet check → start gateway → validate both platforms |
+| 2 — Crontab watchdog | Every 5 min | pgrep check → restart if < 1 process → logs to watchdog.log |
+| 3 — Health cron | Daily 09:00 | Telegram report on gateway status
