@@ -151,6 +151,67 @@ Create 3 linked cron jobs for my "AI Storage Daily Brief":
 
 ---
 
+*End of 10 ideas — see next page for Vision & Live API bonus section.*
+
+---
+
+## Bonus: Vision-Powered Desktop (Gemini + Computer Use)
+
+**Needs**: `GOOGLE_API_KEY` in .env + `auxiliary.vision.provider: gemini` + cua-driver running.
+
+### 11a. Desktop Overseer (On-Demand)
+
+```
+Tengok screen aku sekarang — apps apa yang terbuka? Apa yang patut aku buat next?
+```
+Computer use captures screenshot → Gemini 3.1 Flash Lite analyzes → describes what's on screen. Useful when you're away but want MJ to check if something is open.
+
+### 11b. Visual Code Review
+
+```
+Screenshot VS Code error ni. Baca error tu and suggest fix.
+```
+Gemini reads error messages from screenshots, DeepSeek suggests fixes.
+
+### 11c. Document Scanner → Obsidian Pipeline
+
+Send photo of any physical document to WhatsApp:
+```
+Ambil gambar whiteboard meeting tadi. Ekstrak semua task items. Simpan dalam Obsidian.
+```
+Gemini extracts text → MJ reformats → auto-saves to vault.
+
+### 11d. Periodic Desktop Logging (Cron)
+
+```bash
+/cron add "every 2h 10:00-18:00" "Capture my screen. Check if I'm working on 
+something productive. If I look stuck, suggest next action."
+```
+Runs 10AM-6PM, captures screen every 2 hours. MJ uses Gemini to understand context and nudge.
+
+---
+
+## Bonus: Gemini Live API (Unlimited Free — Future Research)
+
+**Status**: Not implemented. Needs Hermes support for Live API transport.
+
+You discovered these models with **unlimited** free tier on Gemini Live API:
+
+| Model | Free Tier | Potential Use |
+|---|---|---|
+| Gemini 3 Flash Live | **Unlimited** | Real-time voice conversations with MJ through WhatsApp voice notes |
+| Gemini 2.5 Flash Native Audio Dialog | **Unlimited** | Native audio — MJ speaks without text-to-speech conversion |
+| Gemini 3.5 Live Translate | **Unlimited** | Real-time voice translation. Speak Malay, she translates to English live |
+
+**When this could work:**
+1. Hermes adds Live API support (check future releases)
+2. WhatsApp voice note → Gemini Native Audio processes directly
+3. MJ responds in voice, no STT/TTS pipeline needed
+
+**For now**: Stick with Gemini 3.1 Flash Lite for vision (screenshot analysis). Live API is monitored for future Hermes releases.
+
+---
+
 ## Bonus: One-Liners Worth Knowing
 
 | Prompt | What it does |
