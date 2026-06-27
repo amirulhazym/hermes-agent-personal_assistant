@@ -251,10 +251,14 @@
 - [x] **Internet awareness**: Curl check to api.deepseek.com before launching gateway
 - [x] **Watchdog false-positive fixed**: Tighter pgrep pattern `'/hermes.*gateway.?$'` instead of `'venv/bin/hermes gateway'`
 
-### Updated Architecture (3-Layer)
+## Phase 13 — Web Extraction & Watchdog Repair (27 June 2026)
 
-| Layer | Trigger | What it does |
-|---|---|---|
-| 1 — Startup v3 | Windows login | Internet check → start gateway → validate both platforms |
-| 2 — Crontab watchdog | Every 5 min | pgrep check → restart if < 1 process → logs to watchdog.log |
-| 3 — Health cron | Daily 09:00 | Telegram report on gateway status
+**Status**: COMPLETED
+
+### Completed
+- [x] **Watchdog CRLF fix**: Script had Windows CRLF line endings causing silent failure. Converted to LF. Crontab confirmed active.
+- [x] **Web extract plugin**: Created custom Hermes user plugin using `trafilatura` (free, open-source, no API key) at `~/.hermes/plugins/trafilatura/`
+- [x] **Config**: Added `plugins.enabled: [web-trafilatura]`, changed `web.extract_backend: trafilatura`
+- [x] **Verified**: Successful extraction from `amirulhazym.framer.ai` and `example.com`
+- [x] **Firecrawl kept as fallback**: `FIRECRAWL_API_KEY` placeholder in `.env`, config commented for easy switch
+- [x] **Git pushed**: hermes-agent source patches saved, MJay docs updated

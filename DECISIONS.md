@@ -159,3 +159,12 @@ All infrastructure and account questions resolved.
 | 3 | **reasoning_effort** kept at xhigh (maps to max on DeepSeek API) | Evaluated high vs max cost difference. Max provides better reasoning quality. Cost overhead (~$0.0002-0.0007/query) negligible within RM25 monthly cap. Changed to high briefly but reverted — max stays as default. |
 | 4 | **5 medication reminder cron jobs** deployed (06:00-20:00 daily) | Daily WhatsApp reminders for TB medication (Akurit-4), Dexamethasone (×3), Letram, and supplements. Each fires once, boss confirms dose via reply. |
 | 5 | **Health.md in Obsidian vault** set as source of truth for medication schedule | All medication timing, verified instructions (empty stomach for Akurit-4, calcium timing), and cron job IDs documented in vault note. Hermes references it directly. |
+
+### Decisions Made (2026-06-27)
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Trafilatura over Firecrawl** for web content extraction | Free, open-source, no API key needed. Trafilatura v2.1.0 pure Python lib. Zero ongoing cost vs Firecrawl's 500-credit monthly cap. |
+| 2 | **Custom Hermes user plugin** approach | Wrote `TrafilaturaWebSearchProvider` as user plugin at `~/.hermes/plugins/trafilatura/`. User plugins survive `hermes update` (bundled plugins get overwritten). |
+| 3 | **Plugin dir must be single-level** | `~/.hermes/plugins/web/trafilatura/` not discovered. Moved to `~/.hermes/plugins/trafilatura/`. Plugin discovery only scans one level deep. |
+| 4 | **Gemini permanently removed** from hermes-agent source | 5 files changed (models_dev.py, auth.py, models.py + gemini plugin deleted). `_gemini/` kept as local untracked backup only. |

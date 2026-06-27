@@ -1,0 +1,255 @@
+From 2ef887753cd5eab9fc034ff5d7fdd6dc3bba5f27 Mon Sep 17 00:00:00 2001
+From: amirulhazym <amirulhazym@gmail.com>
+Date: Sat, 27 Jun 2026 19:02:57 +0800
+Subject: [PATCH] chore: remove Gemini, override NVIDIA/OpenCode Zen model
+ lists
+
+- Gemini provider fully removed: PROVIDER_REGISTRY, PROVIDER_TO_MODELS_DEV,
+  PROVIDER_GROUPS, CANONICAL_PROVIDERS, provider aliases
+- Gemini plugin files deleted (local _gemini/ kept as untracked backup)
+- NVIDIA: hardcoded 5-model curated list (skip live API fetch)
+- OpenCode Zen: hardcoded 6 free models (skip live API fetch)
+- provider_model_ids() returns hardcoded lists for both providers
+---
+ agent/models_dev.py                        |  3 +-
+ hermes_cli/auth.py                         | 11 +---
+ hermes_cli/models.py                       | 69 +++++++---------------
+ plugins/model-providers/gemini/__init__.py | 61 -------------------
+ plugins/model-providers/gemini/plugin.yaml |  5 --
+ 5 files changed, 24 insertions(+), 125 deletions(-)
+ delete mode 100644 plugins/model-providers/gemini/__init__.py
+ delete mode 100644 plugins/model-providers/gemini/plugin.yaml
+
+diff --git a/agent/models_dev.py b/agent/models_dev.py
+index 590f778..2b55588 100644
+--- a/agent/models_dev.py
++++ b/agent/models_dev.py
+@@ -163,8 +163,7 @@ PROVIDER_TO_MODELS_DEV: Dict[str, str] = {
+     "kilocode": "kilo",
+     "fireworks": "fireworks-ai",
+     "huggingface": "huggingface",
+-    "gemini": "google",
+-    "google": "google",
++    # Gemini removed — not using (MJ override 2026-06-27)
+     "xai": "xai",
+     # xAI OAuth is an authentication/transport path for the same xAI model
+     # catalog, so model metadata should resolve through the xAI provider.
+diff --git a/hermes_cli/auth.py b/hermes_cli/auth.py
+index 4a0571a..39ff4e8 100644
+--- a/hermes_cli/auth.py
++++ b/hermes_cli/auth.py
+@@ -225,14 +225,7 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
+         inference_base_url=DEFAULT_COPILOT_ACP_BASE_URL,
+         base_url_env_var="COPILOT_ACP_BASE_URL",
+     ),
+-    "gemini": ProviderConfig(
+-        id="gemini",
+-        name="Google AI Studio",
+-        auth_type="api_key",
+-        inference_base_url="https://generativelanguage.googleapis.com/v1beta",
+-        api_key_env_vars=("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+-        base_url_env_var="GEMINI_BASE_URL",
+-    ),
++    # Gemini removed — not using (MJ override 2026-06-27)
+     "zai": ProviderConfig(
+         id="zai",
+         name="Z.AI / GLM",
+@@ -1501,7 +1494,7 @@ def resolve_provider(
+     # Normalize provider aliases
+     _PROVIDER_ALIASES = {
+         "glm": "zai", "z-ai": "zai", "z.ai": "zai", "zhipu": "zai",
+-        "google": "gemini", "google-gemini": "gemini", "google-ai-studio": "gemini",
++        # Google Gemini aliases removed — not using (MJ override 2026-06-27)
+         "x-ai": "xai", "x.ai": "xai", "grok": "xai",
+         "xai-oauth": "xai-oauth", "x-ai-oauth": "xai-oauth",
+         "grok-oauth": "xai-oauth", "xai-grok-oauth": "xai-oauth",
+diff --git a/hermes_cli/models.py b/hermes_cli/models.py
+index 5ef22df..4fe9e2e 100644
+--- a/hermes_cli/models.py
++++ b/hermes_cli/models.py
+@@ -278,18 +278,13 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
+     ],
+     "xai": _xai_curated_models(),
+     "nvidia": [
+-        # NVIDIA flagship reasoning models
+-        "nvidia/nemotron-3-super-120b-a12b",
+-        "nvidia/nemotron-3-nano-30b-a3b",
+-        "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+-        # Third-party agentic models hosted on build.nvidia.com
+-        # (map to OpenRouter defaults — users get familiar picks on NIM)
+-        "qwen/qwen3.5-397b-a17b",
+-        "deepseek-ai/deepseek-v3.2",
++        # Custom list — only models the user actually uses (MJ override 2026-06-27)
++        # After `hermes update`, re-apply from MEMORY.md or fix-models.sh
++        "minimaxai/minimax-m3",
+         "moonshotai/kimi-k2.6",
+-        "minimaxai/minimax-m2.5",
+-        "z-ai/glm5",
+-        "openai/gpt-oss-120b",
++        "deepseek-ai/deepseek-v4-flash",
++        "deepseek-ai/deepseek-v4-pro",
++        "z-ai/glm-5.1",
+     ],
+     "kimi-coding": [
+         "kimi-k2.7-code",
+@@ -380,41 +375,13 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
+         "openai/gpt-5.4",
+     ],
+     "opencode-zen": [
+-        "kimi-k2.5",
+-        "gpt-5.4-pro",
+-        "gpt-5.4",
+-        "gpt-5.3-codex",
+-        "gpt-5.2",
+-        "gpt-5.2-codex",
+-        "gpt-5.1",
+-        "gpt-5.1-codex",
+-        "gpt-5.1-codex-max",
+-        "gpt-5.1-codex-mini",
+-        "gpt-5",
+-        "gpt-5-codex",
+-        "gpt-5-nano",
+-        "claude-opus-4-6",
+-        "claude-opus-4-5",
+-        "claude-opus-4-1",
+-        "claude-sonnet-4-6",
+-        "claude-sonnet-4-5",
+-        "claude-sonnet-4",
+-        "claude-haiku-4-5",
+-        "claude-3-5-haiku",
+-        "gemini-3.1-pro",
+-        "gemini-3-pro",
+-        "gemini-3-flash",
+-        "minimax-m2.7",
+-        "minimax-m2.5",
+-        "minimax-m2.5-free",
+-        "minimax-m2.1",
+-        "glm-5",
+-        "glm-4.7",
+-        "glm-4.6",
+-        "kimi-k2-thinking",
+-        "kimi-k2",
+-        "qwen3-coder",
+-        "big-pickle",
++        # Free models only — no billing needed (MJ override 2026-06-27)
++        "deepseek-v4-flash-free",
++        "minimax-m3-free",
++        "mimo-v2.5-free",
++        "qwen3.6-plus-free",
++        "nemotron-3-ultra-free",
++        "north-mini-code-free",
+     ],
+     "opencode-go": [
+         "kimi-k2.6",
+@@ -1018,7 +985,7 @@ CANONICAL_PROVIDERS: list[ProviderEntry] = [
+     ProviderEntry("copilot",        "GitHub Copilot",           "GitHub Copilot (Uses GITHUB_TOKEN or gh auth token)"),
+     ProviderEntry("copilot-acp",    "GitHub Copilot ACP",       "GitHub Copilot ACP (Spawns copilot --acp --stdio)"),
+     ProviderEntry("huggingface",    "Hugging Face",             "Hugging Face Inference Providers"),
+-    ProviderEntry("gemini",         "Google AI Studio",         "Google AI Studio (Native Gemini API)"),
++    # Gemini removed — not using (MJ override 2026-06-27)
+     ProviderEntry("deepseek",       "DeepSeek",                 "DeepSeek (V3, R1, coder, direct API)"),
+     ProviderEntry("xai",            "xAI",                      "xAI Grok (Direct API)"),
+     ProviderEntry("zai",            "Z.AI / GLM",               "Z.AI / GLM (Zhipu direct API)"),
+@@ -1089,7 +1056,7 @@ PROVIDER_GROUPS: dict[str, tuple[str, str, list[str]]] = {
+     "kimi":     ("Kimi / Moonshot", "Coding Plan, Moonshot global & China endpoints", ["kimi-coding", "kimi-coding-cn"]),
+     "minimax":  ("MiniMax",         "Global, OAuth Coding Plan & China endpoints",     ["minimax", "minimax-oauth", "minimax-cn"]),
+     "xai":      ("xAI Grok",        "Direct API or SuperGrok / Premium+ OAuth",        ["xai", "xai-oauth"]),
+-    "google":   ("Google Gemini",   "Google AI Studio (API key)",                     ["gemini"]),
++    # Google Gemini group removed — not using (MJ override 2026-06-27)
+     "openai":   ("OpenAI",          "Codex CLI or direct OpenAI API",                  ["openai-codex", "openai-api"]),
+     "opencode": ("OpenCode",        "Zen pay-as-you-go or Go subscription",            ["opencode-zen", "opencode-go"]),
+     "copilot":  ("GitHub Copilot",  "GitHub token API or copilot --acp process",       ["copilot", "copilot-acp"]),
+@@ -2229,6 +2196,12 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False)
+     on the platform appear in ``/model`` without a Hermes release.
+     """
+     normalized = normalize_provider(provider)
++    if normalized == "nvidia":
++        # Custom override — only curated models, skip live API (MJ 2026-06-27)
++        return list(_PROVIDER_MODELS.get("nvidia", []))
++    if normalized == "opencode-zen":
++        # Custom override — only free models, skip live API (MJ 2026-06-27)
++        return list(_PROVIDER_MODELS.get("opencode-zen", []))
+     if normalized == "openrouter":
+         return model_ids(force_refresh=force_refresh)
+     if normalized == "openai-codex":
+diff --git a/plugins/model-providers/gemini/__init__.py b/plugins/model-providers/gemini/__init__.py
+deleted file mode 100644
+index 94e8bba..0000000
+--- a/plugins/model-providers/gemini/__init__.py
++++ /dev/null
+@@ -1,61 +0,0 @@
+-"""Google Gemini provider profiles.
+-
+-gemini:            Google AI Studio (API key) — uses GeminiNativeClient
+-
+-Reports api_mode="chat_completions" but uses a custom native client
+-that bypasses the standard OpenAI transport. The profile captures auth
+-and endpoint metadata for auth.py / runtime_provider.py migration, and
+-carries the thinking_config translation hook so the transport's profile
+-path produces the same extra_body shape the legacy flag path did.
+-"""
+-
+-from typing import Any
+-
+-from providers import register_provider
+-from providers.base import ProviderProfile
+-
+-
+-class GeminiProfile(ProviderProfile):
+-    """Gemini — translate reasoning_config to thinking_config in extra_body."""
+-
+-    def build_extra_body(
+-        self, *, session_id: str | None = None, **context: Any
+-    ) -> dict[str, Any]:
+-        """Emit extra_body.thinking_config (native) or extra_body.extra_body.google.thinking_config
+-        (OpenAI-compat /openai subpath), mirroring the legacy path's behavior.
+-        """
+-        from agent.transports.chat_completions import (
+-            _build_gemini_thinking_config,
+-            _is_gemini_openai_compat_base_url,
+-            _snake_case_gemini_thinking_config,
+-        )
+-
+-        model = context.get("model") or ""
+-        reasoning_config = context.get("reasoning_config")
+-        base_url = context.get("base_url") or self.base_url
+-
+-        raw_thinking_config = _build_gemini_thinking_config(model, reasoning_config)
+-        if not raw_thinking_config:
+-            return {}
+-
+-        body: dict[str, Any] = {}
+-        if self.name == "gemini" and _is_gemini_openai_compat_base_url(base_url):
+-            thinking_config = _snake_case_gemini_thinking_config(raw_thinking_config)
+-            if thinking_config:
+-                body["extra_body"] = {"google": {"thinking_config": thinking_config}}
+-        else:
+-            body["thinking_config"] = raw_thinking_config
+-        return body
+-
+-
+-gemini = GeminiProfile(
+-    name="gemini",
+-    aliases=("google", "google-gemini", "google-ai-studio"),
+-    api_mode="chat_completions",
+-    env_vars=("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+-    base_url="https://generativelanguage.googleapis.com/v1beta",
+-    auth_type="api_key",
+-    default_aux_model="gemini-3.5-flash",
+-)
+-
+-register_provider(gemini)
+diff --git a/plugins/model-providers/gemini/plugin.yaml b/plugins/model-providers/gemini/plugin.yaml
+deleted file mode 100644
+index cd586b0..0000000
+--- a/plugins/model-providers/gemini/plugin.yaml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-name: gemini-provider
+-kind: model-provider
+-version: 1.0.0
+-description: Google Gemini (API key + Cloud Code OAuth)
+-author: Nous Research
+-- 
+2.43.0
+
