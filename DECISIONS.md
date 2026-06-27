@@ -142,7 +142,7 @@ All infrastructure and account questions resolved.
 | 7 | **Persona renamed to MarryJane (MJ)** | User evolved SOUL.md from "Hermes" to "MarryJane" — a female PA persona with high EQ/IQ. Name "Jane" used in self-reference. Evidence-first, dislikes hallucinations. |
 | 8 | **reasoning_effort set to xhigh** | After evaluation, user chose maximum reasoning depth. DeepSeek Pro supports thinking mode with best analysis quality. |
 | 9 | **Obsidian integration** | Vault at `F:\obsidian-vault\` (PARA structure: 0-inbox through 5-journal + templates). `OBSIDIAN_VAULT_PATH` in `.env` connects Hermes to vault. Obsidian 1.12.7 portable at `F:\Obsidian\` (zero C: drive). Hermes can read, search, create, edit vault notes via Obsidian skill. |
-| 10 | **Medication reminder system** | 20 cron jobs: 5 medication slots (Akurit-4, Dexa x3, Letram) + 15 follow-ups (+15/+30/+45 min each). Web-verified with Mayo Clinic, PubMed. Tracked in Health.md. User wants SERIOUS medical compliance. |
+| 10 | **Medication reminder system** | 20 cron jobs: 5 medication slots (morning, afternoon, evening) + 15 follow-ups (+15/+30/+45 min each). Web-verified with Mayo Clinic, PubMed. Tracked in Health.md. User wants SERIOUS medical compliance. |
 | 11 | **Total 27 cron jobs** | 7 system (from Phase 6-8) + 20 medication + DeepSeek Balance Check script. All active. |
 | 12 | **Computer use attempt** | User tried but failed. Computer-use skill exists but isn't configured properly. Desired for remote desktop control from phone. Parked pending investigation. |
 | 13 | **Gateway reliability fix (startup v3)** | Internet-check-before-start, post-start validation, 3-retry loop. Prevents gateway starting before hotspot connects. |
@@ -157,8 +157,8 @@ All infrastructure and account questions resolved.
 | 1 | **Obsidian vault** created on F: drive at `F:\obsidian-vault\` with numbered PARA structure | Second brain / knowledge base accessible to Hermes via Obsidian skill. Plain .md files, zero lock-in. Portable app, zero C: drive impact. |
 | 2 | **PARA folder system** adopted (0-inbox → 5-journal + templates) | Structured knowledge management: 0-inbox for quick capture, 1-projects for active work, 2-areas for ongoing responsibilities, 3-resources for reference, 4-archive for completed, 5-journal for daily logs. |
 | 3 | **reasoning_effort** kept at xhigh (maps to max on DeepSeek API) | Evaluated high vs max cost difference. Max provides better reasoning quality. Cost overhead (~$0.0002-0.0007/query) negligible within RM25 monthly cap. Changed to high briefly but reverted — max stays as default. |
-| 4 | **5 medication reminder cron jobs** deployed (06:00-20:00 daily) | Daily WhatsApp reminders for TB medication (Akurit-4), Dexamethasone (×3), Letram, and supplements. Each fires once, boss confirms dose via reply. |
-| 5 | **Health.md in Obsidian vault** set as source of truth for medication schedule | All medication timing, verified instructions (empty stomach for Akurit-4, calcium timing), and cron job IDs documented in vault note. Hermes references it directly. |
+| 4 | **5 medication reminder cron jobs** deployed (06:00-20:00 daily) | Daily WhatsApp reminders for medication. Each fires once, boss confirms dose via reply. |
+| 5 | **Health.md in Obsidian vault** set as source of truth for medication schedule | All medication timing, verified instructions, and cron job IDs documented in vault note. Hermes references it directly. |
 
 ### Decisions Made (2026-06-27)
 

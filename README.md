@@ -215,11 +215,11 @@ WhatsApp session (chat: 13186...@lid)
 
 | Time | Initial Reminder | +15 min | +30 min | +45 min |
 |------|:----------------:|:-------:|:-------:|:-------:|
-| **06:00** | Akurit-4 + Pyridoxine | ⏰ | ⏰ | ⏰ |
-| **08:00** | Dexamethasone #1 + Letram | ⏰ | ⏰ | ⏰ |
-| **12:00** | Dexamethasone #2 + Vit D + Ca | ⏰ | ⏰ | ⏰ |
-| **16:00** | Dexamethasone #3 (last dose) | ⏰ | ⏰ | ⏰ |
-| **20:00** | Letram (evening) | ⏰ | ⏰ | ⏰ |
+| **06:00** | Morning medication #1 | ⏰ | ⏰ | ⏰ |
+| **08:00** | Morning medication #2 | ⏰ | ⏰ | ⏰ |
+| **12:00** | Afternoon medication | ⏰ | ⏰ | ⏰ |
+| **16:00** | Late afternoon medication | ⏰ | ⏰ | ⏰ |
+| **20:00** | Evening medication | ⏰ | ⏰ | ⏰ |
 
 Each slot: initial reminder + 3 follow-ups every 15 min until confirmed. Single separate messages, never bundled.
 
@@ -237,7 +237,7 @@ Each slot: initial reminder + 3 follow-ups every 15 min until confirmed. Single 
 
 I wanted a personal AI assistant that **lives where I already communicate** — WhatsApp for daily chat, Telegram for admin/review work. Not another app. Not a web dashboard. Something that feels human, remembers me, and proactively helps. Built on the open-source Nous Research Hermes Agent framework, powered by DeepSeek (the only paid component at ~RM2-3/month).
 
-The project connects to my work interest in the **MaiStorage/Phison ecosystem** (enterprise storage, on-premise AI, edge AI infrastructure). Building Hermes was partly about learning how AI agents work end-to-end — from LLM inference to persistent memory to cross-platform messaging to self-healing infrastructure.
+The project connects to my work interest in **enterprise storage and edge AI infrastructure**. Building Hermes was partly about learning how AI agents work end-to-end — from LLM inference to persistent memory to cross-platform messaging to self-healing infrastructure.
 
 ### 📈 Phase Timeline (June 2026)
 
@@ -254,15 +254,15 @@ The project connects to my work interest in the **MaiStorage/Phison ecosystem** 
 | **8** — Cron | 7 proactive jobs, quiet hours, caps, scheduling | First evening check-in fired at 21:00 |
 | **9** — Web | DDGS (DuckDuckGo) free search, voice transcription | Web search limited by API keys, DDGS resolved it |
 | **10** — Harden | Security audit, RUNBOOK.md, monitoring dashboard, VPS migration guide | 5/5 security items passed; no secrets in logs |
-| **11** — Obsidian + Health | Knowledge base vault (PARA), portable app, medication reminder system (20 cron jobs) | Zero C: drive — vault + app on F:. 20 medication reminders with 15-min escalation. |
+| **11** — Obsidian + Health | Knowledge base vault (PARA), portable app, health tracking system (20 cron reminders) | Zero C: drive — vault + app on F:. 20 health reminders with 15-min escalation. |
 
 ### 🎓 Key Decisions & Lessons Learned
 
 **1. Oracle Cloud vs WSL2 on Owned Hardware**
 Oracle Always Free ARM (2 OCPU, 12 GB RAM) was the original target. But Oracle requires a credit card for identity verification — my debit cards were rejected. Moved to WSL2 on my Windows 11 PC. Bonus: zero cloud billing anxiety, zero reclamation risk, and the architecture is identical to a future Linux VPS.
 
-**2. Systemd Hell in WSL2**
-Enabling `systemd=true` in `/etc/wsl.conf` was a mistake. It caused WSL2 to hang, killed background processes, and made `setsid`/`nohup` unreliable. **The fix**: disabled systemd, reverted to WSL2's default init process. Gateway now starts reliably via `setsid`. Lesson: WSL2 + systemd is not production-ready.
+**2. Systemd in WSL2**
+Disable systemd in `/etc/wsl.conf` — it causes hangs and unreliable process management. Gateway starts reliably via `setsid` with WSL2's default init.
 
 **3. DDGS vs Brave vs SerpAPI — Why Free Won**
 Hermes supports Exa, Firecrawl, Tavily, and other paid web search backends. For a personal assistant, free wins. DDGS (DuckDuckGo Python package) provides unlimited searches with no API key. It's search-only (no URL extraction), but that's fine for 98% of use cases. Brave free tier (2,000/month) was the backup.
@@ -274,79 +274,7 @@ Docker Desktop stores WSL2 distros on C: drive by default — consuming precious
 Hermes uses a "frozen snapshot" pattern — memory loads at session start, not mid-session. Teaching a fact on WhatsApp won't appear on Telegram until the Telegram session resets (idle timeout or `/new`). **Solution**: reduced idle timeout from 24h to 4h, added `session_search` instruction in SOUL.md. Trade-off accepted.
 
 **6. Obsidian — Second Brain for Under RM0, Now With Health Tracking**
-Added a plain-file knowledge base accessible to both Hermes and the user. No subscriptions, no cloud, no lock-in. Hermes reads, searches, creates notes directly in the vault via the Obsidian skill. Portable app on F: drive, zero C: impact. PARA structure keeps things organised from day one. The entire setup took under 30 minutes — vault, app, skill, and first notes all live. **Expanded to include medication tracking**: 20 daily reminder cron jobs with 15-min escalation, Health.md as source of truth for medication schedule, verified online before committing.
-
----
-
-## ☁️ VPS / Cloud Migration
-
-### ⏰ When to Migrate
-
-- You need **24/7 uptime** beyond your PC's availability
-- Your home internet is unreliable (mobile hotspot)
-- You want external access without keeping your PC on
-
-### 📦 Prerequisites
-
-| Item | Recommendation | Cost |
-|---|---|---|
-| VPS | Hetzner CX22 (2 vCPU, 4 GB RAM) or Oracle ARM | ~€4/month or free |
-| OS | Ubuntu 24.04 LTS | Free |
-| Domain | Optional — for Telegram webhook mode | ~$10/year |
-| Node.js | v22 LTS (for WhatsApp bridge) | Free |
-
-### 📋 Migration Steps
-
-**Step 1 — Backup everything**
-```bash
-# Inside WSL2
-tar czf /mnt/f/backups/hermes-full-$(date +%Y%m%d).tar.gz ~/.hermes/
-```
-
-**Step 2 — Copy to VPS**
-```bash
-scp /mnt/f/backups/hermes-full-*.tar.gz user@vps-ip:~/
-```
-
-**Step 3 — Set up VPS**
-```bash
-ssh user@vps-ip
-sudo apt update && sudo apt upgrade -y
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-tar xzf hermes-full-*.tar.gz -C ~/
-```
-
-**Step 4 — Re-pair WhatsApp**
-WhatsApp session is tied to your previous IP. Scan QR on the VPS:
-```bash
-hermes whatsapp
-```
-Scan from Hotlink phone. Session saved on VPS for subsequent restarts.
-
-**Step 5 — Telegram — just works**
-Telegram Bot API is IP-agnostic. No re-pairing needed. The same token works from the VPS.
-
-**Step 6 — Install gateway as a proper systemd service**
-(This is where VPS is **better** than WSL2 — systemd just works.)
-
-```bash
-hermes gateway install
-sudo loginctl enable-linger $USER
-systemctl --user enable hermes-gateway
-systemctl --user start hermes-gateway
-```
-
-**Differences from WSL2:**
-
-| Feature | WSL2 (current) | VPS |
-|---|---|---|
-| Gateway auto-start | Startup folder + crontab watchdog | Native systemd `Restart=always` |
-| WhatsApp QR | Scan from Windows terminal | Scan from SSH terminal (or use `screen`) |
-| C: drive limitation | N/A (F: drive used) | N/A |
-| Internet | Mobile hotspot (intermittent) | Always on |
-| Monitoring | `status.ps1` | `hermes gateway status` + systemd journal |
-
----
+Added a plain-file knowledge base accessible to both Hermes and the user. No subscriptions, no cloud, no lock-in. Hermes reads, searches, creates notes directly in the vault via the Obsidian skill. Portable app on F: drive, zero C: impact. PARA structure keeps things organised from day one. The entire setup took under 30 minutes — vault, app, skill, and first notes all live. **Expanded to include health tracking**: 20 daily reminder cron jobs with 15-min escalation, Health.md as source of truth for schedule, verified online before committing.
 
 ## 🛠️ Operations & Monitoring
 
@@ -407,15 +335,15 @@ Shows: gateway health, platform connections, cron jobs, watchdog status, disk sp
 
 | Time | Platform | What |
 |---|---|---|
-| 06:00-06:45 | WhatsApp | Medication: Akurit-4 + Pyridoxine (4 jobs) |
+| 06:00-06:45 | WhatsApp | Medication: Morning #1 (4 jobs) |
 | 07:00 | WhatsApp | Morning briefing |
-| 08:00-08:45 | WhatsApp | Medication: Dexa #1 + Letram (4 jobs) |
+| 08:00-08:45 | WhatsApp | Medication: Morning #2 (4 jobs) |
 | 08:00 | Telegram | Usage report |
 | 09:00 | Telegram | Health report |
-| 12:00-12:45 | WhatsApp | Medication: Dexa #2 + Vit D + Ca (4 jobs) |
-| 16:00-16:45 | WhatsApp | Medication: Dexa #3 (4 jobs) |
+| 12:00-12:45 | WhatsApp | Medication: Afternoon (4 jobs) |
+| 16:00-16:45 | WhatsApp | Medication: Late afternoon (4 jobs) |
 | 20:00 (M/W/F) | WhatsApp | Goal check-in |
-| 20:00-20:45 | WhatsApp | Medication: Letram malam (4 jobs) |
+| 20:00-20:45 | WhatsApp | Medication: Evening (4 jobs) |
 | 21:00 | WhatsApp | Evening check-in |
 | Sun 06:00 | Local | Log rotate |
 | Sun 10:00 | Telegram | Weekly review |

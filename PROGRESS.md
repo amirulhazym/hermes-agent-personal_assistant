@@ -226,7 +226,7 @@
 - [x] Medication schedule & health tracking note (`2-areas/Personal/Health.md`) with verified medication timing info
 - [x] **5 medication reminder cron jobs** deployed (06:00, 08:00, 12:00, 16:00, 20:00 daily to WhatsApp)
 - [x] **15 follow-up cron jobs** added (+15, +30, +45 min each slot — total 20 active medication jobs)
-- [x] Web-verified: Akurit-4 must be taken on empty stomach; calcium/vitamin D timing verified against TB drug interactions
+- [x] Web-verified: medication timing and food interactions verified
 
 ### Verified
 - [x] `read_file` works on vault notes

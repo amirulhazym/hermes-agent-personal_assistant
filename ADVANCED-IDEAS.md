@@ -117,7 +117,7 @@ When I send a voice note starting with "Bos" or containing keyword "buatkan", "d
 ```
 Create 3 linked cron jobs for my "AI Storage Daily Brief":
 1. Job "fetch": at 06:00 daily, scrape 5 sources for latest AI storage/on-premise AI news. Save to memory.
-2. Job "rank": at 06:30, use context_from="fetch" to rank them by relevance to my work (MaiStorage, enterprise SSD, edge AI).
+2. Job "rank": at 06:30, use context_from="fetch" to rank them by relevance to my work (enterprise SSD, edge AI).
 3. Job "brief": at 07:00, use context_from="rank" to deliver a 3-bullet briefing to WhatsApp with topic, why-it-matters, action-if-any.
 ```
 
