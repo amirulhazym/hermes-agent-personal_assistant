@@ -1,7 +1,7 @@
 # RUNBOOK — Hermes Personal AI Agent
 
 > Operational handover for the Hermes AI assistant running on WSL2 / Windows 11.
-> Last updated: 2026-06-26
+> Last updated: 2026-06-28
 
 ---
 
@@ -347,7 +347,27 @@ hermes insights --days 30
 
 ---
 
-## 11. File Locations on Disk
+## 11. Emergency Gateway Recovery
+
+### Gateway won't start — `gateway_state.json` stuck as "running"
+
+If gateway exits unexpectedly (SIGTERM/timeout), it writes `gateway_state=running`. Subsequent starts see this and refuse to run.
+
+**Fix:**
+```bash
+wsl -d hermes-agent -- rm -f ~/.hermes/gateway_state.json
+```
+
+Then start gateway via PowerShell (NOT inside WSL bash):
+```powershell
+Start-Process -WindowStyle Hidden -FilePath "wsl" -ArgumentList "-d", "hermes-agent", "--", "/home/amirul/.hermes/hermes-agent/venv/bin/hermes", "gateway"
+```
+
+**Why not `nohup`/`setsid`?** WSL kills background processes when the parent `wsl -- bash -c` exits, even with `nohup`. `Start-Process -WindowStyle Hidden` creates a standalone Windows process that survives.
+
+---
+
+## 12. File Locations on Disk
 
 | Path | Drive | Purpose | Size |
 |---|---|---|---|

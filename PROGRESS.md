@@ -262,3 +262,19 @@
 - [x] **Verified**: Successful extraction from `amirulhazym.framer.ai` and `example.com`
 - [x] **Firecrawl kept as fallback**: `FIRECRAWL_API_KEY` placeholder in `.env`, config commented for easy switch
 - [x] **Git pushed**: hermes-agent source patches saved, MJay docs updated
+
+## Phase 14 — Gateway Recovery & Docs Cleanup (28 June 2026)
+
+**Status**: COMPLETED
+
+### Completed
+- [x] **Root cause diagnosed**: `~/.hermes/hermes-agent` was the MJay docs repo, not NousResearch upstream — zero `.py` source files in `hermes_cli/`
+- [x] **Re-cloned upstream**: Replaced with fresh `git clone` of NousResearch/hermes-agent, reinstalled `pip install -e .`
+- [x] **node_modules restored**: WhatsApp bridge dependencies (`@whiskeysockets/baileys`, `express`, `pino`) were in `scripts/whatsapp-bridge/node_modules/` — copied from backup
+- [x] **Model overrides re-applied**: Patch restored NVIDIA 5-model list, OpenCode Zen 6-model list, Gemini removal (CANONICAL_PROVIDERS, PROVIDER_GROUPS, PROVIDER_REGISTRY, PROVIDER_TO_MODELS_DEV)
+- [x] **Gemini plugin disabled**: `plugins/model-providers/gemini/` renamed to `_gemini/`
+- [x] **Stale state removed**: `gateway_state.json` was persisting `"running"` from SIGTERM-killed run, blocking background starts
+- [x] **Gateway restarted**: `Start-Process -WindowStyle Hidden` (not `nohup`/`setsid` which fail in WSL bash -c context)
+- [x] **Both platforms verified**: Telegram ✅ + WhatsApp ✅
+- [x] **Privacy cleanup**: Drug names, company names (Maistorage/Phison), over-explaining removed from all docs
+- [x] **Git pushed**: Privacy cleanup commit + gateway fix

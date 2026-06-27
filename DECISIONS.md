@@ -168,3 +168,13 @@ All infrastructure and account questions resolved.
 | 2 | **Custom Hermes user plugin** approach | Wrote `TrafilaturaWebSearchProvider` as user plugin at `~/.hermes/plugins/trafilatura/`. User plugins survive `hermes update` (bundled plugins get overwritten). |
 | 3 | **Plugin dir must be single-level** | `~/.hermes/plugins/web/trafilatura/` not discovered. Moved to `~/.hermes/plugins/trafilatura/`. Plugin discovery only scans one level deep. |
 | 4 | **Gemini permanently removed** from hermes-agent source | 5 files changed (models_dev.py, auth.py, models.py + gemini plugin deleted). `_gemini/` kept as local untracked backup only. |
+
+### Decisions Made (2026-06-28)
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Gateway restart method changed** | `nohup` and `setsid` inside `wsl -- bash -c` don't survive shell exit. Use `Start-Process -WindowStyle Hidden` from PowerShell instead. |
+| 2 | **Re-clone over fix** | Instead of fixing the broken docs-repo git, re-cloned from upstream. Faster than untangling wrong remote and missing files. |
+| 3 | **Gemini plugin physically renamed** | `plugins/model-providers/gemini/` → `_gemini/` to prevent auto-extend from resurrecting Gemini via `.pyc` files. |
+| 4 | **gateway_state.json must be removed** on stale-signal exit | When gateway gets SIGTERM it writes `gateway_state=running`. Next start refuses if state says "running". `rm ~/.hermes/gateway_state.json` fixes it. |
+| 5 | **Privacy: docs cleanup** | Medication names, company names (Maistorage/Phison), over-explaining removed from README.md, DECISIONS.md, PROGRESS.md, RUNBOOK.md, ADVANCED-IDEAS.md |
