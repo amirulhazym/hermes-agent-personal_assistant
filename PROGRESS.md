@@ -278,3 +278,13 @@
 - [x] **Both platforms verified**: Telegram ✅ + WhatsApp ✅
 - [x] **Privacy cleanup**: Drug names, company names (Maistorage/Phison), over-explaining removed from all docs
 - [x] **Git pushed**: Privacy cleanup commit + gateway fix
+
+## Phase 15 — Audit Creation & System Documentation (28 June 2026)
+
+**Status**: COMPLETED
+
+### Completed
+- [x] **AUDIT.md created**: Complete system snapshot for Claude deep audit
+- [x] **Known issues documented**: `hermes doctor` hangs, 2 delivery failures, medication names in cron
+- [x] **10 audit questions prepared** for Claude review
+- [x] **System data captured**: cron list, processes, gateway state, config, SOUL, disk usage
