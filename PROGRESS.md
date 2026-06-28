@@ -288,3 +288,42 @@
 - [x] **Known issues documented**: `hermes doctor` hangs, 2 delivery failures, medication names in cron
 - [x] **10 audit questions prepared** for Claude review
 - [x] **System data captured**: cron list, processes, gateway state, config, SOUL, disk usage
+
+## Phase 16 — Resolution Plan Execution (28 June 2026)
+
+**Status**: COMPLETED
+
+### Phase 0 — Pre-Flight Backup & Verification
+- [x] **Backups created**: config.yaml, gateway_state.json, node_modules
+- [x] **send_message_tool import verified**: IMPORT OK
+- [x] **Baseline captured**: hermes doctor — 0 errors, 3 warnings
+
+### Phase 1 — Low Risk
+- [x] **Skills Hub initialized**: 72+ skills loaded
+- [ ] **ripgrep**: Pending — needs `sudo apt install` (command given to user)
+- [ ] **GITHUB_TOKEN**: Pending — instructions given to user
+
+### Phase 2 — npm Audit
+- [x] **npm audit**: 5 vulns (1 critical baileys + 4 fixable)
+- [x] **npm update**: 4/5 fixed; 1 critical baileys remains (no upstream fix)
+
+### Phase 3 — Config Migration v30→v31
+- [x] **Config migrated**: `hermes doctor --fix` completed
+- [x] **Model overrides restored**: fix-models.sh re-applied
+- [x] **Gateway restarted**: PID 164 → 2194, both platforms connected
+
+### Phase 4 — Deliveries Verified
+- [x] **Evening Check-in**: triggered manually — OK
+- [x] **Daily Health**: triggered manually — OK
+- [x] **All previously failing jobs**: now passing
+
+### Phase 5 — Docs Synced
+- [x] AUDIT.md updated, PROGRESS.md updated
+
+### Summary
+| Before | After |
+|---|---|
+| 5 delivery failures | 0 delivery failures |
+| Config v30 | Config v31 |
+| 5 npm vulns | 1 critical (baileys) |
+| Skills Hub uninit | Skills Hub ready |

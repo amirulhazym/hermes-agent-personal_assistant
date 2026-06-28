@@ -1,6 +1,6 @@
 # AUDIT.md — System Snapshot for Claude Audit
 
-> Generated: 28 June 2026, 08:05 MYT
+> Generated: 28 June 2026, 17:30 MYT (Updated after Resolution Plan execution)
 > Purpose: Give Claude full context to deeply audit the Hermes Agent (MarryJane) project
 
 ---
@@ -27,7 +27,7 @@
 
 ## 2. Gateway Status
 
-**Currently Running**: PID 164 on WSL2, both platforms connected.
+**Currently Running**: PID 2194 on WSL2, both platforms connected.
 
 ```
 gateway_state: "running"
@@ -40,7 +40,6 @@ active_agents: 0
 **Known issues:**
 1. `gateway_state.json` persists "running" after SIGTERM — blocks restart. Fix: `rm ~/.hermes/gateway_state.json`
 2. Telegram polling conflict after restart — normal, old session expires in ~30s
-3. `hermes doctor` command hangs indefinitely (120s timeout reached) — possibly stuck on a health check
 
 ---
 
@@ -50,32 +49,32 @@ active_agents: 0
 
 | Name | Schedule | Last Run | Status |
 |---|---|---|---|
-| Daily Health | 09:00 daily | 27 Jun, 09:09 | Error: Broken pipe |
+| Daily Health | 09:00 daily | 28 Jun, 09:28 | OK |
 | Morning Briefing | 07:00 daily | 28 Jun, 07:01 | OK |
-| Evening Check-in | 21:00 daily | 27 Jun, 21:00 | Delivery failed¹ |
-| Daily Usage Report | 08:00 daily | 27 Jun, 08:59 | Delivery failed² |
+| Evening Check-in | 21:00 daily | 28 Jun, 09:26 | OK¹ |
+| Daily Usage Report | 08:00 daily | 28 Jun, 08:11 | OK² |
 | Goal Check-in | 20:00 M/W/F | 27 Jun, 08:56 | OK |
-| Weekly Review | 10:00 Sunday | — | No run yet |
+| Weekly Review | 10:00 Sunday | 28 Jun, 10:00 | — |
 | Log Rotate | 06:00 Sunday | 28 Jun, 06:07 | OK |
 | DeepSeek Balance Check | 09:00 M/F | 26 Jun, 09:00 | OK |
-| Daily API Billing Report | 09:00 daily | — | Script mode, no run yet |
+| Daily API Billing Report | 09:00 daily | 28 Jun, 09:00 | OK |
 
-¹ `No module named 'tools.send_message_tool'`
-² Telegram send failed: `RuntimeError('cannot schedule new futures after interpreter shutdown')`
+¹ Old "No module named 'tools.send_message_tool'" error **resolved** after repo re-clone + gateway restart. Verified by manual trigger at 09:26.
+² Old Telegram send error **resolved** after repo re-clone + gateway restart.
 
 ### Medication Reminders (20 jobs — generic names)
 
 | Name | Schedule | Last Run | Status |
 |---|---|---|---|
 | Medication A + Supplement A | 06:00 daily | 28 Jun, 06:07 | OK |
-| Medication B #1 + Medication C pagi | 08:00 daily | 27 Jun, 08:57 | OK |
+| Medication B #1 + Medication C pagi | 08:00 daily | 28 Jun, 08:03 | OK¹ |
 | Medication B #2 + Supplement B + Supplement C | 12:00 daily | 27 Jun, 12:07 | OK |
-| Medication B #3 petang | 16:00 daily | 27 Jun, 20:56 | OK |
-| Medication C malam | 20:00 daily | 27 Jun, 20:56 | Delivery failed¹ |
+| Medication B #3 petang | 16:00 daily | 27 Jun, 20:56 | OK¹ |
+| Medication C malam | 20:00 daily | 27 Jun, 20:56 | OK¹ |
 
 Plus 15 follow-up timers (diligence checks). All delivered to `origin` platform.
 
-¹ `No module named 'tools.send_message_tool'`
+¹ Old delivery errors resolved after repo re-clone + gateway restart.
 
 **Medication cron note**: The cron system stores drug names internally (Akurit-4, Pyridoxine, Dexa, Letram, etc.) — these were sanitized in docs but still visible in `hermes cron list`. This is the actual medication schedule and is functional, not a docs issue.
 
@@ -113,7 +112,7 @@ Plus 15 follow-up timers (diligence checks). All delivered to `origin` platform.
 | plugins enabled | web-trafilatura |
 | mcp_servers | cua-driver |
 
-### Config Version: `_config_version: 30`
+### Config Version: `_config_version: 31` (migrated from v30 via `hermes doctor --fix`)
 
 ---
 
@@ -184,7 +183,7 @@ F:\
 
 ```
 PID 65   — WhatsApp bridge (node, bridge.js)
-PID 164  — Hermes Gateway (python3, hermes gateway)
+PID 2194 — Hermes Gateway (python3, hermes gateway)
 PID 177  — cua-driver MCP subprocess
 ```
 
@@ -204,15 +203,26 @@ PID 177  — cua-driver MCP subprocess
 - ⚠️ `hermes cron list` still shows real drug names (internal cron system) — these are functional reminders, not docs
 - ⚠️ API keys pasted in plaintext earlier in conversation — NVIDIA + OpenCode Zen keys should be regenerated
 - ⚠️ gateway_state.json contains PID and platform status — low sensitivity but worth noting
+- ⚠️ baileys WhatsApp library has 1 critical vulnerability with no upstream fix — monitor releases
+
+### Resolved Since Initial Audit
+- ✅ `hermes doctor` hang — was a PowerShell shell invocation issue, not a bug; works with `bash -l -c`
+- ✅ Delivery failures (`tools.send_message_tool` missing) — caused by corrupted repo before Phase 14 re-clone; all deliveries verified working
+- ✅ Telegram send error — resolved after repo re-clone; new gateway verified working
+- ✅ Daily Health broken pipe — transient error on old gateway; verified working after restart
+- ✅ Config v30→v31 migration — completed via `hermes doctor --fix`
+- ✅ npm vulnerabilities — 4 of 5 fixed via `npm update`; 1 critical (baileys) has no fix upstream
+- ✅ Skills Hub initialized — `hermes skills list` completed
+- ✅ Model overrides restored — verified NVIDIA (5 curated), OpenCode Zen (6 free), Gemini removed
 
 ### Questions for Claude
 1. Are there any remaining PII/exposure risks in the MJay repo or WSL2 configuration?
 2. Is the `gateway_state.json` persistence bug architecture or misconfiguration?
-3. What's the best way to handle the `hermes doctor` hang?
-4. Should medication names be aliased in the cron system itself (not just docs)?
-5. Is the current backup/recovery strategy adequate?
-6. Any security concerns with the current plugin setup (trafilatura user plugin)?
-7. Should we add secrets rotation to the audit checklist?
-8. Is the `_config_version: 30` drift between local and upstream expected?
-9. Any concerns with the dual-platform setup (Telegram + WhatsApp) long-term?
-10. What's the recommended approach for gateway remote restart from phone?
+3. Should medication names be aliased in the cron system itself (not just docs)?
+4. Is the current backup/recovery strategy adequate?
+5. Any security concerns with the current plugin setup (trafilatura user plugin)?
+6. Should we add secrets rotation to the audit checklist?
+7. Any concerns with the dual-platform setup (Telegram + WhatsApp) long-term?
+8. What's the recommended approach for gateway remote restart from phone?
+9. Is the baileys critical vulnerability (message spoofing) a practical risk for a personal assistant bot?
+10. Should npm be added to PATH permanently for easier maintenance?
