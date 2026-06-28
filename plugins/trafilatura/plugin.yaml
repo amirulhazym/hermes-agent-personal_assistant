@@ -1,0 +1,7 @@
+name: web-trafilatura
+version: 1.0.0
+description: "Free web content extraction using trafilatura (open source, no API key)"
+author: Hermes User
+kind: backend
+provides_web_providers:
+  - trafilatura
