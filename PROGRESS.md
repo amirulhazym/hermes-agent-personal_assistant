@@ -327,3 +327,56 @@
 | Config v30 | Config v31 |
 | 5 npm vulns | 1 critical (baileys) |
 | Skills Hub uninit | Skills Hub ready |
+
+## Phase 18 — Design Skills Installation + ai-design-workflow (28 June 2026)
+
+**Duration**: ~1.5h (3 context windows) | **Status**: COMPLETED
+
+### Skills Installed (17 total)
+
+| Category | Skills |
+|----------|--------|
+| **Anti-slop core** | taste-skill (★52k), redesign-skill, high-end-visual-design, minimalist-ui, industrial-brutalist-ui |
+| **UX knowledge** | ux-designer-skill (26 reference files: Nielsen, WCAG 2.2, forms, navigation, AI interfaces, design systems) |
+| **Technical build** | canvas-design, web-artifacts-builder |
+| **Brand & frontend** | brand-guidelines, frontend-design |
+| **Motion reference** | transitions.dev (18 CSS transitions + root variables → saved in taste-skill/references/) |
+| **Workflow/process** | ai-design-workflow **(main deliverable)**, brainstorming, writing-plans, verification-before-completion, finishing-a-development-branch, receiving-code-review |
+
+### Key Deliverable: ai-design-workflow Pipeline
+
+```ai-design-workflow/
+├── SKILL.md                              (194 lines — orchestrator)
+└── references/
+    ├── design-token-extraction-prompt.md  (94 lines)
+    ├── design-critique-prompt.md          (133 lines)
+    ├── design-system-document-example.md  (69 lines)
+    ├── workflow-execution.md              (151 lines)
+    └── anti-slop-checklist.md            (56 lines)
+```
+
+Designed a full **Evaluator-Optimizer** pipeline with multimodal vision critique loop (inspired by UICrit paper, Visual Prompting with Iterative Refinement paper, and Builder.io multi-agent patterns):
+
+```
+Research references → extract design tokens → generate HTML/CSS →
+capture screenshot → vision critique → revise (3-5x loop) → final QA
+```
+
+### Portfolio v2 Test
+
+- Built 23KB standalone HTML portfolio (dark, green accent, Outfit, asymmetric layout)
+- Validated v2 > v1 but identified gap: **no visual feedback loop** = vibe-coding ceiling
+- This gap is what ai-design-workflow solves
+
+### Remaining
+
+- [ ] Configure OpenCode Go multimodal model for vision critique loop
+- [ ] Automate screenshot → critique pipeline script
+- [ ] First full pipeline test run
+
+### Docs Updated
+- [x] integrations/skills/README.md — full skills inventory + workflow docs
+- [x] PROGRESS.md — this entry (Phase 18)
+
+### Skipped (overlapping with existing system skills)
+- `systematic-debugging`, `requesting-code-review`, `test-driven-development`

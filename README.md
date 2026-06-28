@@ -254,7 +254,14 @@ The project connects to my work interest in **enterprise storage and edge AI inf
 | **8** — Cron | 7 proactive jobs, quiet hours, caps, scheduling | First evening check-in fired at 21:00 |
 | **9** — Web | DDGS (DuckDuckGo) free search, voice transcription | Web search limited by API keys, DDGS resolved it |
 | **10** — Harden | Security audit, RUNBOOK.md, monitoring dashboard, VPS migration guide | 5/5 security items passed; no secrets in logs |
-| **11** — Obsidian + Health | Knowledge base vault (PARA), portable app, health tracking system (20 cron reminders) | Zero C: drive — vault + app on F:. 20 health reminders with 15-min escalation. |
+|| **11** — Obsidian + Health | Knowledge base vault (PARA), portable app, health tracking system (20 cron reminders) | Zero C: drive — vault + app on F:. 20 health reminders with 15-min escalation. |
+|| **12** — Tool Integrations | Crawl4AI, MarkItDown, Browser-Use, curl-impersonate integrated + documented | 4 web/data tools added; Firecrawl removed (license conflict) |
+|| **13** — Runner Audit | Sidekick → OpenCode Go migration, audit pipeline, nightly audit cron | 31-page audit uncovered 8 issues; all resolved same day |
+|| **14** — Config + Model Audit | Config v31, model overrides, NVIDIA-only limit, Gemini removal | 12-model chain → 5 models; systemd removed; fix-models.sh locked |
+|| **15** — Diagnostic Sprint | Health dashboard, script fixes, cron rationalisation, gateway watchdog fix | 8P → 14P disk; 6x faster diagnostics; 2h→15min gdrive scan |
+|| **16** — Resolution Plan | npm audit (5 vulns → 1), config v30→v31, delivery verification | 5 delivery failures → 0; Skills Hub fixed |
+|| **17** — Integration Docs | Crawl4AI, MarkItDown, Browser-Use setup docs + verification | Everything documented for AI agent reference |
+|| **18** — Design Skills + Workflow | 17 skills installed, ai-design-workflow pipeline, portfolio v2 test | Vision critique loop codified as skill; vibe-coding gap identified |
 
 ### 🎓 Key Decisions & Lessons Learned
 
