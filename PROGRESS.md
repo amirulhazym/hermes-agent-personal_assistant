@@ -592,6 +592,39 @@ Cost: $0 (free tier)
 
 ### Next
 - [ ] Build final methodology (design-methodology skill)
+## Phase 23 — Design Methodology Skill (2026-06-29)
+
+**Status**: COMPLETED
+
+### What Was Created
+- Saved as `~/.hermes/skills/design-methodology/SKILL.md`
+
+### Structure
+| Section | Content |
+|---------|---------|
+| 0. Design Philosophy | 4 core principles: context-first, reference-driven, iterative, intentional |
+| 1. Skill Taxonomy | 29+ skills organized into 7 layers |
+| 2. Workflow Templates | 4 templates: Landing, Mobile, Redesign, Mockup |
+| 3. Quality Benchmarks | Anti-slop checklist, score thresholds, MD3 compliance |
+| 4. Decision Tree | Full tree: task → style → platform → animation → validation |
+| 5. Overlap Resolution | 6 overlap pairs with clear tiebreakers |
+| 6. Safety Rules | 10 mandatory rules |
+| 7. Quick Reference | Skills by phase lookup table |
+
+### Templates Available
+| Template | For |
+|----------|-----|
+| Template A | Brand/Landing Page (Web) — 11 steps |
+| Template B | Mobile App Screen — 6 steps |
+| Template C | Redesign Existing Site — 8 steps |
+| Template D | Quick Mockup/Prototype — 4 steps |
+
+### Key Design Decisions
+- `ui-ux-pro-max` is the design intelligence engine — use FIRST for every new project
+- `taste-skill` is the quality gate — run pre-flight checklist before EVERY delivery
+- `ai-design-workflow` critique loop is NON-OPTIONAL — skip = slop
+- Style skills are exclusive (pick 1-2 per project, don't mix)
+- Validation runs last but must pass
 
 ### Docs Updated
 - [x] integrations/hybrid-web/README.md — full plugin documentation
