@@ -370,7 +370,7 @@ capture screenshot → vision critique → revise (3-5x loop) → final QA
 
 ### Remaining
 
-- [ ] Configure OpenCode Go multimodal model for vision critique loop
+- [x] Configure OpenCode Go multimodal model for vision critique loop
 - [ ] Automate screenshot → critique pipeline script
 - [ ] First full pipeline test run
 
@@ -380,3 +380,75 @@ capture screenshot → vision critique → revise (3-5x loop) → final QA
 
 ### Skipped (overlapping with existing system skills)
 - `systematic-debugging`, `requesting-code-review`, `test-driven-development`
+
+---
+
+## Phase 19: Hybrid-Web Plugin (2026-06-29)
+
+### What Was Done
+
+Built and deployed a custom Hermes plugin that **intelligently routes web extraction** to the optimal backend based on page type:
+
+- **Static HTML** (blogs, docs, Wikipedia) → Trafilatura (fast, lightweight)
+- **JavaScript-heavy SPAs** (React, Next.js, Angular) → Crawl4AI (headless browser)
+
+### Problem Solved
+
+Previously, choosing between extraction backends required manual configuration or accepting suboptimal results. Hybrid-web **automatically detects** page characteristics and routes to the best backend.
+
+### Implementation
+
+```
+User Request (URL)
+       │
+       ▼
+┌─────────────────┐
+│  hybrid-web      │
+│  Plugin          │
+│                  │
+│  1. Fetch headers│
+│  2. Detect JS    │
+│  3. Route:       │
+│     ├─ Static → Trafilatura (fast)
+│     └─ Dynamic → Crawl4AI (headless browser)
+└─────────────────┘
+```
+
+### Files Created/Modified
+
+- `~/.hermes/plugins/hybrid-web/__init__.py` — Plugin registration
+- `~/.hermes/plugins/hybrid-web/provider.py` — HybridWebSearchProvider implementation
+- `~/.hermes/plugins/hybrid-web/plugin.yaml` — Plugin metadata
+- `~/.hermes/config.yaml` — Added `web.extract_backend: hybrid-web` + `plugins.enabled: [hybrid-web]`
+- `~/.hermes/hermes-agent/tools/web_tools.py` — Patched `_is_backend_available()` for custom plugins
+
+### Testing Results
+
+```
+Static site (example.com) → Trafilatura ✅
+JS-heavy (github.com/about) → Crawl4AI ✅
+JS-heavy (react.dev) → Crawl4AI ✅
+```
+
+### Key Configuration
+
+```yaml
+web:
+  extract_backend: hybrid-web
+
+plugins:
+  enabled:
+    - hybrid-web
+```
+
+### Remaining
+
+- [ ] Documentation commit (Phase 19)
+- [ ] Screenshot pipeline script (ai-design-workflow)
+- [ ] Vision critique loop test
+
+### Docs Updated
+- [x] integrations/hybrid-web/README.md — full plugin documentation
+- [x] integrations/hybrid-web/setup.md — step-by-step installation guide
+- [x] integrations/README.md — added hybrid-web to priority table
+- [x] PROGRESS.md — this entry (Phase 19)

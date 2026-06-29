@@ -16,8 +16,9 @@
 | **1** | **Crawl4AI** | `installed ✅` | Hermes venv `~/.hermes/hermes-agent/venv/` | Trafilatura remains. Crawl4AI is supplemental JS-rendering backend. v0.9.0 |
 | **2** | **MarkItDown** | `installed ✅` | Hermes venv `~/.hermes/hermes-agent/venv/` | v0.1.6. Converts docs to markdown for RAG/vault. |
 | **3** | **Browser-Use** | `installed ✅` | Hermes venv `~/.hermes/hermes-agent/venv/` | v0.13.1. Playwright-based web automation (different from cua-driver). |
-| **4** | **Scrapling** | `standby` | Python package. Has MCP server support. | Anti-bot adaptive scraping. Queue after #3. |
-| **5** | **curl-impersonate** | `standby` | System binary. Light dependency. | TLS fingerprint bypass. Minimal setup needed. |
+| **4** | **Hybrid-Web** | `installed ✅` | `~/.hermes/plugins/hybrid-web/` | Custom plugin. Routes extraction to Trafilatura (static) or Crawl4AI (JS-heavy) automatically. |
+| **5** | **Scrapling** | `standby` | Python package. Has MCP server support. | Anti-bot adaptive scraping. Queue after #3. |
+| **6** | **curl-impersonate** | `standby` | System binary. Light dependency. | TLS fingerprint bypass. Minimal setup needed. |
 
 ## Removed (Explicitly Excluded)
 
