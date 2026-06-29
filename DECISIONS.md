@@ -178,3 +178,10 @@ All infrastructure and account questions resolved.
 | 3 | **Gemini plugin physically renamed** | `plugins/model-providers/gemini/` → `_gemini/` to prevent auto-extend from resurrecting Gemini via `.pyc` files. |
 | 4 | **gateway_state.json must be removed** on stale-signal exit | When gateway gets SIGTERM it writes `gateway_state=running`. Next start refuses if state says "running". `rm ~/.hermes/gateway_state.json` fixes it. |
 | 5 | **Privacy: docs cleanup** | Medication names, company names (Maistorage/Phison), over-explaining removed from README.md, DECISIONS.md, PROGRESS.md, RUNBOOK.md, ADVANCED-IDEAS.md |
+
+### Decisions Made (2026-06-29)
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Startup Folder shortcut for auto-start, not Task Scheduler** | Task Scheduler with `/SC ONSTART` requires admin rights (UAC). `shell:startup` works with zero admin, runs on user login (which also triggers WSL2). No privilege escalation needed. |
+

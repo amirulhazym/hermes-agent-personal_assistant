@@ -1,7 +1,7 @@
 # RUNBOOK — Hermes Personal AI Agent
 
 > Operational handover for the Hermes AI assistant running on WSL2 / Windows 11.
-> Last updated: 2026-06-28
+> Last updated: 2026-06-29
 
 ---
 
@@ -78,9 +78,26 @@ Obsidian vault (F:\obsidian-vault\)
 
 ## 2. Startup / Shutdown
 
-### Start Gateway
+### Auto-Start (On Boot)
 
-Windows login runs startup automatically via `shell:startup\hermes-gateway.bat`. To start manually:
+The gateway starts automatically at every Windows login via a Startup Folder shortcut:
+
+```
+shell:startup\Hermes Gateway.lnk
+  → powershell.exe -NoProfile -ExecutionPolicy Bypass -File "F:\hermes\gateway-start.ps1"
+```
+
+This was set up by `F:\hermes\setup-auto-start.ps1` (run once). No admin rights needed.
+
+What happens on boot/login:
+1. You log into Windows
+2. Startup folder scripts run (Hermes Gateway.lnk)
+3. WSL2 is auto-started by the `wsl` command inside the script
+4. `gateway-start.ps1` waits for internet (up to 5 min, 10s intervals)
+5. Gateway starts with 3-attempt retry + platform validation
+6. Telegram + WhatsApp connect
+
+### Start Gateway (Manual)
 
 ```powershell
 powershell -File "F:\hermes\gateway-start.ps1"
@@ -102,8 +119,8 @@ hermes gateway stop
 ### Graceful PC Shutdown
 
 The gateway will be killed on shutdown. It auto-recovers via:
-1. Login startup script (when you log back in)
-2. Watchdog cron (every 5 min, restarts if dead)
+1. **Startup Folder shortcut** (runs on your next login)
+2. **Watchdog cron** (every 5 min, restarts if gateway goes down while PC is on)
 
 ---
 
@@ -290,10 +307,12 @@ If below 5 GB free, run Disk Cleanup or move files to F: drive.
 wsl -d hermes-agent -- bash -c "ps aux | grep 'venv/bin/hermes gateway' | grep -v grep"
 ```
 
-**Step 2**: Run startup script (if gateway dead)
+**Step 2**: If gateway not listed, restart manually:
 ```powershell
 powershell -File "F:\hermes\gateway-start.ps1"
 ```
+
+**Step 2b**: If gateway started but not responding, check with latest logs. The script auto-retries 3 times. For persistent failures, check Section 11 (Emergency Recovery).
 
 **Step 3**: Check logs
 ```powershell
