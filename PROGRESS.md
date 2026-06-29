@@ -546,9 +546,52 @@ Cost: $0 (free tier)
 - Pipeline cost: $0 (free tier)
 - Full loop time: ~30 seconds
 
-### Remaining
+## Phase 22 — New Skills Installation (2026-06-29)
 
-- [ ] (All tasks complete)
+**Status**: COMPLETED
+
+### Source Materials
+13 new skills explored from 6 sources:
+- shadcn-ui — Component library system
+- ui-ux-pro-max (97.6k★) — AI design system generator (67 styles, 161 palettes, 57 fonts)
+- gsap (10.4k★) — Professional animation (8 sub-skills)
+- premium-frontend-ui (35.9k★) — Immersive web experiences
+- mobile-app-ui-design (107★) — Mobile design process
+- material-3 (1.1k★) — Google MD3 design system
+
+### Skills Installed
+| Skill | Dir | Key Content |
+|-------|-----|-------------|
+| shadcn-ui | `/sk/shadcn-ui/` | Component rules, forms, styling, CLI patterns |
+| ui-ux-pro-max | `/sk/ui-ux-pro-max/` | Design system generator, reasoning engine |
+| gsap-core | `/sk/gsap-core/` | Core API: .to(), .from(), easing, stagger |
+| gsap-timeline | `/sk/gsap-timeline/` | Sequencing, position param, nesting |
+| gsap-scrolltrigger | `/sk/gsap-scrolltrigger/` | Scroll-linked animations, pinning, scrub |
+| gsap-plugins | `/sk/gsap-plugins/` | SplitText, MorphSVG, Flip, Draggable, etc. |
+| gsap-utils | `/sk/gsap-utils/` | clamp, mapRange, random, snap helpers |
+| gsap-react | `/sk/gsap-react/` | useGSAP hook, refs, context, cleanup |
+| gsap-performance | `/sk/gsap-performance/` | Transforms, will-change, batching tips |
+| gsap-frameworks | `/sk/gsap-frameworks/` | Vue, Svelte lifecycle integration |
+| premium-frontend-ui | `/sk/premium-frontend-ui/` | 4 aesthetic directions, immersive standards |
+| mobile-app-ui-design | `/sk/mobile-app-ui-design/` | 5-step mobile design, 60/30/10 rule, thumb zone |
+| material-3 | `/sk/material-3/` | 30+ MD3 components, tokens, +6 ref files |
+
+### Reference Files Installed
+- material-3/references/ (6 files: color, components, theming, typography, navigation, layout) ✅
+- mobile-app-ui-design/references/ (1 file: industry-conventions) ✅
+
+### Skills Skipped
+- Dashboard skill — 404 on GitHub (not available)
+- SwiftUI skills — macOS only, requires Xcode 26+
+- Expo Native UI — React Native only (not yet needed)
+- Frontend UI UX — overlaps with existing frontend-design + taste-skill
+
+### Total Design Skills
+- Before: 11 core + 5 creative = ~16 skills
+- After: 13 new + 16 existing = **~29 skills** 🚀
+
+### Next
+- [ ] Build final methodology (design-methodology skill)
 
 ### Docs Updated
 - [x] integrations/hybrid-web/README.md — full plugin documentation
