@@ -443,9 +443,46 @@ plugins:
 
 ### Remaining
 
-- [ ] Documentation commit (Phase 19)
-- [ ] Screenshot pipeline script (ai-design-workflow)
-- [ ] Vision critique loop test
+## Phase 19 — Vision Config Fix (2026-06-29)
+
+**Status**: COMPLETED
+
+### Problem
+- `auxiliary.vision` configured with `OPENCODE_GO_API_KEY` which returns 401 Invalid API key
+- `vision_analyze` tool failing with AuthError
+
+### Solution
+- Switched to `OPENCODE_ZEN_API_KEY` + `mimo-v2.5-free` (free tier, supports vision)
+- Base URL: `https://opencode.ai/zen/v1`
+- Added `User-Agent: Hermes-Agent/1.0` header (required by Cloudflare)
+
+### Config Changes
+```yaml
+auxiliary:
+  vision:
+    provider: opencode-zen
+    model: mimo-v2.5-free
+    base_url: https://opencode.ai/zen/v1
+    api_key: $OPENCODE_ZEN_API_KEY
+```
+
+### Verification
+```bash
+# API call successful - MiMo-V2.5 Free supports vision
+Model: xiaomi/mimo-v2.5-20260422
+Content: "Based on the text and layout, this image displays a portion of the Oracle Cloud Infrastructure (OCI) Free Tier offerings on a mobile device screen."
+Cost: $0 (free tier)
+```
+
+### Notes
+- Session needs `/reset` for vision_analyze to pick up new config
+- MiMo-V2.5 Free uses reasoning tokens, needs higher max_tokens (300+) for vision
+- OPENCODE_GO_API_KEY still works for model listing but not chat completions
+
+### Remaining
+
+- [ ] Screenshot capture script (cua-driver 0.6.8)
+- [ ] Full vision critique loop test
 
 ### Docs Updated
 - [x] integrations/hybrid-web/README.md — full plugin documentation
