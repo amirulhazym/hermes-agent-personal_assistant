@@ -481,8 +481,40 @@ Cost: $0 (free tier)
 
 ### Remaining
 
-- [ ] Screenshot capture script (cua-driver 0.6.8)
-- [ ] Full vision critique loop test
+## Phase 20 — Screenshot Capture Script (2026-06-29)
+
+**Status**: COMPLETED
+
+### What Was Built
+- Reusable screenshot capture script: `~/.hermes/scripts/screenshot-capture.sh`
+- Supports full screen capture via PowerShell CopyFromScreen
+- Handles WSL ↔ Windows path conversion automatically
+
+### Usage
+```bash
+# Full screen capture
+~/.hermes/scripts/screenshot-capture.sh [output_path] full
+
+# Example
+~/.hermes/scripts/screenshot-capture.sh /home/amirul/.hermes/screenshots/design.png full
+```
+
+### Pipeline Test Results
+```
+1. Screenshot captured: 183KB PNG, 2048x1152 ✅
+2. Vision analysis: MiMo-V2.5 Free ✅
+3. Content returned: Described browser + editor split-screen ✅
+4. Cost: $0 (free tier) ✅
+```
+
+### Notes
+- MiMo-V2.5 Free needs max_tokens=500+ for vision (reasoning tokens consume budget)
+- PowerShell saves to Windows temp, script copies to WSL path
+- cua-driver 0.6.8 also available for window-specific capture
+
+### Remaining
+
+- [ ] Full vision critique loop test (capture design → critique → revise)
 
 ### Docs Updated
 - [x] integrations/hybrid-web/README.md — full plugin documentation
