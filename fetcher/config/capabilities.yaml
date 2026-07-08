@@ -1,0 +1,47 @@
+# Capability Registry — per-domain required capabilities.
+# Router consults this to select executors. Extensible: add capabilities freely.
+
+capabilities:
+  supports_browser: false
+  supports_js: false
+  supports_api: false
+  supports_markdown: false
+  supports_structured_extract: false
+  supports_pdf: false
+  supports_tables: false
+  supports_login: false
+  supports_captcha: false
+  supports_infinite_scroll: false
+  supports_download: false
+  supports_streaming: false
+  supports_authentication: false
+  supports_proxy: false
+  requires_confirmation: false
+  cf_managed: false
+
+domains:
+  fragrantica.com:
+    cf_managed: true
+    preferred_executor: flaresolverr
+    supports_browser: false
+    cache_ttl: 3600
+  parfumo.net:
+    cf_managed: true
+    preferred_executor: flaresolverr
+    cache_ttl: 3600
+  github.com:
+    preferred_executor: curl_cffi
+    cache_ttl: 86400
+  shopee.com.my:
+    supports_js: true
+    supports_structured_extract: true
+    preferred_executor: browser
+    cache_ttl: 1800
+  google.com:
+    supports_js: true
+    supports_structured_extract: true
+    preferred_executor: browser
+    cache_ttl: 1800
+  reddit.com:
+    preferred_executor: browser
+    cache_ttl: 1800
