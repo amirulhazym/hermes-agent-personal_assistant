@@ -23,7 +23,8 @@ domains:
   fragrantica.com:
     cf_managed: true
     preferred_executor: flaresolverr
-    supports_browser: false
+    supports_browser: true    # FlareSolverr times out on Fragrantica from SG IP;
+                              # needs Crawl4AI+stealth fallback (Phase 1c)
     cache_ttl: 3600
   parfumo.net:
     cf_managed: true
