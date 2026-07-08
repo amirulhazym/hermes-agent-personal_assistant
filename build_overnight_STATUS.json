@@ -1,0 +1,45 @@
+{
+  "state": "DONE",
+  "phases": {
+    "chromium": {
+      "exit": 0,
+      "ok": true
+    },
+    "flaresolverr_fragrantica": {
+      "executor_status": "UNVERIFIED",
+      "executor_len": 0,
+      "executor_err": [
+        "Error: Error solving the challenge. Timeout after 0.09 seconds."
+      ],
+      "raw_120s": "UNVERIFIED",
+      "raw_err": "{\"status\": \"error\", \"message\": \"Error: Error solving the challenge. Timeout after 120.0 seconds.\", \"startTimestamp\": 1783530157268, \"endTimestamp\": 1783530279549, \"version\": \"3.5.0\"}"
+    },
+    "crawl4ai": {
+      "fragrantica": "UNVERIFIED",
+      "fragrantica_len": 0,
+      "fragrantica_err": [
+        "Blocked by anti-bot protection: Cloudflare JS challenge"
+      ],
+      "generic_status": "VERIFIED",
+      "generic_md_len": 166
+    },
+    "test_suite": {
+      "exit": 0,
+      "summary": "10/10 checks passed",
+      "all_pass": true
+    },
+    "commit": {
+      "done": true,
+      "exit": 0
+    },
+    "adaptive_router": {
+      "written": true,
+      "test_exit": 0,
+      "passed": true,
+      "tail": "[PASS] capability filter excludes curl_cffi for browser cap\n[PASS] analytics reranks browser above flaresolverr\n[PASS] fallback chain: ['curl_cffi', 'cloudscraper', 'flaresolverr', 'browser', 'knowledge']\nROUTER TESTS PASSED\n",
+      "committed": true
+    }
+  },
+  "fragrantica_bypassed": false,
+  "_updated": "2026-07-09T01:04:48.884883"
+}

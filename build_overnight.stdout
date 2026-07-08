@@ -1,0 +1,44 @@
+[2026-07-09 01:02:33] === BUILD START ===
+[2026-07-09 01:02:33] === P0: ensure Chromium ===
+[2026-07-09 01:02:33] $ python3.12 -m playwright install chromium
+[2026-07-09 01:02:33]   exit=0 | 
+[2026-07-09 01:02:33] === P1: FlareSolverr -> Fragrantica ===
+[2026-07-09 01:02:37] $ curl -s -m 130 -X POST http://localhost:8191/v1 -H 'Content-Type: application/json' -d '{"cmd":"request.get","url":"https://www.fragrantica.com/perfume/Christian-Dior/Sauvage-31813.html","maxTimeout":120000}'
+[2026-07-09 01:04:39]   exit=0 | {"status": "error", "message": "Error: Error solving the challenge. Timeout after 120.0 seconds.", "startTimestamp": 1783530157268, "endTimestamp": 1783530279549, "version": "3.5.0"}
+[2026-07-09 01:04:39] P1 result: {'executor_status': 'UNVERIFIED', 'executor_len': 0, 'executor_err': ['Error: Error solving the challenge. Timeout after 0.09 seconds.'], 'raw_120s': 'UNVERIFIED', 'raw_err': '{"status": "error", "message": "Error: Error solving the challenge. Timeout after 120.0 seconds.", "startTimestamp": 1783530157268, "endTimestamp": 1783530279549, "version": "3.5.0"}'}
+[2026-07-09 01:04:39] === P2: Crawl4AI -> Fragrantica + example.com ===
+[2026-07-09 01:04:47] P2 result: {'fragrantica': 'UNVERIFIED', 'fragrantica_len': 0, 'fragrantica_err': ['Blocked by anti-bot protection: Cloudflare JS challenge'], 'generic_status': 'VERIFIED', 'generic_md_len': 166}
+[2026-07-09 01:04:47] === P3: test_phase1a.py ===
+[2026-07-09 01:04:47] $ PYTHONPATH=/home/ubuntu/mjay python3.12 /tmp/test_phase1a.py
+[2026-07-09 01:04:48]   exit=0 | [PASS] T001 import fetcher: 0.1.0
+[PASS] T002 Document contract: fields present
+[PASS] T002 Executor abstract: ABC enforced
+[PASS] T003 BrowserExecutor: extends Executor
+[PASS] T004 CookieStore: roundtrip {'cf_clearance': 'abc123'}
+[PASS] T005 curl_cffi Bing: status=VERIFIED len=121093 lat=0.214
+[PASS] T006 cloudscraper Bing: status=VERIFIED len=159897
+[PASS] T007 FallbackPolicy: status=UNVERIFIED
+[PASS] T008 Fragrantica adapter: parsed={'name': 'Sauvage', 'notes': ['Bergamot']}
+[PASS] T009 Normalization: domain=example.com
+
+=== SUMMARY ===
+10/10 checks passed
+ALL PHASE 1a CHECKS PASSED
+
+[2026-07-09 01:04:48] === P4: git commit ===
+[2026-07-09 01:04:48] $ git add fetcher/ comparison-crawl4ai-playwright-flaresolverr-browseract.md v2-architecture-analysis.md MASTER_EXECUTION_PLAN.md
+[2026-07-09 01:04:48]   exit=0 | 
+[2026-07-09 01:04:48] $ git commit -q -m 'Phase 1c: Crawl4AI executor live-verified; FlareSolverr+Fragrantica attempt; docs'
+[2026-07-09 01:04:48]   exit=0 | 
+[2026-07-09 01:04:48] === P5: Adaptive Router (best-effort) ===
+[2026-07-09 01:04:48] $ PYTHONPATH=/home/ubuntu/mjay python3.12 /home/ubuntu/mjay/fetcher/tests/test_router.py
+[2026-07-09 01:04:48]   exit=0 | [PASS] capability filter excludes curl_cffi for browser cap
+[PASS] analytics reranks browser above flaresolverr
+[PASS] fallback chain: ['curl_cffi', 'cloudscraper', 'flaresolverr', 'browser', 'knowledge']
+ROUTER TESTS PASSED
+
+[2026-07-09 01:04:48] $ git add fetcher/router.py fetcher/tests/test_router.py
+[2026-07-09 01:04:48]   exit=0 | 
+[2026-07-09 01:04:48] $ git commit -q -m 'Phase 2 (best-effort): Adaptive Router + Capability Registry + Analytics + self-test'
+[2026-07-09 01:04:48]   exit=0 | 
+[2026-07-09 01:04:48] === BUILD COMPLETE state=DONE fragrantica_bypassed=False ===
