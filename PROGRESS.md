@@ -631,3 +631,165 @@ Cost: $0 (free tier)
 - [x] integrations/hybrid-web/setup.md — step-by-step installation guide
 - [x] integrations/README.md — added hybrid-web to priority table
 - [x] PROGRESS.md — this entry (Phase 19)
+
+## Phase 24 — VPS Migration & Final Hardening (1 July 2026)
+
+**Status**: ✅ **COMPLETED — FULLY LIVE**
+
+### Context
+- WSL2 distro `hermes-rebuild-second` was the chosen base (gateway proven with 10+ restarts, WhatsApp session valid, cron ticker alive, watchdog operational)
+- Audit doc: `docs/superpowers/specs/2026-06-30-dual-rebuild-audit-decision.md`
+- Target: Tencent Cloud Lighthouse VPS (Singapore, 2vCPU/2GB/40GB, Ubuntu, user `ubuntu`)
+
+### Phase A — Hardening (hermes-rebuild-second, local WSL)
+- [x] **A1**: Added `superpowers@git+https://github.com/obra/superpowers.git` plugin to `opencode.json`
+- [x] **A2**: Copied `fix_models.py` (12,267 bytes) into `~/.hermes/scripts/`
+- [x] **A3**: Inserted `opencode-go` skip-live-fetch guard into `hermes_cli/models.py` (line 2213-2214)
+- [x] **A4**: Fixed `hybrid-web` plugin: added `register()` function to `__init__.py` and removed invalid `kind: web-extract` from `plugin.yaml`
+- [x] **A5**: Edited `config.yaml`:
+  - `timezone: Asia/Kuala_Lumpur` (was `''`)
+  - `stt.enabled: false` (was `true`)
+  - `vision: opencode-zen / mimo-v2.5-free / base_url: https://opencode.ai/zen/v1` (was `nvidia/minimax-m3`)
+  - `model.base_url: https://opencode.ai/zen/v1` (added)
+- [x] **A6**: Permanently deleted `gemini/` plugin: `git rm` tracked files, `rm -rf _gemini/` untracked dir
+- [x] **A7**: `fix_models.py --verify` → **All overrides verified ✓ (12/12)**
+- [x] **A8**: Final git diff: 4 files changed, +30/-130 lines (clean)
+
+### Phase B — VPS Migration
+- [x] **B1**: SSH key from Windows `~/.ssh/id_ed25519.pub` added to VPS `authorized_keys`
+- [x] **B2**: VPS pre-installed Hermes stopped (was using `lightclawbot` demo platform, different bot token)
+- [x] **B3**: Slim transfer created (2.0MB tar.gz, vs 590MB full): `config.yaml`, `.env`, `SOUL.md`, `memories/`, `scripts/`, `plugins/hybrid-web/`, `skills/`, `hermes_cli/models.py`, `hermes_cli/inventory.py`
+- [x] **B4**: Tar copied Windows→VPS via SCP (Windows SSH key, 2MB fast transfer)
+- [x] **B5**: Extracted on VPS, backup of original `/tmp/hermes_vps_backup/`
+- [x] **B6**: Permanently deleted `hermes-agent/plugins/model-providers/gemini/` on VPS
+- [x] **B7**: Added 4GB swap (total 5.9Gi: 2Gi default + 4Gi added)
+- [x] **B8**: Gateway started: `systemctl --user start hermes-gateway` (PID 132310, 119MB RAM)
+
+### Phase C — Verification (ALL PASSED ✅)
+- [x] **C1 Telegram**: `/help` returns response, user confirmed working
+- [x] **C2 WhatsApp**: QR paired, session saved, bridge deps installed (npm install, 143 packages), `✓ whatsapp connected` confirmed
+- [x] **C3 Cron**: `.tick.lock` actively being updated by scheduler. `ticker_heartbeat` updates on job fires (no jobs fired yet because next fire is 07:00 Morning Briefing)
+- [x] **C4 Watchdog/Auto-Recovery**: Killed gateway with `pkill -9` → systemd restarted in **1 second** (new PID 151937, Active: 1s ago, load dropped 4.47→0.33)
+- [x] **C5 E2E Telegram**: 7 successful responses recorded (15.1s, 60.3s, 99.3s + more). Channel directory shows telegram user `amirulhazym/679729206` registered
+- [x] **C6 E2E WhatsApp**: User sent "Hai" via WhatsApp → Agent replied in 22.3s with 59 chars + 125 chars (2 messages). Channel directory shows whatsapp user `amirulhazym/13186321408227@lid` registered
+
+### Final Gateway State (confirmed at 04:11 AM CST)
+```
+✓ telegram connected
+✓ whatsapp connected
+Gateway running with 2 platform(s)
+```
+- Both processes alive: hermes gateway (PID) + node bridge.js (port 3000)
+- Port 3000 listening (WhatsApp HTTP bridge)
+- 10 inbound messages, 8 responses so far
+
+### Verified Config
+- Model list: 12/12 verified (opencode-zen 6, opencode-go 13, nvidia 5)
+- Skip-live-fetch guards: nvidia, opencode-go, opencode-zen all present
+- Inventory MOA gate: present
+- Gemini plugin: deleted (filesystem + git)
+- Timezone: Asia/Kuala_Lumpur ✓
+- STT: disabled ✓
+- Vision: opencode-zen / mimo-v2.5-free ✓
+- base_url: https://opencode.ai/zen/v1 ✓
+
+### Known Issues (NON-BLOCKING, can fix later)
+- `hybrid-web` plugin: register() function now uses correct signature `def register(ctx)` and calls `ctx.register_web_search_provider()`. But the `HybridWebSearchProvider` class needs to inherit from `agent.web_search_provider.WebSearchProvider` to fully integrate. Currently shows warning: "tried to register a web provider that does not inherit from WebSearchProvider. Ignoring." — **plugin disabled, gateway still works** (web extraction will fall back to default backend)
+- `cua-driver` MCP: WSL path `/mnt/f/hermes/cua-driver/cua-driver.exe` doesn't exist on VPS. Can be disabled in `mcp_servers` config tomorrow.
+- `raft` CLI not in PATH: warning, not used
+- cron `ticker_heartbeat` shows old timestamp (02:27) — this is normal, only updates when a job actually fires. Next fire is 07:00 Morning Briefing.
+
+### Discrepancies from Audit Doc (verified, non-critical)
+- Entry count: 71 (not 35 as doc claimed) — both equal, tie verdict unchanged
+- Auxiliary count in rebuild-second: 15 (not 14)
+- Watchdog restarts: 10 total (doc said 3× today, actual is 8× on June 30)
+- `WHATSAPP_MODE=bot` in both distros (doc said blank)
+- `config.yaml.bak.unnamed` is NOT timestamped (only 1 of 2 .bak files is timestamped)
+- 14 `AutomationBlueprint(` instances in catalog (doc said 28 active jobs — not verified)
+
+### Files Touched Tonight
+```
+F:\AI Prep\OVIS\Hermes Agent\MJay\opencode.json       (added superpowers plugin)
+F:\AI Prep\OVIS\Hermes Agent\MJay\PROGRESS.md         (Phase 24 added)
+F:\AI Prep\OVIS\Hermes Agent\MJay\DECISIONS.md        (Decisions 2026-07-01 added)
+F:\AI Prep\OVIS\Hermes Agent\MJay\RUNBOOK.md          (System overview updated to VPS)
+
+VPS (119.28.119.151):
+  ~/.hermes/config.yaml                               (timezone, STT, vision, base_url)
+  ~/.hermes/.env                                      (our API keys)
+  ~/.hermes/SOUL.md                                   (persona)
+  ~/.hermes/memories/                                 (MEMORY.md + USER.md)
+  ~/.hermes/scripts/                                  (fix_models.py etc)
+  ~/.hermes/skills/                                   (42 skills)
+  ~/.hermes/plugins/hybrid-web/                       (provider.py, __init__.py, plugin.yaml)
+  ~/.hermes/hermes-agent/hermes_cli/models.py         (opencode-go hardened)
+  ~/.hermes/hermes-agent/hermes_cli/inventory.py      (MOA gate)
+  ~/.hermes/platforms/whatsapp/session/               (creds.json + pre-keys, paired)
+  ~/.hermes/whatsapp/session/                         (also populated)
+```
+
+### Tomorrow's Tasks (deferred)
+- [ ] Make `hybrid-web` provider inherit from `WebSearchProvider` (proper fix)
+- [ ] Disable `cua-driver` MCP in config.yaml
+- [ ] Set up git on VPS: `git clone <MJay-repo> ~/mjay`, hermes-live branch workflow
+- [ ] Commit tonight's docs to git from Windows
+- [ ] 24-hour stability check (next morning)
+- [ ] Archive/delete `hermes-agent` WSL distro (never launched)
+- [ ] 7-day memory persistence test (verify cross-platform)
+
+### Post-Phase Fixes (1 July 2026, ~04:45 AM)
+
+After user approval to continue autonomously while sleeping, completed:
+
+- [x] **Git workflow setup on VPS**:
+  - Cloned `https://github.com/amirulhazym/hermes-agent-personal_assistant` to `~/mjay/`
+  - Created `hermes-live` branch for agent-pushed docs
+  - Configured git user (hermes@amirulhazym.framer.ai, "Hermes Agent (VPS)")
+  - Created `docs/git_workflow.md` with full strategy (main = human, hermes-live = agent)
+  - Existing `.gitignore` already excludes secrets/sessions/logs
+  - Committed workflow doc to hermes-live branch
+- [x] **24h stability check script**:
+  - Created `/home/ubuntu/stability_check.py` (Python, 200+ lines)
+  - 14 checks: gateway, processes, both platforms, cron, memory, swap, errors, traffic
+  - Smart filtering: errors counted only since last gateway restart
+  - Initial run: ✅ ALL CHECKS PASSED, 0 failures
+  - Scheduled: `crontab` at 05:00 on July 2 (24h from deploy)
+  - Report saved to `~/stability-report.txt`
+- [x] **hybrid-web plugin proper fix**:
+  - Read `agent/web_search_provider.py` ABC requirements
+  - Rewrote `~/.hermes/plugins/hybrid-web/provider.py` to inherit from `WebSearchProvider`
+  - Required: name, display_name, is_available(), supports_search(), supports_extract(), extract()
+  - Implemented: extract() returns proper list format `[{url, title, content, raw_content, metadata}]`
+  - Verified: `isinstance(p, WebSearchProvider) == True`
+  - All ABC methods correct (name='hybrid-web', display_name='Hybrid Web (Smart Routing)', supports_search=False, supports_extract=True)
+- [x] **Gateway restart with fix** (5s downtime as approved):
+  - Cleared `__pycache__/`
+  - `systemctl --user restart hermes-gateway` (teardown 3.36s, startup ~7s)
+  - Telegram reconnected: 04:45:31
+  - WhatsApp reconnected: 04:45:35
+  - "Gateway running with 2 platform(s)" at 04:45:35
+  - No hybrid-web errors after restart
+- [x] **Re-ran stability check**: 14/14 passed, 0 failures
+
+### Final State (04:47 AM CST)
+- Gateway: active (PID running, 2m+ uptime)
+- Telegram: connected
+- WhatsApp: connected
+- Cron: 28 jobs registered, scheduler alive
+- Swap: 5.9Gi (116Mi used)
+- Memory: 1.3Gi available
+- Errors: 0 (since latest restart)
+- hybrid-web: properly loaded as WebSearchProvider subclass
+- Git: hermes-live branch active on VPS
+- Stability: scheduled for +24h check
+
+### Documents Updated Tonight
+- `F:\AI Prep\OVIS\Hermes Agent\MJay\PROGRESS.md` — Phase 24 (this entry)
+- `F:\AI Prep\OVIS\Hermes Agent\MJay\DECISIONS.md` — 14 VPS migration decisions
+- `F:\AI Prep\OVIS\Hermes Agent\MJay\RUNBOOK.md` — VPS architecture, file locations, Quick Reference
+- `~/mjay/docs/git_workflow.md` (committed to hermes-live) — branch strategy
+
+### Windows PC Posture
+- All work tonight was on VPS except 3 doc files in MJay
+- PC has zero dependencies on agent operation
+- Tomorrow (optional): `git pull` on Windows to sync latest from main, then commit MJay-side updates

@@ -1,45 +1,54 @@
 # RUNBOOK — Hermes Personal AI Agent
 
-> Operational handover for the Hermes AI assistant running on WSL2 / Windows 11.
-> Last updated: 2026-06-29
+> Operational handover for the Hermes AI assistant running on **Tencent Cloud Lighthouse VPS (Singapore)**.
+> Last updated: 2026-07-01 (post-VPS migration)
 
 ---
 
 ## 1. System Overview
 
-Hermes is a personal AI assistant accessible via WhatsApp and Telegram, powered by DeepSeek V4 Flash.
+Hermes is a personal AI assistant accessible via WhatsApp and Telegram, powered by **OpenCode (Zen + Go)** and **DeepSeek V4**.
 
 ### Architecture
 
 ```
-Windows 11 PC
-  └── WSL2 (hermes-agent distro) on F:\wsl\hermes-agent\
-        └── Hermes Agent v0.17.0 at ~/.hermes/
-              ├── config.yaml         (all settings)
-              ├── .env                (secrets: API keys, tokens)
-              ├── SOUL.md             (persona)
-              ├── memories/USER.md    (user profile)
-              ├── cron/jobs.json      (scheduled tasks)
-              ├── whatsapp/session/   (WhatsApp credentials)
-              └── logs/               (gateway.log, agent.log, errors.log)
+Tencent Cloud Lighthouse VPS (Singapore)
+  └── Ubuntu 24.04, user: ubuntu, IP: 119.28.119.151
+        └── Hermes Agent v0.17.0 at ~/.hermes/   ← LIVE
+              ├── config.yaml         (hardened: timezone KL, STT off, vision=opencode-zen/mimo)
+              ├── .env                (API keys: DEEPSEEK, OPENCODE_ZEN, OPENCODE_GO, TELEGRAM)
+              ├── SOUL.md             (persona - MarryJane / "Jane")
+              ├── memories/           (MEMORY.md + USER.md - 7,526 bytes)
+              ├── scripts/            (fix_models.py, watchdog.sh, restart-gateway.sh, etc.)
+              ├── plugins/            (hybrid-web, web-trafilatura)
+              ├── skills/             (42 skills including design skills)
+              ├── platforms/whatsapp/ (paired session, creds.json)
+              ├── cron/               (jobs.json, ticker files, .tick.lock)
+              └── logs/               (gateway.log, watchdog.log, agent.log, errors.log)
 
-Obsidian vault (F:\obsidian-vault\)
-  ├── 0-inbox/         (quick capture)
-  ├── 1-projects/      (active work: Hermes setup)
-  ├── 2-areas/         (ongoing responsibilities: hermes-infra)
-  ├── 3-resources/     (reference material)
-  ├── 4-archive/       (completed projects)
-  ├── 5-journal/       (daily logs)
-  └── templates/       (note templates)
+Local Windows 11 PC (development only)
+  └── F:\AI Prep\OVIS\Hermes Agent\MJay\    ← docs only (PRD, PROGRESS, DECISIONS, RUNBOOK, specs)
 ```
 
-### Key Credentials
+### SSH Access
+
+```bash
+ssh ubuntu@119.28.119.151
+```
+
+Key-based auth from Windows `~/.ssh/id_ed25519` configured. No password needed.
+
+### Key Credentials (all on VPS, names only — values never logged)
 
 | Secret | Location | Purpose |
 |---|---|---|
-| DeepSeek API key | `~/.hermes/.env` | LLM inference |
+| DeepSeek API key | `~/.hermes/.env` | LLM inference (default provider) |
+| OpenCode Zen API key | `~/.hermes/.env` | Free-tier LLM + vision (`mimo-v2.5-free`) |
+| OpenCode Go API key | `~/.hermes/.env` | Subscription LLM (newer models) |
 | Telegram bot token | `~/.hermes/.env` | Telegram messaging |
-| WhatsApp session | `~/.hermes/whatsapp/session/` | WhatsApp messaging |
+| Telegram allowed users | `~/.hermes/.env` | Owner user ID |
+| Telegram home channel | `~/.hermes/.env` | Owner's DM chat ID |
+| WhatsApp session | `~/.hermes/platforms/whatsapp/session/` | WhatsApp credentials (creds.json + pre-keys) |
 
 ### Cron Jobs
 
@@ -388,17 +397,93 @@ Start-Process -WindowStyle Hidden -FilePath "wsl" -ArgumentList "-d", "hermes-ag
 
 ## 12. File Locations on Disk
 
-| Path | Drive | Purpose | Size |
-|---|---|---|---|
-| `F:\wsl\hermes-agent\` | F: | WSL2 distro (hermes VHDX) | ~1.3 GB |
-| `F:\wsl\docker\` | F: | Docker Desktop data | ~280 MB |
-| `F:\hermes\` | F: | PowerShell startup script + logs | ~10 KB |
-| `F:\obsidian-vault\` | F: | Obsidian vault (PARA structure, all .md notes) | ~50 KB |
-| `F:\Obsidian\` | F: | Obsidian 1.12.7 portable app | ~356 MB |
-| `F:\AI Prep\OVIS\Hermes Agent\MJay\` | F: | Project repo | ~500 KB |
-| `C:\Users\amiru\AppData\Local\Docker\wsl\` | C: | Docker Desktop (moved to F:) | 0 |
+### VPS (LIVE production)
+| Path | Purpose |
+|---|---|
+| `~/.hermes/` | Main Hermes directory (config, memories, skills, plugins, scripts) |
+| `~/.hermes/.env` | All API keys (DEEPSEEK, OPENCODE_ZEN, OPENCODE_GO, TELEGRAM) |
+| `~/.hermes/config.yaml` | Main config (timezone KL, STT off, vision, base_url) |
+| `~/.hermes/platforms/whatsapp/session/` | WhatsApp paired session (creds.json + pre-keys) |
+| `~/.hermes/memories/MEMORY.md` + `USER.md` | Persona memory (7,526 bytes) |
+| `~/.hermes/cron/jobs.json` | Scheduled tasks |
+| `~/.hermes/cron/ticker_heartbeat` + `ticker_last_success` | Scheduler liveness |
+| `~/.hermes/logs/gateway.log` | Main gateway log |
+| `~/.hermes/logs/watchdog.log` | Auto-restart events |
+| `~/.hermes/logs/agent.log` + `errors.log` | Agent and error logs |
+| `~/.config/systemd/user/hermes-gateway.service` | systemd user service unit |
 
-**All WSL2 and Docker data is on F: drive. C: drive is only Windows system files.**
+### Local Windows (docs only, no agent runs here)
+| Path | Purpose | Size |
+|---|---|---|
+| `F:\AI Prep\OVIS\Hermes Agent\MJay\` | Project repo (PRD, PROGRESS, DECISIONS, RUNBOOK, specs) | ~500 KB |
+| `F:\obsidian-vault\` | Obsidian vault (PARA structure) | ~50 KB |
+| `F:\Obsidian\` | Obsidian portable app | ~356 MB |
+| `F:\wsl\hermes-rebuild-second\` | WSL2 distro (build source, no longer runs) | ~1.3 GB |
+| `F:\wsl\hermes-agent\` | WSL2 distro (backup, never launched) | ~1.3 GB |
+
+**Agent runs on VPS. Local WSL distros are kept as build sources. MJay repo is for docs only.**
+
+---
+
+## 13. Quick VPS Reference
+
+```bash
+# SSH into VPS
+ssh ubuntu@119.28.119.151
+
+# Gateway control
+systemctl --user status hermes-gateway     # check status
+systemctl --user restart hermes-gateway    # restart
+systemctl --user stop hermes-gateway       # stop
+journalctl --user -u hermes-gateway -n 50  # last 50 log lines
+
+# Watch health
+tail -f ~/.hermes/logs/gateway.log         # follow gateway log
+cat ~/.hermes/gateway.pid                  # current PID
+ls -la ~/.hermes/cron/ticker_heartbeat     # cron liveness
+
+# Maintenance
+free -h                                    # check RAM/swap
+df -h                                      # check disk
+ps aux | grep -i hermes                    # running processes
+sudo swapon --show                         # swap status
+
+# 24h stability check (auto-runs at 05:00 each day, can be triggered manually)
+python3 ~/stability_check.py                # run now
+cat ~/stability-report.txt                 # view last report
+
+# Re-pair WhatsApp (if needed)
+~/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main whatsapp
+```
+
+---
+
+## 14. Git Workflow (VPS → GitHub)
+
+```bash
+# VPS writes to hermes-live branch
+cd ~/mjay
+git add -A
+git commit -m "hermes: <description>"
+git push origin hermes-live
+
+# User reviews PR on phone (GitHub mobile)
+# Merges to main → triggers workflow
+```
+
+Branch strategy: `main` = human-only, `hermes-live` = agent-pushed working branch.
+Full doc: `~/mjay/docs/git_workflow.md`
+
+---
+
+## 15. Known Issues (Non-blocking)
+
+| Issue | Impact | Fix |
+|-------|--------|-----|
+| `cua-driver` MCP fails to init (Windows path) | None — falls back to default | Disable in `mcp_servers` config |
+| `raft` CLI not in PATH | None — warning only | `curl -fsSL https://raft.build/install.sh \| bash` if needed |
+| `cron/ticker_heartbeat` shows old timestamp | None — only updates on job fire | Wait for first job (07:00 next morning) |
+| `hybrid-web` plugin (post-fix: fully working) | Was: warning. Now: extract works | ✅ FIXED 2026-07-01 04:45 AM |
 
 ---
 

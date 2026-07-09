@@ -185,3 +185,37 @@ All infrastructure and account questions resolved.
 |---|---|---|
 | 1 | **Startup Folder shortcut for auto-start, not Task Scheduler** | Task Scheduler with `/SC ONSTART` requires admin rights (UAC). `shell:startup` works with zero admin, runs on user login (which also triggers WSL2). No privilege escalation needed. |
 
+### Decisions Made (2026-07-01) — VPS Migration
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Migrate to Tencent Cloud Lighthouse VPS** (Singapore, 2vCPU/2GB/40GB) | User has WSL2 issues and wants 24/7 availability independent of Windows. Lighthouse is the cheapest always-on option ($5-7/mo). VPS came pre-installed with Hermes v0.17.0. |
+| 2 | **Use hermes-rebuild-second as migration base, not hermes-agent** | Gateway in rebuild-second was battle-tested (10+ restarts, 2 platforms connected, cron alive). hermes-agent's gateway had NEVER launched. Better to start from a working runtime and apply hermes-agent's code fixes surgically. |
+| 3 | **Slim 2MB transfer (not full 590MB)** | 588MB of files in WSL are identical to VPS (same git commit `184c10c`). Only 2MB actually differs (hardened config, fixed plugins, our API keys, our model edits). Avoid overwriting VPS venv (architecture mismatch) by transferring surgically. |
+| 4 | **Skip full re-clone, use SCP** | VPS already has full hermes-agent source. No need to re-clone. Just overwrite the 4 files that changed and delete gemini. |
+| 5 | **Permanently delete gemini plugin** | User explicitly never wants gemini (worst experience with free API keys). Delete from filesystem + git to ensure no future resurrection via `.pyc` files. |
+| 6 | **Set timezone to Asia/Kuala_Lumpur explicitly** | Rebuild-second had `timezone: ''`. Set to KL for correct cron scheduling. |
+| 7 | **Disable STT** | User doesn't use voice input. STT adds RAM overhead (base model). Saves resources on 2GB VPS. |
+| 8 | **Vision: opencode-zen / mimo-v2.5-free** | Free, supports vision, uses existing `OPENCODE_ZEN_API_KEY`. Set as default but `/model` command allows per-query switching. |
+| 9 | **base_url: https://opencode.ai/zen/v1** (explicit) | hermes-rebuild-second's `base_url` was None (relied on Hermes default). hermes-agent had explicit URL. Explicit is safer for debugging. |
+| 10 | **Add 4GB swap on VPS** | VPS has 2GB RAM. With gateway + cron + future growth, swap is mandatory to prevent OOM. Tencent ships with 2GB swap; we add 4GB more. |
+| 11 | **Add SSH key from Windows for passwordless access** | User had password but couldn't type easily. Public key added to VPS `authorized_keys` for seamless automation. |
+| 12 | **WhatsApp fresh scan on VPS** | Rebuild-second session was WSL-local. Fresh scan on VPS = clean state, no stale creds. |
+| 13 | **npm install in screen session (detached)** | npm install timed out via direct SSH. screen session survives SSH disconnects. Auto-watcher script restarts gateway when npm finishes. |
+| 14 | **Git workflow deferred to tomorrow** | Tonight focus on live migration + docs. Git setup on VPS and hermes-live branch can be done tomorrow morning. |
+
+### Decisions Made (2026-07-01, ~04:45 AM) — Post-Phase Fixes
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Git workflow: `main` = human-only, `hermes-live` = agent-pushed** | User can review agent-generated docs on phone via GitHub PR, then merge to main. Single source of truth. |
+| 2 | **Git identity on VPS** | `hermes@amirulhazym.framer.ai` / "Hermes Agent (VPS)" so commits are clearly from the agent, not user. |
+| 3 | **24h stability check as cron, not on-demand** | User sleeps 04:00-12:00+. Scheduled check at +24h reports to `~/stability-report.txt` and can be retrieved by user via SSH when they wake. |
+| 4 | **Stability check uses "since last restart" error window** | Old errors from before a fix shouldn't fail a current check. The script finds the last "Starting Hermes Gateway" line and counts errors after it. |
+| 5 | **hybrid-web plugin: full WebSearchProvider inheritance** | Earlier `register(ctx)` + `ctx.register_web_search_provider()` made plugin load, but provider class failed the ABC check. Refactored to `class HybridWebSearchProvider(WebSearchProvider)` with required methods. |
+| 6 | **hybrid-web: return ABC-compliant extract() shape** | ABC requires list of `{url, title, content, raw_content, metadata}`. Old plugin returned dict `{url: content}`. New version returns proper list with title extraction, backend metadata, error wrapping. |
+| 7 | **Plugin fix auto-deployed via gateway restart** | Approved 5s downtime. Gateway restart is the standard way to load plugin code. systemd auto-restarts on failure so even catastrophic errors would recover. |
+| 8 | **Keep both WSL distros (don't delete)** | Build sources for future migrations. `.hermes-agent` never launched = clean reference. `hermes-rebuild-second` = battle-tested runtime. |
+| 9 | **Don't disable cua-driver MCP** | The error is non-blocking (MCP init fails, agent falls back). Disabling requires more config work. Deferred to tomorrow. |
+| 10 | **No daily auto-push cron tonight** | User can manually push from VPS when they want. Auto-push needs careful conflict resolution. Will set up tomorrow. |
+

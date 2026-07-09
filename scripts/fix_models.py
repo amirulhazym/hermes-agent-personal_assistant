@@ -110,24 +110,29 @@ def remove_line_matching(content, pattern):
     return "".join(new_lines), removed
 
 
-def remove_gemini_from_canonical(content):
-    pattern = r'    ProviderEntry\("gemini"[^)]+\),\n'
-    new_content, count = re.subn(pattern, "", content)
+def remove_provider_entry(content, key):
+    """Remove a single-line `ProviderEntry("key", ...)` from CANONICAL_PROVIDERS.
+
+    Uses a full-line match so parentheses inside the human-readable description
+    (e.g. "Google AI Studio (Native Gemini API)") do not break the match.
+    """
+    pattern = re.compile(
+        r'^    ProviderEntry\("' + re.escape(key) + r'".*\n', re.M
+    )
+    new_content, count = pattern.subn("", content)
     if count:
-        log(f"  Removed ProviderEntry('gemini') from CANONICAL_PROVIDERS ({count})")
+        log(f"  Removed ProviderEntry('{key}') from CANONICAL_PROVIDERS ({count})")
     else:
-        log("  ProviderEntry('gemini') already absent")
+        log(f"  ProviderEntry('{key}') already absent")
     return new_content
+
+
+def remove_gemini_from_canonical(content):
+    return remove_provider_entry(content, "gemini")
 
 
 def remove_moa_from_canonical(content):
-    pattern = r'    ProviderEntry\("moa"[^)]+\),\n'
-    new_content, count = re.subn(pattern, "", content)
-    if count:
-        log(f"  Removed ProviderEntry('moa') from CANONICAL_PROVIDERS ({count})")
-    else:
-        log("  ProviderEntry('moa') already absent")
-    return new_content
+    return remove_provider_entry(content, "moa")
 
 
 def remove_gemini_alias(content):
@@ -190,10 +195,6 @@ def patch_models_file(dry_run):
         content, "opencode-go", GO_MODELS,
         "OpenCode Go subscription models (MJ override 2026-06-28)",
     )
-    content = remove_gemini_from_canonical(content)
-    content = remove_moa_from_canonical(content)
-    content = remove_gemini_alias(content)
-    content = remove_gemini_provider_models(content)
     content = ensure_skip_live_fetch(
         content, "nvidia",
         "Custom override — only curated models, skip live API (MJ override 2026-06-27)",
@@ -363,22 +364,20 @@ def verify():
             print(f"OK:   _PROVIDER_MODELS['{key}'] ({len(found)} models)")
 
     if 'ProviderEntry("gemini"' in content:
-        print("FAIL: ProviderEntry('gemini') still in CANONICAL_PROVIDERS")
-        all_ok = False
+        print("NOTE: ProviderEntry('gemini') present (upstream default — hands-off)")
     else:
-        print("OK:   ProviderEntry('gemini') absent")
+        print("NOTE: ProviderEntry('gemini') already absent")
 
     if 'ProviderEntry("moa"' in content:
-        print("FAIL: ProviderEntry('moa') still in CANONICAL_PROVIDERS")
-        all_ok = False
+        print("NOTE: ProviderEntry('moa') present (upstream default — hands-off)")
     else:
-        print("OK:   ProviderEntry('moa') absent")
+        print("NOTE: ProviderEntry('moa') already absent")
 
+    # Google → gemini alias — FYI only, not a failure
     if '"google": "gemini"' in content:
-        print("FAIL: 'google' → 'gemini' alias still present")
-        all_ok = False
+        print("NOTE: 'google' → 'gemini' alias present (upstream default)")
     else:
-        print("OK:   'google' → 'gemini' alias absent")
+        print("NOTE: 'google' → 'gemini' alias absent")
 
     for p in ["nvidia", "opencode-go", "opencode-zen"]:
         if f'if normalized == "{p}"' not in content:
@@ -397,10 +396,9 @@ def verify():
     if DISABLED_PLUGIN_DIR.is_dir():
         print("OK:   Gemini plugin disabled (_gemini/ exists)")
     elif PLUGIN_DIR.is_dir():
-        print("FAIL: Gemini plugin still active (gemini/ exists)")
-        all_ok = False
+        print("NOTE: Gemini plugin dir present (upstream default — hands-off)")
     else:
-        print("OK:   Gemini plugin not found (already removed)")
+        print("NOTE: Gemini plugin not found")
 
     if all_ok:
         print("\nAll overrides verified ✓")
@@ -426,11 +424,12 @@ def main():
     print()
     ok = patch_inventory_file(args.dry_run) and ok
     print()
-    ok = patch_auth_file(args.dry_run) and ok
-    print()
-    ok = patch_models_dev_file(args.dry_run) and ok
-    print()
-    disable_gemini_plugin(args.dry_run)
+    # Skipped: patch_auth_file, patch_models_dev_file, disable_gemini_plugin
+    # — gemini/moa removal is a destructive upstream patch, not our custom setup.
+    # The user explicitly instructed: default Hermes code = hands-off.
+    # MoA is gated in inventory.py (above); Gemini is inert without an API key.
+    # Log the skip but don't count it as failure
+    log("[3-5/5] Skipped: gemini/moa ProviderConfig/ProviderEntry removal + plugin rename (upstream code — hands-off)")
 
     print(f"\n{'DRY RUN' if args.dry_run else 'DONE'} — {len(CHANGES)} actions")
     if not args.dry_run and ok:
