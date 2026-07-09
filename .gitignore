@@ -1,20 +1,11 @@
-# Secrets
+__pycache__/
+*.pyc
 .env
-*.key
-*.pem
-auth.json
-
-# WhatsApp session (contains encryption keys and credentials)
-session/
-platforms/
-
-# Hermes runtime
-.hermes/
-
-# Logs that may contain secrets or message content
-*.log
 logs/
-
-# OS files
-.DS_Store
-Thumbs.db
+cache/
+*.db
+med-*.json
+jobs.json
+gateway_state.json
+auth.json
+pairing/
