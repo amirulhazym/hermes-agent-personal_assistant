@@ -210,12 +210,16 @@ file:line evidence. No prior text removed or altered.
 - **Root cause:** caches never enumerated in prior audit.
 - **Recommendation:** document each cache's purpose + rotation; ensure all excluded from any GitHub sync.
 
-### F-22 [MEDIUM][Automation/Data-integrity] `med-auto-confirm` hook silently auto-writes med state pre-agent
+### F-22 [CRITICAL][Automation/Data-integrity] `med-auto-confirm` hook silently auto-writes med state pre-agent
 - **File:** `hooks/med-auto-confirm/HOOK.yaml` + `handler.py`; interacts with `scripts/med_confirm.py`.
 - **Evidence:** `HOOK.yaml`: "Auto-log medication confirmations from inbound messages BEFORE the agent processes them, so med-status.json is always correct and the reminder cron stops. Fail-open."
 - **Impact:** undocumented automation that writes `med-status.json` outside the documented `med_confirm.py` path. Possible double-write / race / conflict if both the hook and `med_confirm.py` act on the same message; fail-open means errors are silent.
 - **Root cause:** hook added without auditing against the existing med pipeline.
 - **Recommendation:** document the hook's exact write path; make it idempotent and consistent with `med_confirm.py`; verify no conflicting writes during Phase C med work.
+
+> **POST-AUDIT ADDENDUM (2026-07-10, Pattern G):** Runtime failure on 2026-07-10 — the hook's loose `SLOT_RE = \b(slot\s*)?([A-Ea-e])\b` (handler.py:53) false-positively matched a chat message where the user *discussed* yesterday's "20:00" timing. `TIME_RE` extracted "20:00" from conversation context (not intake), so the hook ran `med_confirm.py A --at 20:00`, creating a corrupt `med-status` entry `A/2026-07-10 @ 20:00` (future time). **Verified live:** `med-status.json` contains `A → 2026-07-10 → time "20:00"`; `chain-state.json` `"today"` is frozen on `2026-07-09` (day-roll never ran). Effect: `is_confirmed('A')`→True suppressed the A reminder; B ready_time = 21:00 suppressed B; silent exit → no morning TB-Meningitis reminders. **Severity raised MEDIUM→CRITICAL (patient-safety adjacent).** Fix per PATTERN-G analysis doc: tighten `SLOT_RE` (require med context), validate timestamp (reject future), add context guard, fix `_already_logged`, move day-roll outside the `should_fire` gate, add audit log, regression tests.
+>
+> *Added per Pattern G aligned-auditor instruction (2026-07-10); F-22 original body unchanged.*
 
 ### F-23 [LOW][Integration/Maintainability] Three redundant gateway-restart scripts
 - **File:** `scripts/gw_restart.sh`, `scripts/restart_gateway.sh`, `scripts/hermes_gateway_restart.sh`.
