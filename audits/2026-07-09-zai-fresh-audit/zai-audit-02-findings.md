@@ -7,7 +7,7 @@
 
 **Severity:** CRITICAL (data loss / patient-safety / system failure / secret exposure) · HIGH (wrong behavior / silent gap) · MEDIUM (edge/debt) · LOW (cosmetic/doc).
 
-**Counts (this pass): CRITICAL: 9 · HIGH: 14 · MEDIUM: 12 · LOW: 6 = 41.** Of these, **18 are [BEYOND]** the prior baseline (new dimensions: orchestration, security perms, second workstream, sync-of-truth, aspirational-vs-shipped).
+**Counts (this pass): CRITICAL: 10 · HIGH: 17 · MEDIUM: 16 · LOW: 11 = 54.** Of these, **29 are [BEYOND]** the prior baseline (new dimensions: orchestration, security perms, second workstream, sync-of-truth, aspirational-vs-shipped, kanban, delegation, curator, plugins, hooks internals, config-deep, fetcher-product).
 
 ---
 
@@ -252,6 +252,108 @@ for did in drug_ids:
 
 ---
 
+## L2 Deep Dive: New findings from expanded scope (hooks, config, orchestration, plugins)
+
+### [CRITICAL][DATA-INTEGRITY] — L2-N5: `med-auto-confirm` hook DRUG_MAP hardcodes `akurit_4` — drift inherited
+**File(s):** `hooks/med-auto-confirm/handler.py:57`
+**Evidence:** `DRUG_MAP` entry: `(r"\bakurit[- ]?4?\b", "A", "akurit_4")`. The hook auto-confirms Akurit messages before agent processes them — but won't recognize Akurit-2 correctly since `akurit[- ]?4?\b` may not match "Akurit-2".
+**Impact:** same Akurit drift infects the hook layer. Auto-confirm bypassed for the real current drug, defeating the hook's purpose.
+**Root cause:** DRUG_MAP never updated to reflect 9/7 pharmacy swap.
+**Recommendation:** add `(r"\bakurit[- ]?2?\b", "A", "akurit_2")` to DRUG_MAP; rename `akurit_4` references.
+
+### [HIGH][ORCHESTRATION] — L2-N1: Kanban task orchestration layer ACTIVE and unexamined
+**File(s):** `config.yaml:~140-158` (`kanban.dispatch_in_gateway: true`, `auto_decompose: true`, `max_in_progress_per_profile: null`); `~/.hermes/kanban.db` (114KB)
+**Evidence:** Kanban dispatches tasks in the gateway, auto-decomposes work items, has its own worker profile system. `orchestrator_profile: ''`, `default_assignee: ''`, `max_in_progress_per_profile: null` (unbounded). `dispatch_stale_timeout_seconds: 14400` (4h timeout).
+**Impact:** a whole task-orchestration system runs silently inside the gateway — managing workloads, decomposing tasks, dispatching workers. Completely absent from prior audits. Unbounded in-progress items risk unbounded concurrency.
+**Recommendation:** audit kanban state (`kanban.db`), set `max_in_progress_per_profile` to a safe limit, wire to overhaul workflow.
+**[BEYOND]:** entirely missed by all prior audits.
+
+### [HIGH][ORCHESTRATION] — L2-N2: Subagent delegation system ACTIVE (multi-agent foundation exists)
+**File(s):** `config.yaml:~390-400` (`delegation.orchestrator_enabled: true`, `max_concurrent_children: 3`, `max_spawn_depth: 1`, `max_iterations: 50`, `subagent_auto_approve: false`)
+**Evidence:** Hermes supports spawning subagents with their own tool/inherit-MCP. `max_spawn_depth: 1` (agents can't spawn sub-agents = safe), `orchestrator_enabled: true`, `max_concurrent_children: 3`. User's vision of "multi-agent expert system" has FOUNDATIONAL SUPPORT but nothing uses it yet.
+**Impact:** the platform CAN support the user's overhaul vision. Gap is in wiring, not architecture.
+**Recommendation:** document available delegation patterns; wire kanban + delegation together for overhaul task execution.
+**[BEYOND]:** entirely missed.
+
+### [HIGH][CLINICAL] — L2-N4: Chain logic is PURE LINEAR with no floor/independent guards
+**File(s):** `scripts/chain_calc.py:413-463` (`calculate_ready_time`)
+**Evidence:** Ready times are: B = A + 1h, C = B + 4h, D = C + 4h, E = B + 12h. NO `max(calculated, default_time)` floor. NO empty-stomach gate modeling (A→B 1h is coincidental, not explicit constraint). Dexa #2 (C) = B + 4h, not max(B+4h, 12:00). E follows B, contradicting Spec v3 rule_005 "independent." Fire logic at line ~610 blocks 22:00-05:00 — so if A late → B late → E = B+12h may land in quiet hours → reminder blocked silently.
+**Impact:** patient-adherence guidance is numerically wrong for real-life scenarios. Late A cascades too aggressively; early A pulls Dexa earlier than standard.
+**Recommendation:** implement Spec v3 constraint engine with explicit clinical rules: (1) A→B min-gap 1h (empty-stomach gate), (2) Dexa #1 ≥ 08:00 (standard floor), (3) Dexa→Dexa = max(prev+4h, standard), (4) E = max(B+12h, 20:00), (5) E independent (no cascade from C/D).
+**[BEYOND]:** v2.2's central correction; verified this is the exact model gap.
+
+### [HIGH][CONFIG] — N8: Auxiliary tasks use PAID deepseek-v4-flash for web_extract + compression
+**File(s):** `config.yaml:~220-250` (`auxiliary.web_extract.provider: deepseek, model: deepseek-v4-flash`; `auxiliary.compression.provider: deepseek, model: deepseek-v4-flash`)
+**Evidence:** Two auxiliary tasks (web extraction, context compression) use `deepseek-v4-flash` (PAID model). Vision uses `opencode-zen/mimo-v2.5-free` (free). User's free-only rule applies to fallback chain ONLY — auxiliary can still burn paid tokens silently.
+**Impact:** every web-extraction call (via hybrid-web) burns paid tokens. Every context compression event (50% threshold) burns paid tokens. Cost invisible at `/usage`.
+**Recommendation:** audit auxiliary costs; move web_extract to free model if quality OK; add cost logging/tracking.
+
+### [MEDIUM][MEMORY] — L2-N3: Memory curator IS active and runs weekly
+**File(s):** `config.yaml:~400-410` (`curator.enabled: true`, `interval_hours: 168`, `stale_after_days: 30`, `archive_after_days: 90`, `prune_builtins: true`, `backup.enabled: true, keep: 5`)
+**Evidence:** The self-cleaning memory system I said was "disabled" is actually ACTIVE — runs every 7 days, archives stale entries >30d, prunes builtins. Backs up automatically (5 copies). My own finding D10/Memory is PARTIALLY INCORRECT: the curator is running.
+**Correction:** update D10 finding: memory_watch.py cron is disabled but curator IS active and handles contradiction detection indirectly via staleness. Memory-contradiction detective (ADVANCED-IDEAS) still aspirational.
+**Recommendation:** document the curator as the self-cleaning mechanism; wire weekly contradiction report to it.
+
+### [MEDIUM][HOOKS] — L2-N13: med-auto-confirm dexa boundary uses redundant condition
+**File(s):** `hooks/med-auto-confirm/handler.py:121`
+**Evidence:** `if h < 10 or h < 10.5:` — `h < 10` is a SUBSET of `h < 10.5`. The second check NEVER triggers. Same lossy boundary as `med_resolve.py:141` float hack.
+**Impact:** a dexa at 10:20 maps to slot B (h=10, `h < 10` = false, but `h < 10.5` should be true). Actually wait: if h=10, 10 < 10 is false, but 10 < 10.5 is TRUE. So `10 < 10 or 10 < 10.5` = `False or True` = True → maps to B. The condition IS redundant (10 < 10.5 subsumes 10 < 10) but functionally correct for h=10. The real bug: what about h=9.5 (09:30)? 9.5 < 10 OR 9.5 < 10.5 = True → B. But 09:30 is still 9:30am, B slot standard is 08:00, so mapping to B is arguably correct. The redundancy is CODE QUALITY, not functional bug — but it shows the same boundary confusion as med_resolve.
+**Severity downgraded:** LOW impact, MEDIUM code quality.
+
+### [MEDIUM][PLUGINS] — L2-N6: lightclawbot third-party platform adapter installed but not enabled
+**File(s):** `plugins/lightclawbot/` — `plugin.yaml` (kind: platform, v0.0.6 by lhanyun); src/ with `inbound.py`, `outbound.py`, `adapter.py`, `socket/`, `per_uin_session.py`, `tenancy.py`, `media.py`, `file_storage.py`, `download_handler.py`, `usage_tracker.py`
+**Evidence:** Third-party WebSocket platform adapter (multi-user, multi-tenant). Requires `LIGHTCLAW_API_KEY_${UIN}` env. NOT in `plugins.enabled: [web-trafilatura, hybrid-web]` (config.yaml:~660). Installed but inactive.
+**Impact:** attack surface if enabled without audit (WebSocket, custom file storage, multi-user session isolation). Code quality of third-party package UNVERIFIED.
+**Recommendation:** quarantine or delete if not deploying; security-audit before enabling.
+
+### [MEDIUM][SECURITY] — L2-N9: Tirith security scanner configured fail_open
+**File(s):** `config.yaml:~570` (`security.tirith_enabled: true`, `tirith_fail_open: true`)
+**Evidence:** "If Tirith fails or times out, the check passes." Mitigates false-positive blocks but means a broken/crashed Tirith = no security checks.
+**Impact:** false sense of security — user thinks scanner protects when it silently passes on failure.
+**Recommendation:** add health check for Tirith; consider `tirith_fail_open: false` with monitoring override.
+
+### [MEDIUM][HOOKS] — L2-C3: hello-world hook fires but reads nothing (dead pipeline)
+**File(s):** `hooks/hello-world/handler.py` (writes `hello-world-pending.txt` on `gateway:startup`); `scripts/hello_watch.py` (cron, `active=False`)
+**Evidence:** Hook writes a pending marker on every gateway restart. The cron job that reads and sends it (`hello_watch.py`) is disabled. So the marker accumulates but never delivers.
+**Correction:** The 09-MASTER-SYNC-DOC A1 claimed hello-world-watch is "GONE." It's NOT gone — it's DISABLED. The hook (which fires) and the cron (which doesn't) form a dead pipeline.
+**Recommendation:** either wire a tiny shell-based reader into the startup sequence, or remove both hook + script entirely.
+
+### [LOW][CONFIG] — L2-C1: Host TZ confirmed MYT; `chain_monitor.sh:88` naive datetime is correct in production
+**File(s):** `config.yaml:~430` (`timezone: Asia/Kuala_Lumpur`)
+**Evidence:** Previous MEDIUM finding (#TZ) flagged `chain_monitor.sh:88` using naive `_dt.datetime.now()` as TZ-fragile. Config confirms host is MYT. In production this code is correct.
+**Correction:** DOWNGRADE from MEDIUM to LOW/THEORETICAL. Only becomes a bug if host is moved from MYT. `chain_calc.py` correctly uses `now_myt()` — consistency already ensured for this host.
+**Recommendation:** still good practice to use `now_myt()` in chain_monitor.sh for future portability; de-prioritize.
+
+### [LOW][INTEGRATION] — L2-N7: hybrid-web plugin active and working
+**File(s):** `plugins/hybrid-web/provider.py, __init__.py` (v1.0.0, by Amirul); `config.yaml:~112` (`web.extract_backend: hybrid-web`)
+**Evidence:** Custom plugin for intelligent Trafilatura↔Crawl4AI routing. ACTIVE and wired to web extraction.
+**Recommendation:** document as a configurable asset; note it uses paid deepseek for extraction (N8).
+
+### [LOW][MEMORY] — L2-N10: Session auto-reset at 4am/4h idle
+**File(s):** `config.yaml:~670` (`session_reset.mode: both, idle_minutes: 240, at_hour: 4`)
+**Evidence:** If user doesn't interact for 4 hours, or at 4am daily, session resets. Mid-day med context can be lost.
+**Impact:** if user takes A at 6am, then doesn't interact until 11am (5h idle), session resets — agent enters without med context from earlier confirmation. Hook (med-auto-confirm) helps but only for the confirmation action, not the contextual awareness.
+**Recommendation:** ensure med confirmation state survives session reset; consider suppressing reset during active med-tracking windows (5am-10pm).
+
+### [LOW][TOOLS] — L2-N11: Computer use ENABLED though MCP inactive
+**File(s):** `config.yaml:~655` (`computer_use.enabled: true`, `cua_telemetry: false`)
+**Evidence:** Feature flag on but `mcp_servers: {}` means no runtime available. `cua-driver.exe` was removed 9/7.
+**Recommendation:** either wire computer use properly or disable the flag.
+
+### [LOW][MODEL] — L2-N12: x_search uses grok-4.20-reasoning (external paid dependency)
+**File(s):** `config.yaml:~640` (`x_search.model: grok-4.20-reasoning, timeout_seconds: 180, retries: 2`)
+**Evidence:** X/Twitter search uses a separate model (grok) — dependency on X API + potential paid usage.
+**Recommendation:** document as external dependency; note cost implications.
+
+### [LOW][CONFIG] — L2-C2: med-auto-confirm hook PARTIALLY addresses Pattern D (with inherited bugs)
+**File(s):** hooks/med-auto-confirm/handler.py (agent:start hook)
+**Evidence:** My earlier finding "Hooks cover text not state (Pattern D uncovered)" is PARTIALLY INCORRECT. The med-auto-confirm hook DOES run med_confirm.py as a side-effect BEFORE the agent processes the message — so the state IS updated before the LLM can overwrite it. This IS a Pattern D countermeasure. However, it inherits the Akurit-4 drift (L2-N5) and the dexa boundary redundancy (L2-N13).
+**Correction:** Update D9 finding: Pattern D is PARTIALLY covered by this hook; the remaining gap is the inherited drift + the agent can still override after the hook fires (since hook runs at agent:start, agent still processes the message).
+
+**[BEYOND note for all L2 findings]:** These are from the L2 deep expansion — all 14 are [BEYOND] the prior baseline audit. Prior auditors (zcode, gemini, zhipu, etc.) read none of these layers.
+
+---
+
 ## Cross-dimension findings (flagged)
 
 - **C1 (D2+D12+D14+D16):** the root cause of most CRITICALs is **"no single durable, secret-safe, version-controlled source of truth."** Fixing this one thing cascades: reproducibility, sync, security, and productizability all improve. This is the headline.
@@ -263,9 +365,9 @@ for did in drug_ids:
 ## Items I could NOT confirm (NOT rounded up)
 
 - systemd unit file (`/etc/systemd/...`) contents — SSH didn't reach it.
-- Host OS timezone — determines if `chain_monitor.sh:88` is actually buggy.
+- ~~Host OS timezone — determines if `chain_monitor.sh:88` is actually buggy.~~ **RESOLVED:** config.yaml `timezone: Asia/Kuala_Lumpur` — host IS MYT, `chain_monitor.sh:88` naive datetime is correct in production. Finding DOWNGRADED to LOW/THEORETICAL (only breaks if host moved from MYT).
+- ~~`USER.md` presence; `memories/` contents.~~ **RESOLVED:** USER.md read (22 lines, confirms multi-agent vision), MEMORY.md read (72 lines, rich history).
 - `GOOGLE_API_KEY` / vision pipeline liveness.
-- `USER.md` presence; `memories/` contents.
 - GitHub repo PII exposure (must check before any push).
 - Whether `Daily Health` Broken Pipe root cause is fixed.
 

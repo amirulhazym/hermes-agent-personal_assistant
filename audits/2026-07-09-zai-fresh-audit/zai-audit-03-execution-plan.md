@@ -131,4 +131,170 @@ Each phase ends with a verification step and your sign-off before the next.
 - `git add/commit/push/rebase/force`, key rotation, `chmod` on live paths, restart gateway.
 - Anything in G1–G6 until you decide.
 
-**End of zai-audit-03.** Findings above are evidence-first; UNVERIFIED items are flagged, not asserted. Ready for your phase-by-phase go-ahead.
+---
+
+## 8 — TARGET-STATE ARCHITECTURE: Overhaul Blueprint (FROM L2 DEEP DIVE)
+
+> **Preface:** The L2 expansion (hooks, plugins, config-deep, kanban, delegation, curator, fetcher, gateway-internal, memory) revealed that the SYSTEM ALREADY HAS MUCH OF THE FOUNDATION the user's "multi-agent expert system" vision needs. Kanban, subagent delegation, curator, fetcher, med-auto-confirm hook, Spec v3 design — these are REAL capabilities, not aspirational. The gap is: (1) they're SILOED, (2) several have DATA-DRIFT bugs, (3) they're not WIRED toward a coherent target state, (4) they're UNDOCUMENTED so nobody uses them. The overhaul should CONNECT AND CLEAN, not rebuild from scratch.
+
+### 8.1 — Target State Architecture Diagram
+
+```
+                         ┌─── USER (WhatsApp/Telegram) ─────────────────────┐
+                         │                                                   │
+                         ▼                                                   │
+              ┌──────────────────────┐                                       │
+              │  GATEWAY (systemd)    │  cron_mode: deny                     │
+              │  agent loop/enrich    │  approvals: manual                    │
+              │  redundancy: stub     │                                       │
+              ├──────────────────────┤                                       │
+              │  CANARY: dead-man     │◄─── New: simple external ping        │
+              │  alert (Tel/WA)      │      (no meds → alert)               │
+              ├──────────────────────┤                                       │
+              │  med-auto-confirm     │─── auto-run med_confirm.py (fix drift)│
+              │  skill-trigger       │─── inject med-tracker on keywords     │
+              └──────────┬───────────┘                                       │
+                         │                                                   │
+          ┌──────────────┼──────────────────┬─────────────────────┐          │
+          ▼              ▼                  ▼                     ▼          │
+   ┌──────────┐  ┌──────────┐  ┌──────────────────┐  ┌───────────────────┐  │
+   │ CRON     │  │ KANBAN   │  │ SUBAGENT         │  │ CURATOR           │  │
+   │ 6 active │  │ dispatch │  │ delegation        │  │ self-clean        │  │
+   │ no-agent │  │ auto-dec │  │ max_children:3    │  │ weekly, 30d stale │  │
+   │ scripts  │  │ (fix cap)│  │ depth:1           │  │ auto-backup       │  │
+   └──────────┘  └──────────┘  └──────────────────┘  └───────────────────┘  │
+                         │                                                   │
+          ┌──────────────┴──────────────────┐                                │
+          ▼                                 ▼                                │
+   ┌──────────┐                     ┌──────────────┐                        │
+   │ MED-SYS  │                     │ FETCHER      │                        │
+   │ Spec v3  │                     │ adaptive     │                        │
+   │ solver   │                     │ scraper      │                        │
+   │ (BUILD)  │                     │ (PRODUCT)    │                        │
+   │ clean    │                     │ cost-opt     │                        │
+   └──────────┘                     └──────────────┘                        │
+                         │                                                   │
+                         └───────────────────────────────────────────────────┘
+```
+
+### 8.2 — Keep: What's already working and should stay
+
+| Layer | Why Keep | Condition |
+|-------|----------|-----------|
+| Cron no_agent discipline | Cost control. 6 jobs, script-only, no LLM burn. | Keep all 6 active; decide on 9 disabled ones. |
+| med-auto-confirm hook | Pattern D countermeasure — auto-state BEFORE agent. | Fix DRUG_MAP drift + dexa redundancy. |
+| chain_calc.py deterministic engine | Right approach (Python, no LLM for math). | Enhance with floor/independence guards OR implement Spec v3. |
+| Spec v3 constraint engine design | 9.95/10 rated. Clean architecture. | Execute: rules.json → solve → trace → why. |
+| fallback_providers chain | Free-only. Correctly wired. Properly logged [FALLBACK]. | Keep. |
+| Kanban dispatch + auto-decompose | Task orchestration activated. | Only fix: set max_in_progress limit. Wire to overhaul. |
+| Subagent delegation | Multi-agent foundation exists. | Document patterns; wire to kanban for overhaul. |
+| Memory curator | Self-cleaning, weekly, auto-backup. ACTIVE. | Wire contradiction-detection report. |
+| hybrid-web plugin | Working custom extraction. | Document as asset; address its paid-model dep. |
+| privacy.redact_pii | True. | Keep. |
+| approvals.mode: manual | Human-gate for dangerous ops. | Keep. |
+
+### 8.3 — Fix: Known bugs that must be resolved
+
+From Doc 2 findings (P1–P23), but here grouped by overhaul phase order:
+
+**Phase 1 — Safety-critical (immediate)**  
+- P2: `chmod 700 whatsapp/session/` — 775→700  
+- P3: Akurit-4→Akurit-2 across ALL med JSON + scripts + hooks (incl. med-auto-confirm DRUG_MAP)  
+- P4: chain-state.json atomic write (tmpfile+os.replace)  
+- P5: gateway_state stale-state bug  
+- P7: Purge `.env` from Windows snapshot; GitHub PII check  
+- Corr: Fix med-auto-confirm dexa boundary  
+
+**Phase 2 — Clinical correctness**  
+- P9: med_confirm.py clobber + re-decrement guard  
+- P10: med_resolve float hack + 14:00 boundary  
+- P6: Implement Spec v3 (constraint solver ≥ linear chain) — with floor/independence rules  
+- P13: Add `now_myt()` to chain_monitor.sh for portability (LOW now, still good practice)
+
+**Phase 3 — Orchestration + reliability**  
+- P11: Fix Daily Health Broken Pipe or decide to keep disabled  
+- P12: External dead-man alert (whatsapp/telegram when gateway dies)  
+- P14: Qwen/Sakana/minimax orphan drivers — quarantine or delete  
+- P17: Add pre-write state guard (Pattern D residual — agent can override after hook)  
+- P9: Session reset awareness for med context (suppress reset 5am-10pm)
+
+### 8.4 — Simplify: What to remove or consolidate
+
+| Item | Action | Rationale |
+|------|--------|-----------|
+| hello-world hook + cron pipeline | DELETE both hook + script | Dead pipeline — hook writes, cron doesn't read |
+| lightclawbot plugin | QUARANTINE (or delete) | Third-party, inactive, unverified code quality |
+| qwen_driver.py, sakana_driver.py, minimax_proxy.py | DELETE | Orphaned, dead endpoints, misleading capability |
+| 9 disabled LLM cron jobs | DECIDE: delete or fix | Currently `active=False` — neither removed nor repaired. Either fix or clean up. |
+| 60→~15 skills | CURATE | Keep: med-tracker, anti-fabrication, malaysia-selector, auto-skill-suggester, hermes-no-agent-cron, agent-methodology, agent-best-practices, life-management, research, github, devops, data-science, note-taking, productivity. Archive/delete the rest (gsap-*, design-*, brand-guidelines, apple, etc.) |
+| Async: ADVANCED-IDEAS list | CONDENSE to top 3 shipped | Currently 11 aspirational ideas. Pick: memory-contradiction detective, weekly retrospective, chained cron pipeline. Wire don't just document. |
+| `mcp_servers: {}` + `computer_use.enabled: true` | CONSISTENCY — disable flag if MCP empty | Currently contradictory (flag on, runtime absent) |
+
+### 8.5 — Add: What to build for overhaul target state
+
+| Addition | Priority | Why | Depends on |
+|----------|----------|-----|------------|
+| Spec v3 constraint engine | P0-clinical | Kills the E-follows-C bug + adds floor/independence. 9.95/10 design ready. | P3 (Akurit-2 fix) |
+| Durable source sync (one-way VPS→git) | P0-system | Unlocks reproducibility & all 3 income paths. | G1 decision |
+| Kanban wired to overhaul tasks | P1-orchestration | Track overhaul progress; existing system unused | Kanban cap fix |
+| Multi-agent delegation patterns documented | P2-vision | User's explicit "multi-agent expert system" goal | None (documentation) |
+| Session med-context survival across reset | P2-reliability | Prevents med context loss mid-day | Session_reset config |
+| Weekly curator contradiction report | P2-memory | Turns existing curator into active "memory detective" | None (add report generation) |
+| Fetcher as documented product asset | P3-product | Second sellable asset (after med engine) | P1 (sync) + G5 decision |
+| Med-intelligence framework (sellable) | P3-product | Complete Spec v3 → white-label ADHD/med-adherence engine | Spec v3 built |
+| GitHub pre-push PII/secret scan | P1-security | Prevents accidental secret exposure | P1 (sync) |
+
+### 8.6 — Phased execution order (revised from v1)
+
+```
+Phase 0: Safety/security (immediate actions, all independent)
+   P2, P4, P5, P7, P13 + Corr fix (dexa boundary) + session perms
+
+Phase 1: Durable source (unlocks reproducibility)
+   P1 (commit 9/7 fixes, establish one-way VPS→git)
+   P8 (GitHub PII check + pre-push scan)
+   → Git commit audit docs
+   → Decide G1, G4
+
+Phase 2: Med correctness (clinical safety, highest value)
+   P3 (Akurit-2 everywhere)
+   P9 (confirm clobber fix)
+   P10 (med_resolve fixes)
+   P6 (Spec v3 — implement constraint solver)
+   → Decide G2, G3
+
+Phase 3: Orchestration wiring (build target state)
+   P11 (Daily Health fix/decide)
+   P12 (dead-man alert)
+   P14 (orphan drivers)
+   P17 (state-write guard)
+   Wire kanban → overhaul tasks
+   Wire curator → contradiction report
+   Session med-context survival
+   → Decide G5 (fetcher product)
+
+Phase 4: Tidy + productize
+   P15 (wire 2-3 ADVANCED-IDEAS)
+   P16 (curate skills 60→15)
+   P19 (except pass → specific + log)
+   P20 (fetcher sync discipline)
+   P21 (V2 Overnight Build→build_overnight.py)
+   P22 (hide minimax from picker)
+   P23 (scope --update to drug_id)
+   hello-world pipeline cleanup
+   lightclawbot quarantine
+   Skills curation
+   Document multi-agent patterns
+```
+
+### 8.7 — User's multi-agent expert system vision vs current reality
+
+| Vision (USER.md) | Current Reality | Gap |
+|------------------|----------------|-----|
+| Multi-agent system: agents that "act/execute like real humans" | Subagent delegation exists (`max_concurrent_children: 3`, `max_spawn_depth: 1`) but pattern UNDOCUMENTED — no one uses it | Document + wire use cases |
+| "Not just chat answers" — agents do real work | Kanban auto-decomposes work items, cron runs scripts, hooks auto-confirm meds — FOUNDATION EXISTS | No integration between kanban, delegation, and user-facing workflows |
+| "Helpful, meaningful, profitable" | 3 clear product seeds: med-intelligence engine, fetcher anti-bot scraper, MJ consulting demo | All blocked by no-durable-source (P1). All need Spec v3 complete. |
+| "Current <5% of reality" | User's own assessment. I agree: the platform components are there but disconnected. The 5% is cron+med-tracker working. The 95% is kanban+delegation+fetcher+curator sitting idle. | Goal: 5% → 25% in this overhaul. Full 100% is post-overhaul iteration. |
+| "Obsidian not integrated" | Confirmed — no Obsidian configuration in config.yaml despite `OBSIDIAN_VAULT_PATH` in .env | Wire Obsidian read/write after overhaul stabilizes |
+
+**End of zai-audit-03.** Findings evidence-first; UNVERIFIED items flagged. The L2 deep dive expanded scope from ~4 layers to 16+ and produced 13 new findings (54 total). Ready for phase-by-phase execution — starting with your signal on G1–G6 and Phase 0.
