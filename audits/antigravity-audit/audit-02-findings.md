@@ -232,6 +232,7 @@ file:line evidence. No prior text removed or altered.
 - **Recommendation:** in **Phase C**, read the full spec, verify its model matches the clinically-correct timing (A gates only B's earliest via 1h empty-stomach wait; Dexa fixed 08/12/16; Levetiracetam 12h pair), reconcile its GAPS with F-08, refine any gaps, and produce a final F-01 remediation spec. This is the user-approved disposition for F-01.
 
 ### F-25 [CRITICAL][NEW — POST-AUDIT] med-auto-confirm hook false positive (PATTERN G) — Slot regex too loose, no timestamp validation
+- **Source:** Transparent info direct from system (runtime failure analysis, 2026-07-10) — post-audit system info.
 - **File:** `hooks/med-auto-confirm/handler.py` (SLOT_RE, _already_logged)
 - **Date discovered:** 2026-07-10 (after audit completed — runtime failure)
 - **Root cause:** SLOT_RE = `\b[A-Ea-e]\b` matches ANY single letter A-E in natural language. Combined with TIME_RE grabbing any HH:MM from conversational context, the hook can false-positive on messages that DISCUSS medication timing rather than CONFIRM intake.
