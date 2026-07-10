@@ -7,7 +7,7 @@
 
 **Severity:** CRITICAL (data loss / patient-safety / system failure / secret exposure) · HIGH (wrong behavior / silent gap) · MEDIUM (edge/debt) · LOW (cosmetic/doc).
 
-**Counts (this pass): CRITICAL: 10 · HIGH: 17 · MEDIUM: 16 · LOW: 11 = 54.** Of these, **29 are [BEYOND]** the prior baseline (new dimensions: orchestration, security perms, second workstream, sync-of-truth, aspirational-vs-shipped, kanban, delegation, curator, plugins, hooks internals, config-deep, fetcher-product).
+**Counts (this pass): CRITICAL: 11 · HIGH: 17 · MEDIUM: 16 · LOW: 11 = 55.** Of these, **30 are [BEYOND]** the prior baseline (new dimensions: orchestration, security perms, second workstream, sync-of-truth, aspirational-vs-shipped, kanban, delegation, curator, plugins, hooks internals, config-deep, fetcher-product).
 
 ---
 
@@ -351,6 +351,44 @@ for did in drug_ids:
 **Correction:** Update D9 finding: Pattern D is PARTIALLY covered by this hook; the remaining gap is the inherited drift + the agent can still override after the hook fires (since hook runs at agent:start, agent still processes the message).
 
 **[BEYOND note for all L2 findings]:** These are from the L2 deep expansion — all 14 are [BEYOND] the prior baseline audit. Prior auditors (zcode, gemini, zhipu, etc.) read none of these layers.
+
+### [LOW][CONFIG] — L2-C2: med-auto-confirm hook PARTIALLY addresses Pattern D (with inherited bugs)
+**File(s):** hooks/med-auto-confirm/handler.py (agent:start hook)
+**Evidence:** My earlier finding "Hooks cover text not state (Pattern D uncovered)" is PARTIALLY INCORRECT. The med-auto-confirm hook DOES run med_confirm.py as a side-effect BEFORE the agent processes the message — so the state IS updated before the LLM can overwrite it. This IS a Pattern D countermeasure. However, it inherits the Akurit-4 drift (L2-N5) and the dexa boundary redundancy (L2-N13).
+**Correction:** Update D9 finding: Pattern D is PARTIALLY covered by this hook; the remaining gap is the inherited drift + the agent can still override after the hook fires (since hook runs at agent:start, agent still processes the message).
+
+---
+
+## Z-F-G — POST-AUDIT 2026-07-10: Pattern G (CRITICAL, patient-safety adjacent)
+
+### [CRITICAL][HOOKS/DATA-INTEGRITY] — Z-F-G: med-auto-confirm hook false-positive on conversational message, corrupts med-status and silences reminders
+**File(s):** `~/.hermes/hooks/med-auto-confirm/handler.py` (specifically `SLOT_RE = re.compile(r"\b(slot\s*)?([A-Ea-e])\b")` and `TIME_RE`); downstream consumers `scripts/chain_calc.py` (`calculate_ready_time`) and `scripts/chain_monitor.sh`
+**Evidence (post-audit runtime failure, 2026-07-10, transparent system info):**
+- User discussed yesterday's "20:00" timing issue in a conversational message.
+- `SLOT_RE` matched a single letter "A" (or slot-like token) in the conversation.
+- `TIME_RE` extracted "20:00" from the discussion context, treating it as an intake time.
+- Hook executed `med_confirm.py A --at 20:00`, creating a corrupt entry: `A/2026-07-10 @ 20:00` (future time on 10 Jul morning).
+- `is_confirmed('A')` → True → A reminder suppressed.
+- B's `ready_time` = 20:00 + 1h = 21:00 → B also suppressed.
+- Silent exit from cron → day-roll never ran → `chain-state.json` frozen on date `2026-07-09`.
+- Result: **no morning reminders for TB Meningitis drugs on 2026-07-10.**
+
+**Impact:** Patient-safety adjacent — missed morning doses for TB Meningitis treatment due to a silent, automated state corruption. The hook intended to prevent Pattern D (agent forgetting to confirm) introduced Pattern G (over-eager auto-confirmation from conversation).
+
+**Root cause:** `SLOT_RE` is too loose — a single-letter slot match in conversational text is not sufficient evidence of intake. `TIME_RE` extracts any time-like string without context validation. No timestamp sanity check (future time rejected), no context guard (is this an intake statement or a discussion?), no audit trail, and day-roll is gated inside the reminder-fire path so a silent exit freezes date state.
+
+**Recommendation:**
+1. **Tighten `SLOT_RE`:** require explicit intake verbs/context ("dah makan A", "A done", "ambil A"), not bare letters.
+2. **Add timestamp validation:** reject `--at` times > now + small buffer (e.g. >15 min in future) and log the rejection.
+3. **Add context guard:** require a completion signal + slot + optional time together; conversational discussion of time should not match.
+4. **Fix `_already_logged`:** currently returns True if any entry exists — should verify the entry is valid and from today, not a corrupt future timestamp.
+5. **Move day-roll outside `should_fire` gate:** date rollover must happen regardless of whether a reminder fires, so chain-state.json never freezes on yesterday.
+6. **Add audit log:** every auto-confirm writes to `logs/med_auto_confirm.jsonl` with message snippet (PII-redacted), matched pattern, and result.
+7. **Regression tests:** add tests for (a) conversational time mention, (b) future-time rejection, (c) bare letter rejection, (d) day-roll on no-fire.
+
+**New failure pattern:** **Pattern G** — "Auto-confirmation hook false-positive on chat conversation (not intake) creates corrupt entry with timestamp from conversational context, suppresses downstream reminders, and freezes chain state."
+
+**[BEYOND]:** This finding was not available during the L2 deep dive (occurred 2026-07-10). Added post-audit per system-aligned instruction.
 
 ---
 

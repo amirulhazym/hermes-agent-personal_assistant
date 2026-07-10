@@ -101,6 +101,7 @@ The system is **not** a medication tracker. It is a self-hosted, always-on **age
 **What it is:** `hooks/` with `skill-trigger/` (auto-injects med-tracker on med keywords) and `anti-fabrication-guardrails/` (prevents AI fabricating drug names).
 **Should:** guardrails cover the failure modes — esp. Pattern D (assistant resets med data without checking history).
 **Actual:** The anti-fabrication hook guards *output text*, not *state writes*. Pattern D (over-assume reset) is a **state-mutation** failure, not a text-fabrication failure — so the existing hook does NOT cover it. Gap.
+**POST-AUDIT (2026-07-10):** the `med-auto-confirm` hook (not in original D9 text) caused Pattern G — false-positive slot match on conversational message, corrupt A/07-10 @20:00 entry, suppressed all morning reminders. See `zai-audit-02-findings.md` Z-F-G [CRITICAL].
 
 ### D10 — Memory & context architecture
 **What it is:** `memories/`, `SOUL.md` (live 131 lines vs repo 61 — drift), `USER.md` (referenced in charter, presence UNVERIFIED this pass), compression, `memory_watch.py` (cron, active=False).
