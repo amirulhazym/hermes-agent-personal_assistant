@@ -28,7 +28,8 @@ Authoritative mandate: **`OVERHAUL-EXECUTION-PROMPT.md`**. Key rules:
 - MJ (native Hermes) = **VERIFIER ONLY**. Only OpenCode (you) changes the VPS.
 - **Local git commits YES; git push NO** (user rule — avoid auditor merge conflicts).
 
-**Phase 0/P0/P1/P2 = DONE (verified). Execution is at P3 (approved plan below).**
+**Phase 0/P0/P1/P2 = DONE (verified). P3-S0/S0b/S1/S2 = DONE (2026-07-11).
+Next: P3-S3 gated memory trim → S4 → S5.**
 
 ## 1. HARD CONSTRAINTS
 
