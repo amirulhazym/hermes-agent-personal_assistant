@@ -28,8 +28,9 @@ Authoritative mandate: **`OVERHAUL-EXECUTION-PROMPT.md`**. Key rules:
 - MJ (native Hermes) = **VERIFIER ONLY**. Only OpenCode (you) changes the VPS.
 - **Local git commits YES; git push NO** (user rule — avoid auditor merge conflicts).
 
-**Phase 0/P0/P1/P2 = DONE. P3-S0/S0b/S1/S2/S3 = DONE (2026-07-11).
-Next: P3-S4 skill curation → S5 live verify.**
+**Phase 0/P0/P1/P2 = DONE. P3-S0 through S5 = DONE (2026-07-11).
+P3 COMPLETE under bounded full approval (S4 report-only, no skill deletes).
+Next phase: Phase 4 → create `CONTINUATION-BRIEF-P4.md` when starting.**
 
 ## 1. HARD CONSTRAINTS
 
@@ -242,9 +243,37 @@ ssh ubuntu@119.28.119.151 'ls ~/.hermes/scripts/med_chain/tests/'
 ssh ubuntu@119.28.119.151 'python3 -c "import json;d=json.load(open(\"/home/ubuntu/.hermes/cron/jobs.json\"));j=[x for x in d[\"jobs\"] if x[\"name\"]==\"hello-world-watch\"][0];print(j[\"state\"], j[\"schedule\"])"'
 ```
 
+## 7b. P3 COMPLETION ACTUALS (2026-07-11)
+
+### S4 Skill curation — REPORT ONLY (no deletes) [VALIDATED]
+- 125 SKILL.md files inventoried.
+- KEEP: med-tracker, clean-restart-gateway, hermes-no-agent-cron-pattern,
+  agent-methodology/*, cost-tracking, system-self-monitor, adhd-daily-planning, etc.
+- MAYBE DROP later (user decision): morning-briefing-removal-note, unused gsap/*,
+  niche platform skills; gateway-restart only after name fully unused (already DEPRECATED).
+- Full report: VPS `~/hermes-overhaul-backup/pre-p3/P3-S4-SKILL-CURATION-REPORT.md`
+
+### S5 Live verify [VALIDATED]
+| Check | Result |
+|---|---|
+| gateway | **active** PID 3896725, WA bridge :3000 |
+| hooks | hello-world + med-auto-confirm + skill-trigger |
+| hello-world-watch | **scheduled** every 30s, last ok |
+| Daily Health | **paused** (as ordered) |
+| MEMORY / USER | **46.1% / 67.1%** (healthy) |
+| chain_calc --display | A06:15→B08→C12→D17→E~20 clean |
+| med_chain tests | **21/21 OK** |
+| Extra restart | skipped (healthy; S2 already proved Hello World) |
+| git push | **NONE** |
+
+### Local commits (no push)
+- VPS `hermes-local`: through `18140d3` (S4/S5 empty commit marker)
+- Windows `overhaul/exec`: brief updates committed locally
+
 ## 8. NEXT AFTER P3
 
 - Phase 4: partial multi-agent → create `CONTINUATION-BRIEF-P4.md`.
+- Optional later: skill deletes from S4 MAYBE DROP list (needs explicit go).
 - Keep med tests green; no push until user explicitly allows.
 
 ## 9. KEY FILES
