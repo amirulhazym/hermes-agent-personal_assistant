@@ -29,8 +29,8 @@ Authoritative mandate: **`OVERHAUL-EXECUTION-PROMPT.md`**. Key rules:
 - **Local git commits YES; git push NO** (user rule — avoid auditor merge conflicts).
 
 **Phase 0/P0/P1/P2 = DONE. P3-S0 through S5 = DONE (2026-07-11).
-P3 COMPLETE under bounded full approval (S4 report-only, no skill deletes).
-Next phase: Phase 4 → create `CONTINUATION-BRIEF-P4.md` when starting.**
+P3 cleanup = DONE: dropped niche skills + gateway-restart + MINIMAX_API_KEY env name.
+Push still blocked. Next: Phase 4 only after user approval to draft P4 brief.**
 
 ## 1. HARD CONSTRAINTS
 
