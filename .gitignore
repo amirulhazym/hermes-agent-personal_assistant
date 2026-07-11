@@ -15,6 +15,21 @@ platforms/
 *.log
 logs/
 
+# Health / PII data — NEVER commit (PDPA, public GitHub repo)
+med-status.json
+chain-state.json
+med-schedule.json
+med-supply.json
+med-interactions.json
+dexa_taper.json
+substitutions.json
+appointments.json
+channel_directory.json
+audit-prep/med-status.json
+*.db
+*.db-shm
+*.db-wal
+
 # OS files
 .DS_Store
 Thumbs.db
