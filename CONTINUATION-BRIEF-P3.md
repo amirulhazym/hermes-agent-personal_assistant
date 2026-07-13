@@ -30,8 +30,9 @@ Authoritative mandate: **`OVERHAUL-EXECUTION-PROMPT.md`**. Key rules:
 
 **Phase 0/P0/P1/P2 = DONE. P3-S0 through S5 = DONE (2026-07-11).
 P3 cleanup = DONE: dropped niche skills + gateway-restart + MINIMAX_API_KEY env name.
-Push still blocked. P4 draft written: CONTINUATION-BRIEF-P4.md + design + plan.
-Execute P4 only on explicit user go.**
+Push still blocked. P4 multi-agent OS = ON HOLD (see CONTINUATION-BRIEF-P4.md +
+docs/superpowers/specs/2026-07-11-phase4-os-vision-HOLD.md).
+**Next track: PX-1 Research** → CONTINUATION-BRIEF-PX1.md + PX1-RESEARCH-TRACK-PLAN.md.**
 
 ## 1. HARD CONSTRAINTS
 
