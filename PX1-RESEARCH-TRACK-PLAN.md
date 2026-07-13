@@ -1,9 +1,9 @@
 # PX-1 Research Capability Track — Plan
 
-**Status:** ACTIVE NEXT TRACK — Ready for Fasa 0 after handoff  
+**Status:** ACTIVE — Fasa 0–2 done on VPS; next = Fasa 3  
 **Track type:** Separate from P0–P3 med/gateway; **parallel to P4 (P4 ON HOLD)**  
 **Owner:** amirulhazym  
-**Created:** 13 July 2026 · **Updated:** 13 July 2026  
+**Created:** 13 July 2026 · **Updated:** 13 July 2026 (Fasa 2 complete)  
 **Handoff brief:** `CONTINUATION-BRIEF-PX1.md`  
 **P4 freeze:** `CONTINUATION-BRIEF-P4.md` + `docs/superpowers/specs/2026-07-11-phase4-os-vision-HOLD.md`
 
@@ -73,7 +73,7 @@ hybrid-web extract.
 
 ## 4. PHASED EXECUTION
 
-### Fasa 0 — Foundation fix (START)
+### Fasa 0 — Foundation fix — DONE (2026-07-13)
 Install deps + verify extract + Playwright.
 
 ```bash
@@ -87,17 +87,16 @@ free -h; df -h ~ | tail -1
 Verify hybrid-web / web_extract on static + JS URL.  
 **Gate:** user confirmation before Fasa 1.
 
-### Fasa 1 — Search backend + fallback
-- Primary: **Tavily** (after key + go)  
-- Fallback: **DDGS**  
-- Optional 1b: **SearXNG** self-host later  
+### Fasa 1 — Search backend + fallback — DONE (2026-07-13)
+- Primary: **Tavily** via `search-cascade`  
+- Fallback: **DDGS** on error/empty  
+- MCP Tavily tools registered  
+- Optional 1b: **SearXNG** self-host later (still deferred)  
 
-Benchmark quality; test fallback on primary failure.  
-**Gate** before Fasa 2.
-
-### Fasa 2 — Research Expert + pipeline
-- `skills/experts/research-expert/SKILL.md`  
-- Pipeline: plan → search → extract → verify → synthesize → artifact package  
+### Fasa 2 — Research Expert + pipeline — DONE (2026-07-13)
+- `skills/experts/research-expert/` (+ VPS `~/.hermes/skills/experts/research-expert/`)  
+- Pipeline + artifact format + smoke package  
+- skill-trigger research patterns  
 - Max 3 parallel per stage; depth 1  
 **Gate** before Fasa 3.
 
