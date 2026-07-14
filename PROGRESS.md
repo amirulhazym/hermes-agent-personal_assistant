@@ -935,8 +935,14 @@ After user approval to continue autonomously while sleeping, completed:
 - [x] Knowledge layer contract doc + export stub
 - [x] E2E validated (2 full pipeline runs + fallback + quality comparison)
 
-### Next: PX-1b Web Operator (design + future)
-- Reduce PC dependence for web tasks (browse, scrape, session)
-- Agent-side browser/automation skills
-- CUA policy: keep, document when required
-- See `docs/superpowers/specs/2026-07-14-px1-research-journey.md` §11 for backlog
+### Next: PX-1b Web Operator — PLANNING PACKAGE READY (2026-07-14)
+
+No implementation yet. Human offline review:
+
+| Doc | Path |
+|-----|------|
+| Reusable framework | `docs/superpowers/specs/PX-PLANNING-FRAMEWORK.md` |
+| Doc B audit recap | `docs/superpowers/specs/2026-07-14-px1b-web-operator-audit-recap.md` |
+| Doc A sequential Q&A | `docs/superpowers/specs/2026-07-14-px1b-web-operator-planning-qna.md` |
+
+Process: fill Doc A → return → joint lock → design → implement.

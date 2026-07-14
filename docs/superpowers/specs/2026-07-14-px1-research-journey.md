@@ -318,16 +318,15 @@ silent default behavior of the agent.
 
 ## 11. Backlog
 
-### Wave 1 — Finish PX-1 (next session, after user go)
-- **Fasa 3:** Platform verification + research trace log
-- **Fasa 4:** Knowledge layer contract (Obsidian prep only)
-- **Fasa 5:** One E2E research from Telegram/WhatsApp
+### Wave 1 — Finish PX-1 — DONE (2026-07-14)
+- Fasa 3–5 complete (verification, knowledge stub, E2E SSH validation)
 
-### Wave 2 — PX-1b Web Operator (design only, future)
-- Agent-side browser/automation for research browsing (not account farming)
-- Session vault for authenticated sites
-- CUA policy: favorite feature, keep, document when required
-- Reduce PC dependence for web tasks (not captcha-heavy ops)
+### Wave 2 — PX-1b Web Operator — PLANNING (2026-07-14)
+- **Framework:** `docs/superpowers/specs/PX-PLANNING-FRAMEWORK.md`
+- **Doc B audit:** `docs/superpowers/specs/2026-07-14-px1b-web-operator-audit-recap.md`
+- **Doc A Q&A:** `docs/superpowers/specs/2026-07-14-px1b-web-operator-planning-qna.md`
+- Human fills Doc A offline → return → lock → design → implement
+- Themes: L3 browse, session vault, CUA PC policy, less PC for web (not captcha ops)
 
 ---
 

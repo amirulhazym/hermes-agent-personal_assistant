@@ -143,13 +143,13 @@ ssh ubuntu@119.28.119.151 'tail -3 ~/.hermes/logs/tavily_key_usage.jsonl'
 | Accidental med edit | Explicit path denylist; never open med files |
 | Skill trigger not firing | Verify E2E from actual chat (Fasa 5) |
 
-## 10. FIRST ACTIONS IN NEW SESSION (PX-1 complete — start PX-1b)
+## 10. FIRST ACTIONS IN NEW SESSION (PX-1 complete — PX-1b PLANNING)
 
-1. Read `docs/superpowers/specs/2026-07-14-px1-research-journey.md` first.  
-2. PX-1 is DONE. All Fasas validated.  
-3. Next: **PX-1b Web Operator** — design Hermes-side web automation to reduce PC dependence.  
-4. Do NOT re-run any PX-1 Fasa. Do NOT re-install deps.  
-5. The winning CDP signup pipeline is on PC only (Section 6.10 of Journey).
+1. Read `docs/superpowers/specs/PX-PLANNING-FRAMEWORK.md` (reusable for any future PX).  
+2. Read Doc B: `docs/superpowers/specs/2026-07-14-px1b-web-operator-audit-recap.md`.  
+3. Fill Doc A offline: `docs/superpowers/specs/2026-07-14-px1b-web-operator-planning-qna.md`.  
+4. Return filled Q&A → joint lock → design → implement. **No PX-1b code until lock.**  
+5. PX-1 is DONE. Do NOT re-run Fasa 0–5. CDP signup stays PC ops only.
 
 ---
 
