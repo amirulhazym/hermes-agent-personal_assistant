@@ -39,13 +39,14 @@ not a single tool. Skills ≠ experts.
 | Verify | `references/verification.md` (Fasa 3 grounding rules — mandatory for non-trivial research) |
 | Trace | `references/trace-log.md` (Fasa 3 audit log — append to `~/.hermes/logs/research_trace.jsonl`) |
 | Browser | Playwright path only when extract needs JS; keep ≤3 parallel |
-| Notes | Obsidian skill later (Fasa 4 contract); optional write under research artifacts dir |
+| Notes | Knowledge export stub (Fasa 4): `~/.hermes/scripts/research_knowledge.py` |
 
 ## Must load / related
 
 - Methodology: evidence-first feasibility when comparing solution options
 - Verification: `references/verification.md` — cross-check, freshness, contradiction rules (Fasa 3)
 - Trace: `references/trace-log.md` — audit log format (Fasa 3)
+- Knowledge: `references/knowledge-contract.md` — Obsidian handoff contract (Fasa 4)
 - Anti-hallucination: SOUL grounding rules + this skill's verify stage
 - Do **not** load med-tracker unless user is also confirming meds
 
@@ -100,3 +101,9 @@ This skill now includes:
 - `references/trace-log.md` — audit log (`~/.hermes/logs/research_trace.jsonl`) for every non-trivial pipeline run
 - Self-audit checklist before synthesis release
 - SOUL grounding violations counter in trace log
+
+## Fasa 4 addition (knowledge contract)
+
+- `references/knowledge-contract.md` — artifact-to-Obsidian handoff spec
+- `~/.hermes/scripts/research_knowledge.py` — export stub (produces vault-note.md)
+- No auto-write; user controls vault import

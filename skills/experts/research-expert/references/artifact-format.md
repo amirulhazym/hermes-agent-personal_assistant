@@ -61,7 +61,15 @@ med_touch: false
 
 Use `templates/research-artifact.md` structure.
 
-## Knowledge-layer note (Fasa 4 prep)
+## Knowledge-layer note (Fasa 4 contract)
 
-Artifacts are the handoff unit for later Obsidian/knowledge import.
+Artifacts are the handoff unit for Obsidian/knowledge import.
+See `references/knowledge-contract.md` for the interface definition.
+
+**Quick export (Fasa 4 stub):**
+```bash
+python3 ~/.hermes/scripts/research_knowledge.py <artifact_dir>
+# Produces: vault-note.md — copy to Obsidian manually
+```
+
 Do not dual-write vault unless user asks; this package is SSOT for PX-1.
