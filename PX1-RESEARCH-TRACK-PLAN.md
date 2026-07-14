@@ -1,10 +1,11 @@
 # PX-1 Research Capability Track — Plan
 
-**Status:** ACTIVE — Fasa 0–2 done on VPS; next = Fasa 3  
+**Status:** ACTIVE — Fasa 0–2 + Multi-Key Capacity done on VPS; next = Fasa 3  
 **Track type:** Separate from P0–P3 med/gateway; **parallel to P4 (P4 ON HOLD)**  
 **Owner:** amirulhazym  
-**Created:** 13 July 2026 · **Updated:** 13 July 2026 (Fasa 2 complete)  
+**Created:** 13 July 2026 · **Updated:** 14 July 2026 (multi-key + journey doc)  
 **Handoff brief:** `CONTINUATION-BRIEF-PX1.md`  
+**Journey:** `docs/superpowers/specs/2026-07-14-px1-research-journey.md`  
 **P4 freeze:** `CONTINUATION-BRIEF-P4.md` + `docs/superpowers/specs/2026-07-11-phase4-os-vision-HOLD.md`
 
 ---

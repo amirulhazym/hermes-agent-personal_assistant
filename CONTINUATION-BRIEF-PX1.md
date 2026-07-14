@@ -1,8 +1,8 @@
 # Hermes Agent Overhaul — CONTINUATION BRIEF PX-1 (Research Track)
 
-> **Attach BOTH this file AND `OVERHAUL-EXECUTION-PROMPT.md`.**  
-> Also open: `PX1-RESEARCH-TRACK-PLAN.md`  
-> P4 is **ON HOLD** — see `CONTINUATION-BRIEF-P4.md` + `docs/superpowers/specs/2026-07-11-phase4-os-vision-HOLD.md`.  
+> **Attach this file.** Also open: `PX1-RESEARCH-TRACK-PLAN.md`
+> + `docs/superpowers/specs/2026-07-14-px1-research-journey.md`.
+> P4 is **ON HOLD** — see `CONTINUATION-BRIEF-P4.md`.
 > **Do not touch med logic** (`med_*`, `chain_*`, `med-auto-confirm`, med JSON).
 
 ---
@@ -11,13 +11,15 @@
 
 You are executor for **PX-1 Research Capability Track** (post-P3, parallel to held P4).
 
-**Goal:** Turn Hermes research from weak DDGS + broken hybrid-web extract into a proper
-**Research Expert** (domain owner): deep, cited, verified research with fallbacks —
-aligned with OS vision (staged execution, artifact handoff, depth=1/max=3) without
-building the full multi-agent OS.
+**Current state:** Fasa 0–2 + Multi-Key Capacity **DONE** on VPS. Next = Fasa 3+.
+Search, extract, research expert skill, and 11-key Tavily pool are all live.
+Do **NOT** re-install deps, re-configure search, or re-debug Turnstile paths.
+
+**Goal:** Advance the Research Expert from "skill deployed" to "verified, traced, proven
+end-to-end in user chat" — then open the Web Operator track (PX-1b).
 
 **Principles:** evidence-first · incremental · per-step user go · zero/low cost ·
-connect don’t rebuild · Research Expert composes skills/tools (skills ≠ expert).
+compose don't rebuild · Research Expert composes skills/tools (skills ≠ expert).
 
 ## 1. HARD CONSTRAINTS
 
@@ -38,64 +40,51 @@ connect don’t rebuild · Research Expert composes skills/tools (skills ≠ exp
 - PX-1 is a **shippable vertical**: Research Expert + tools — feeds later P4 patterns.  
 - Not redundant with P0–P3 med work; does not require finished OS spine to start Fasa 0.
 
-## 3. LIVE STATE (validated 2026-07-13)
+## 3. LIVE STATE (validated 2026-07-14)
 
 | Item | State |
 |---|---|
-| `web.backend` / search | `ddgs` (weak) |
-| `web.extract_backend` | `hybrid-web` |
-| Plugin | `~/.hermes/plugins/hybrid-web/` exists |
-| trafilatura in venv | **False (missing)** |
-| crawl4ai in venv | **False (missing)** |
-| playwright in venv | **False (missing)** |
-| Singapore VPS | Possible third-party throttle risk |
+| `web.backend` / search | **`search-cascade`** (Tavily → DDGS, 11 keys in pool) |
+| `web.extract_backend` | **`hybrid-web`** (ABC-compliant, trafilatura→crawl4ai→Playwright) |
+| Plugin | `~/.hermes/plugins/hybrid-web/` + `~/.hermes/plugins/search-cascade/` |
+| trafilatura in venv | **True** (installed via uv) |
+| crawl4ai in venv | **True** (installed via uv) |
+| playwright in venv | **True** (+ Chromium) |
+| Chromium | Installed on VPS (~300MB) |
+| 11 Tavily keys | In VPS `.env` (free tier pool) |
+| Research Expert | Deployed: `~/.hermes/skills/experts/research-expert/` |
+| Usage log | `~/.hermes/logs/tavily_key_usage.jsonl` |
+| Gateway | Active, Telegram + WhatsApp connected |
 
-## 4. USER DECISIONS (2026-07-13)
+## 4. USER DECISIONS (2026-07-14)
 
 | Topic | Decision |
 |---|---|
-| Sequence | Freeze P4 → **PX-1 next** (new session OK) |
-| Tavily | **Primary when key ready**; confirm before Fasa 1 config change |
-| SearXNG | **Later (Fasa 1b)** — not blocking Fasa 0 |
-| Playwright + Chromium | **Yes in Fasa 0** |
-| Design skills | Do not delete |
+| Sequence | Freeze P4 → PX-1 Fasa 0–2 + multi-key done |
+| Tavily | **Yes — 11 free keys in pool** (multi-account, no paid) |
+| SearXNG | **Later** — not needed with 11-key Tavily pool |
+| Playwright + Chromium | **Installed and working** |
+| Multi-key | **11 keys in VPS .env + rotating pool + usage log** |
+| Signup pipeline | **PC ops only** (not agent skills) |
+| Next | **Fasa 3** (platform verification + trace log) |
 | P4 | ON HOLD |
 
-## 5. PHASED PLAN (execute one Fasa at a time)
+## 5. PHASED PLAN (Fasa 0–2 done; execute Fasa 3 next)
 
-### Fasa 0 — Foundation fix (START HERE)
-**Objective:** Make extraction work again.
+### Fasa 0 — Foundation fix — DONE (2026-07-13)
+Deps installed via `uv pip`, Chromium installed, hybrid-web extract working. Backups created.
 
-1. Check disk/`free -h` before large installs.  
-2. Install in Hermes venv:
+### Fasa 1 — Search backend + fallback — DONE (2026-07-13)
+`search-cascade` plugin active: Tavily primary (11 keys), DDGS fallback. MCP Tavily tools.
 
-```bash
-~/.hermes/hermes-agent/venv/bin/pip install trafilatura crawl4ai playwright
-~/.hermes/hermes-agent/venv/bin/playwright install chromium
-```
+### Fasa 2 — Research Expert + pipeline — DONE (2026-07-13)
+`~/.hermes/skills/experts/research-expert/` deployed. Pipeline + artifact format + smoke test. Commit `ce3d593`.
 
-3. Verify hybrid-web extract (static + JS URL if possible).  
-4. Optional thin Playwright wrapper skill if crawl4ai insufficient.  
-5. **STOP** — show install + extract evidence — user gate before Fasa 1.
+### Multi-Key Capacity — DONE (2026-07-14)
+10 new Tavily accounts via CDP Chrome + QRYPTY. 11 keys total in VPS pool. Usage log active.
 
-**Must not:** change med files; enable paid APIs in Fasa 0.
-
-### Fasa 1 — Search backend + fallback
-**Primary:** Tavily (after key + go)  
-**Fallback:** DDGS always; SearXNG self-host = **1b later**  
-
-Configure primary + simple fallback on error/rate-limit. Benchmark vs DDGS.  
-**Gate** before Fasa 2.
-
-### Fasa 2 — Research Expert + pipeline
-- `skills/experts/research-expert/SKILL.md`  
-- Staged pipeline: plan → search → extract → verify → synthesize → **artifact package**  
-- Respect depth=1 / max=3  
-**Gate** before Fasa 3.
-
-### Fasa 3 — Platform verification + logging
-Cross-check, freshness, contradictions; research trace log (like med_chain_trace).  
-Leverage SOUL grounding rules.
+### Fasa 3 — Platform verification + logging (START HERE)
+Cross-check, freshness, contradictions; research trace log (like med_chain_trace). Leverage SOUL grounding rules. **Full detail:** `PX1-RESEARCH-TRACK-PLAN.md`.
 
 ### Fasa 4 — Knowledge layer contract (Obsidian prep)
 Read/write policy + artifact format; stub Knowledge interface. **Not** full Obsidian product.
@@ -110,56 +99,56 @@ One full research workflow; fallback under failure; quality vs baseline.
 git -C "F:\AI Prep\OVIS\Hermes Agent\MJay" status
 git -C "F:\AI Prep\OVIS\Hermes Agent\MJay" log --oneline -5
 
-# Open
-# OVERHAUL-EXECUTION-PROMPT.md
-# CONTINUATION-BRIEF-PX1.md
+# Open these files
+# CONTINUATION-BRIEF-PX1.md (this file)
 # PX1-RESEARCH-TRACK-PLAN.md
+# docs/superpowers/specs/2026-07-14-px1-research-journey.md (journey + anti-repeat)
 # CONTINUATION-BRIEF-P4.md (HOLD only)
 
-# VPS
+# VPS: verify live state
 ssh -o ConnectTimeout=10 ubuntu@119.28.119.151 'systemctl --user is-active hermes-gateway'
-ssh ubuntu@119.28.119.151 'grep -nE "backend|extract|ddgs|tavily|hybrid" ~/.hermes/config.yaml | head -20'
-ssh ubuntu@119.28.119.151 '~/.hermes/hermes-agent/venv/bin/python -c "import importlib.util as u; print(bool(u.find_spec(\"trafilatura\")), bool(u.find_spec(\"crawl4ai\")), bool(u.find_spec(\"playwright\")))"'
-ssh ubuntu@119.28.119.151 'free -h; df -h ~ | tail -1'
-ssh ubuntu@119.28.119.151 'ls ~/.hermes/plugins/hybrid-web/'
+ssh ubuntu@119.28.119.151 'grep -nE "backend|extract|search-cascade|hybrid" ~/.hermes/config.yaml | head -20'
+ssh ubuntu@119.28.119.151 'grep TAVILY_API_KEYS ~/.hermes/.env | tr "," "\n" | wc -l'
+ssh ubuntu@119.28.119.151 'ls ~/.hermes/plugins/ ~/.hermes/skills/experts/research-expert/'
+ssh ubuntu@119.28.119.151 'tail -3 ~/.hermes/logs/tavily_key_usage.jsonl'
 ```
 
 ## 7. ENVIRONMENT
 
-- VPS: `ubuntu@119.28.119.151` · home `/home/ubuntu`  
-- Hermes: `~/.hermes/` · venv: `~/.hermes/hermes-agent/venv`  
-- Gateway: `systemctl --user restart hermes-gateway` (only if needed; after each risky step verify)  
-- Local branch: `overhaul/exec` · VPS hermes git: `hermes-local`  
-- Backups: create `~/hermes-overhaul-backup/pre-px1/` before changes  
+- VPS: `ubuntu@119.28.119.151` · home `/home/ubuntu`
+- Hermes: `~/.hermes/` · venv: `~/.hermes/hermes-agent/venv`
+- Gateway: `systemctl --user restart hermes-gateway` (only if needed; verify after)
+- Local branch: `overhaul/exec` · VPS hermes git: `hermes-local`
+- Backups: `~/hermes-overhaul-backup/pre-px1/` already created
+- Journey doc: `docs/superpowers/specs/2026-07-14-px1-research-journey.md`
 
 ## 8. DELIVERABLES (end of PX-1)
 
-- [ ] hybrid-web extract works (+ Playwright where needed)  
-- [ ] Search: Tavily (if approved) + DDGS fallback (+ SearXNG later)  
-- [ ] `skills/experts/research-expert/`  
-- [ ] Deep-research pipeline + artifact handoff  
-- [ ] Platform verification + research trace log  
-- [ ] Knowledge layer contract doc  
-- [ ] One E2E documented example  
-- [ ] Med tests still green if any shared surface touched (prefer zero touch)  
+- [x] hybrid-web extract works (+ Playwright where needed)
+- [x] Search: Tavily + DDGS fallback (11-key free pool)
+- [x] `skills/experts/research-expert/` deployed
+- [x] Deep-research pipeline + artifact handoff
+- [ ] Platform verification + research trace log
+- [ ] Knowledge layer contract doc
+- [ ] One E2E documented example (from Telegram/WhatsApp)
 
 ## 9. RISKS
 
 | Risk | Mitigation |
 |---|---|
-| VPS disk/RAM (Playwright) | Check free space first; monitor after install |
-| Tavily cost | Gate on user key + approval |
-| SearXNG load | Deferred 1b |
-| Accidental med edit | Explicit path denylist; never open med files |
+| VPS disk/RAM (Playwright) | 5.9Gi swap; monitor before heavy extract |
+| Tavily key exhaustion | DDGS fallback; 11 keys in pool; watch usage log |
 | Context blowup | Fasa-per-session if needed |
+| Accidental med edit | Explicit path denylist; never open med files |
+| Skill trigger not firing | Verify E2E from actual chat (Fasa 5) |
 
 ## 10. FIRST ACTIONS IN NEW SESSION
 
-1. Load skills: using-superpowers, evidence-first, incremental-implementation, verification-before-completion.  
+1. Read `docs/superpowers/specs/2026-07-14-px1-research-journey.md` first.  
 2. Run reorientation commands (section 6).  
-3. Create `~/hermes-overhaul-backup/pre-px1/`.  
-4. **Fasa 0 only** → evidence → STOP for user gate.  
-5. Do not start Fasa 1 until Tavily/key decision confirmed in-session.
+3. Do **NOT** re-install deps, re-configure search, or re-debug Turnstile.  
+4. **Fasa 3 only** → evidence → STOP for user gate.  
+5. The winning CDP signup pipeline is on PC only (Section 6.10 of Journey).
 
 ---
 

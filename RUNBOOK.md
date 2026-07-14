@@ -487,4 +487,69 @@ Full doc: `~/mjay/docs/git_workflow.md`
 
 ---
 
+---
+
+## 16. PX-1 Research — Operational Reference
+
+### Search Cascade (Tavily Multi-Key Pool)
+
+| Item | Detail |
+|------|--------|
+| Plugin | `~/.hermes/plugins/search-cascade/` |
+| Config | `web.search_backend: search-cascade`, `web.backend: tavily` |
+| Env vars | `TAVILY_API_KEY` (primary, k0) + `TAVILY_API_KEYS` (11 comma-separated) |
+| Rotation | Sticky-until-fail: reuse last successful key → next on error → DDGS fallback |
+| Pool size | 11 keys (verify: `grep TAVILY_API_KEYS ~/.hermes/.env \| tr ',' '\n' \| wc -l`) |
+
+### Usage Log
+
+| File | Schema | Notes |
+|------|--------|-------|
+| `~/.hermes/logs/tavily_key_usage.jsonl` | `{ts, key_index, key_fingerprint, success, detail}` | Fingerprint = SHA256[:12], never logs key value |
+
+### Extract (Hybrid-Web)
+
+| Item | Detail |
+|------|--------|
+| Plugin | `~/.hermes/plugins/hybrid-web/` |
+| Config | `web.extract_backend: hybrid-web` |
+| Inherits | `WebSearchProvider` (ABC-compliant, proper extract() shape) |
+| Chain | trafilatura (static) → crawl4ai (JS) → Playwright (fallback) |
+
+### Research Expert Skill
+
+| Item | Detail |
+|------|--------|
+| Path | `~/.hermes/skills/experts/research-expert/` |
+| Artifacts | `~/.hermes/research/artifacts/YYYY-MM-DD-<slug>/` |
+| Pipeline | plan → search → extract → verify → synthesize → artifact |
+| Constraints | depth=1 / max=3, no med, labels VALIDATED/UNTESTED/REJECTED |
+
+### Signup Pipeline (PC Only — NOT on VPS)
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Batch script | `F:\HermesPrivate\turnstile-solver\batch_5.py` | CDP Chrome → Auth0 → QRYPTY → key extract |
+| Chrome profile | `F:\HermesPrivate\tavily-chrome-profile\` | CDP `--remote-debugging-port=9222` |
+| Key inventory | `F:\HermesPrivate\tavily-signup-windows\tavily_keys.json` | Local key store |
+| QRYPTY accounts | `F:\Temp\opencode\tavily-signup-work\` | CSV + temp files |
+
+**To add new keys:** run `batch_5.py` on Windows (Chrome CDP required), then re-merge to VPS `.env` and restart gateway.
+
+### Quick Diagnostics
+
+```bash
+# VPS: verify key pool size
+ssh ubuntu@119.28.119.151 'grep TAVILY_API_KEYS ~/.hermes/.env | tr "," "\n" | wc -l'
+
+# VPS: verify gateway + plugins
+ssh ubuntu@119.28.119.151 'systemctl --user is-active hermes-gateway'
+ssh ubuntu@119.28.119.151 'ls ~/.hermes/plugins/{hybrid-web,search-cascade}'
+
+# VPS: usage log tail
+ssh ubuntu@119.28.119.151 'tail -3 ~/.hermes/logs/tavily_key_usage.jsonl'
+```
+
+---
+
 *End of RUNBOOK. For issues not covered here, check Hermes docs at [hermes-agent.nousresearch.com/docs/](https://hermes-agent.nousresearch.com/docs/)*
