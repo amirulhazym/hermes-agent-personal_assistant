@@ -9,14 +9,15 @@
 
 ## 0. ROLE & MANDATE
 
-You are executor for **PX-1 Research Capability Track** (post-P3, parallel to held P4).
+You are executor for **PX-1 Research Capability Track** (all Fasa DONE). Next = PX-1b Web Operator (design).
 
-**Current state:** Fasa 0–2 + Multi-Key Capacity **DONE** on VPS. Next = Fasa 3+.
-Search, extract, research expert skill, and 11-key Tavily pool are all live.
+**Current state:** ALL Fasas 0-5 DONE on VPS + multi-key capacity deployed.
+Search, extract, research expert, verification, trace log, and knowledge export all live.
 Do **NOT** re-install deps, re-configure search, or re-debug Turnstile paths.
 
-**Goal:** Advance the Research Expert from "skill deployed" to "verified, traced, proven
-end-to-end in user chat" — then open the Web Operator track (PX-1b).
+**Goal:** PX-1 complete. Research Expert is verified, traced, knowledge-ready.
+Next track: PX-1b Web Operator — reduce PC dependence for web tasks
+(browse/scrape/session), keep CUA for true desktop needs.
 
 **Principles:** evidence-first · incremental · per-step user go · zero/low cost ·
 compose don't rebuild · Research Expert composes skills/tools (skills ≠ expert).
@@ -83,14 +84,14 @@ Deps installed via `uv pip`, Chromium installed, hybrid-web extract working. Bac
 ### Multi-Key Capacity — DONE (2026-07-14)
 10 new Tavily accounts via CDP Chrome + QRYPTY. 11 keys total in VPS pool. Usage log active.
 
-### Fasa 3 — Platform verification + logging (START HERE)
-Cross-check, freshness, contradictions; research trace log (like med_chain_trace). Leverage SOUL grounding rules. **Full detail:** `PX1-RESEARCH-TRACK-PLAN.md`.
+### Fasa 3 — Platform verification + logging — DONE (2026-07-14)
+Verification rules, trace log, pipeline Stage 4 grounding. Commit `ef22bab`.
 
-### Fasa 4 — Knowledge layer contract (Obsidian prep)
-Read/write policy + artifact format; stub Knowledge interface. **Not** full Obsidian product.
+### Fasa 4 — Knowledge layer contract — DONE (2026-07-14)
+Knowledge contract, export stub. Commit `bbdced7`.
 
-### Fasa 5 — E2E validation
-One full research workflow; fallback under failure; quality vs baseline.
+### Fasa 5 — E2E validation — DONE (2026-07-14)
+2 pipeline runs + fallback + quality vs baseline. All VALIDATED.
 
 ## 6. REORIENTATION (run first in new session)
 
@@ -122,15 +123,15 @@ ssh ubuntu@119.28.119.151 'tail -3 ~/.hermes/logs/tavily_key_usage.jsonl'
 - Backups: `~/hermes-overhaul-backup/pre-px1/` already created
 - Journey doc: `docs/superpowers/specs/2026-07-14-px1-research-journey.md`
 
-## 8. DELIVERABLES (end of PX-1)
+## 8. DELIVERABLES (PX-1 complete)
 
 - [x] hybrid-web extract works (+ Playwright where needed)
 - [x] Search: Tavily + DDGS fallback (11-key free pool)
 - [x] `skills/experts/research-expert/` deployed
 - [x] Deep-research pipeline + artifact handoff
-- [ ] Platform verification + research trace log
-- [ ] Knowledge layer contract doc
-- [ ] One E2E documented example (from Telegram/WhatsApp)
+- [x] Platform verification + research trace log
+- [x] Knowledge layer contract doc + export stub
+- [x] E2E validated (2 pipelines + fallback + quality comparison)
 
 ## 9. RISKS
 
@@ -142,12 +143,12 @@ ssh ubuntu@119.28.119.151 'tail -3 ~/.hermes/logs/tavily_key_usage.jsonl'
 | Accidental med edit | Explicit path denylist; never open med files |
 | Skill trigger not firing | Verify E2E from actual chat (Fasa 5) |
 
-## 10. FIRST ACTIONS IN NEW SESSION
+## 10. FIRST ACTIONS IN NEW SESSION (PX-1 complete — start PX-1b)
 
 1. Read `docs/superpowers/specs/2026-07-14-px1-research-journey.md` first.  
-2. Run reorientation commands (section 6).  
-3. Do **NOT** re-install deps, re-configure search, or re-debug Turnstile.  
-4. **Fasa 3 only** → evidence → STOP for user gate.  
+2. PX-1 is DONE. All Fasas validated.  
+3. Next: **PX-1b Web Operator** — design Hermes-side web automation to reduce PC dependence.  
+4. Do NOT re-run any PX-1 Fasa. Do NOT re-install deps.  
 5. The winning CDP signup pipeline is on PC only (Section 6.10 of Journey).
 
 ---

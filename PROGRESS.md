@@ -873,3 +873,70 @@ After user approval to continue autonomously while sleeping, completed:
 - Journey: `docs/superpowers/specs/2026-07-14-px1-research-journey.md`
 - Plan: `PX1-RESEARCH-TRACK-PLAN.md`
 - Continuation: `CONTINUATION-BRIEF-PX1.md`
+
+---
+
+## PX-1 Fasa 3 — Platform Verification + Trace Log — DONE (2026-07-14)
+
+- [x] Created `references/verification.md` — 7-section cross-check, freshness, contradiction, quality gate, label, self-audit, SOUL alignment rules
+- [x] Created `references/trace-log.md` — JSONL audit log format (`~/.hermes/logs/research_trace.jsonl`), schema, querying, rotation
+- [x] Updated `references/pipeline.md` Stage 4 — expanded verify stage with contradiction handling + self-audit
+- [x] Updated `SKILL.md` — added Verify + Trace tools, must-load references, Fasa 3 additions section
+- [x] Deployed all to VPS: `~/.hermes/skills/experts/research-expert/references/`
+- [x] Created empty trace log: `~/.hermes/logs/research_trace.jsonl`
+- [x] E2E test: search 5 hits (tavily), extract 2/3 urls, verify v=2/u=3, trace written (4461 bytes)
+- [x] Commit: `ef22bab` pushed
+
+## PX-1 Fasa 4 — Knowledge Layer Contract — DONE (2026-07-14)
+
+- [x] Created `references/knowledge-contract.md` — artifact-to-Obsidian handoff spec, frontmatter contract, policy (no auto-write), out-of-scope, future
+- [x] Created `scripts/research_knowledge.py` — export stub: reads meta.yaml + report.md + sources.json → produces vault-note.md
+- [x] Updated `references/artifact-format.md` — knowledge layer note with export command
+- [x] Updated `SKILL.md` — Knowledge tool reference, must-load, Fasa 4 addition section
+- [x] Deployed to VPS: knowledge contract, updated SKILL/artifact-format, export stub
+- [x] Tested export: produces 52-line vault-note.md with YAML frontmatter + sources + report
+- [x] Commit: `bbdced7` pushed
+
+## PX-1 Fasa 5 — E2E Validation — DONE (2026-07-14)
+
+- [x] Full pipeline E2E test #1 (DeepSeek pricing): search 5 hits, extract 2/3 urls, verify, confidence=medium, artifact + trace written
+- [x] Full pipeline E2E test #2 (Tavily pricing): search 5 hits, extract 3/3 urls, verify, confidence=high, artifact + trace written
+- [x] Fallback test: invalid key → DDGS auto-fallback → 3 hits. PASS.
+- [x] Key rotation test: key0 401 → rotated to next key. PASS (confirmed during E2E)
+- [x] Quality vs baseline: 7/7 metrics improved (all `[+]`)
+  - search backend: ddgs → search-cascade (11 keys)
+  - extract backend: broken → ABC-compliant hybrid-web
+  - keys: 0 → 11 free keys
+  - verification: none → 7-rule cross-check
+  - trace log: none → JSONL audit log
+  - knowledge export: none → contract + export stub
+  - research expert: no skill → full 6-stage domain owner
+
+### PX-1 Final State (all Fasa complete)
+
+| Component | Status |
+|-----------|--------|
+| Search | `search-cascade` (Tavily→DDGS), 11-key rotating pool |
+| Extract | `hybrid-web` (trafilatura→crawl4ai→Playwright), ABC-compliant |
+| Research Expert | Deployed: 6-stage pipeline, skill triggers, constraints |
+| Verification | `verification.md`: cross-check, freshness, contradictions, quality gates, self-audit |
+| Trace log | `~/.hermes/logs/research_trace.jsonl` (JSONL, per-pipeline audit) |
+| Knowledge export | `research_knowledge.py` (Obsidian-ready vault-note.md) |
+| Fallback | Tavily error/empty → DDGS auto-fallback |
+| Gateway | Active, Telegram + WhatsApp connected |
+
+### PX-1 Deliverables Checklist
+
+- [x] hybrid-web extract works (+ Playwright where needed)
+- [x] Search: Tavily + DDGS fallback (11-key free pool)
+- [x] `skills/experts/research-expert/` deployed + skill triggers
+- [x] Deep-research pipeline + artifact handoff + templates
+- [x] Platform verification + research trace log
+- [x] Knowledge layer contract doc + export stub
+- [x] E2E validated (2 full pipeline runs + fallback + quality comparison)
+
+### Next: PX-1b Web Operator (design + future)
+- Reduce PC dependence for web tasks (browse, scrape, session)
+- Agent-side browser/automation skills
+- CUA policy: keep, document when required
+- See `docs/superpowers/specs/2026-07-14-px1-research-journey.md` §11 for backlog

@@ -1,9 +1,9 @@
 # PX-1 Research Capability Track — Plan
 
-**Status:** ACTIVE — Fasa 0–2 + Multi-Key Capacity done on VPS; next = Fasa 3  
+**Status:** COMPLETE — Fasa 0–5 done + multi-key capacity on VPS · next = PX-1b Web Operator (design)  
 **Track type:** Separate from P0–P3 med/gateway; **parallel to P4 (P4 ON HOLD)**  
 **Owner:** amirulhazym  
-**Created:** 13 July 2026 · **Updated:** 14 July 2026 (multi-key + journey doc)  
+**Created:** 13 July 2026 · **Updated:** 14 July 2026 (all Fasa complete)  
 **Handoff brief:** `CONTINUATION-BRIEF-PX1.md`  
 **Journey:** `docs/superpowers/specs/2026-07-14-px1-research-journey.md`  
 **P4 freeze:** `CONTINUATION-BRIEF-P4.md` + `docs/superpowers/specs/2026-07-11-phase4-os-vision-HOLD.md`
@@ -101,25 +101,35 @@ Verify hybrid-web / web_extract on static + JS URL.
 - Max 3 parallel per stage; depth 1  
 **Gate** before Fasa 3.
 
-### Fasa 3 — Platform verification + logging
+### Fasa 3 — Platform verification + logging — DONE (2026-07-14)
 Cross-check, freshness, contradiction flags; research trace log; SOUL grounding.
+- `references/verification.md` (7-rule cross-check, freshness, contradictions, quality gates)
+- `references/trace-log.md` (JSONL audit format, schema, querying, rotation)
+- Pipeline Stage 4 expanded with contradiction handling + self-audit
 
-### Fasa 4 — Knowledge layer contract
-Obsidian-compatible artifact policy; thin Knowledge interface stub. Not full vault product.
+### Fasa 4 — Knowledge layer contract — DONE (2026-07-14)
+Obsidian-compatible artifact policy; thin Knowledge interface stub.
+- `references/knowledge-contract.md` (frontmatter spec, policy, out-of-scope)
+- `scripts/research_knowledge.py` (export stub → vault-note.md)
+- No auto-write; user controls vault import
 
-### Fasa 5 — E2E validation
+### Fasa 5 — E2E validation — DONE (2026-07-14)
 Full workflow + fallback under failure + quality vs baseline.
+- 2 full pipeline runs (DeepSeek pricing, Tavily pricing) — search→extract→verify→synthesize→artifact→trace
+- Fallback test: invalid key → DDGS auto-fallback PASS
+- Key rotation: key0 401 → rotated PASS
+- Quality vs baseline: 7/7 metrics improved
 
 ---
 
 ## 5. DELIVERABLES
 
-- Fixed hybrid-web + Playwright capability  
-- Tavily (if approved) + DDGS fallback (+ SearXNG later)  
-- Research Expert package + deep-research pipeline  
-- Platform verification + logging  
-- Knowledge contract doc  
-- One E2E documented example  
+- [x] Fixed hybrid-web + Playwright capability  
+- [x] Tavily + DDGS fallback (11-key free pool rotating)  
+- [x] Research Expert package + deep-research pipeline  
+- [x] Platform verification + trace logging  
+- [x] Knowledge contract doc + export stub  
+- [x] E2E validated (2 pipelines + fallback + quality comparison)  
 
 ---
 
