@@ -36,12 +36,16 @@ not a single tool. Skills ≠ experts.
 |-------|--------|
 | Search | `web_search` via **search-cascade** (Tavily → DDGS). MCP `mcp_tavily_*` optional extra |
 | Extract | `web_extract` / hybrid-web (static trafilatura → SPA crawl4ai → Playwright) |
+| Verify | `references/verification.md` (Fasa 3 grounding rules — mandatory for non-trivial research) |
+| Trace | `references/trace-log.md` (Fasa 3 audit log — append to `~/.hermes/logs/research_trace.jsonl`) |
 | Browser | Playwright path only when extract needs JS; keep ≤3 parallel |
 | Notes | Obsidian skill later (Fasa 4 contract); optional write under research artifacts dir |
 
 ## Must load / related
 
 - Methodology: evidence-first feasibility when comparing solution options
+- Verification: `references/verification.md` — cross-check, freshness, contradiction rules (Fasa 3)
+- Trace: `references/trace-log.md` — audit log format (Fasa 3)
 - Anti-hallucination: SOUL grounding rules + this skill's verify stage
 - Do **not** load med-tracker unless user is also confirming meds
 
@@ -87,5 +91,12 @@ Template: `templates/research-artifact.md`
 
 - Full multi-agent OS / router registry (P4 HOLD)
 - SearXNG self-host (Fasa 1b later)
-- Platform research trace log productization (Fasa 3)
 - Full Obsidian vault product (Fasa 4+)
+
+## Fasa 3 additions (verification + trace)
+
+This skill now includes:
+- `references/verification.md` — mandatory cross-check, freshness, contradiction rules
+- `references/trace-log.md` — audit log (`~/.hermes/logs/research_trace.jsonl`) for every non-trivial pipeline run
+- Self-audit checklist before synthesis release
+- SOUL grounding violations counter in trace log

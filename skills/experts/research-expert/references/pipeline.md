@@ -38,14 +38,29 @@ Do not start search until plan exists (even if only 5 lines).
 
 ## Stage 4 — Verify
 
+Apply rules from `references/verification.md`:
+
 For each material claim:
 
 1. Supported by ≥1 extracted source?  
-2. Date/freshness acceptable for the domain?  
-3. Contradicted by another source?  
-4. Label: VALIDATED | UNTESTED | REJECTED | PENDING  
+2. Date/freshness acceptable for the domain? (see verification.md §2)  
+3. Contradicted by another source? (see verification.md §3)  
+4. Source passes quality gate? (see verification.md §4)  
+5. Label: VALIDATED | UNTESTED | REJECTED | PENDING  
 
 Drop or demote sources that are pure SEO spam or empty extract.
+
+### Contradictions
+If two sources disagree on a material claim:
+- Surface both, label CONTRADICTED
+- Confidence → low
+- Do not silently pick one
+
+### Self-audit
+Before moving to Synthesize, run verification.md §6 checklist:
+- Count VALIDATED vs UNTESTED — if UNTESTED > VALIDATED, flag in report
+- Spot-check 2 random claims against source excerpts
+- No fabricated URLs/titles/numbers → if found, discard and re-do
 
 ## Stage 5 — Synthesize
 
@@ -63,6 +78,12 @@ Write files under:
 `~/.hermes/research/artifacts/YYYY-MM-DD-<slug>/`
 
 Required files: see `artifact-format.md`.
+
+Write research trace log entry at:
+
+`~/.hermes/logs/research_trace.jsonl`
+
+Format: see `references/trace-log.md`. One JSON line per pipeline run.
 
 ## Parallelism sketch
 
