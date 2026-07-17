@@ -146,7 +146,7 @@ def load_config(path: Path, *, allow_fixture: bool = False) -> OperatorConfig:
         ),
         pc_worker_enabled=_as_bool(pc_worker.get("enabled", False), "pc_worker.enabled"),
         pc_device_id=str(pc_worker.get("device_id", "")),
-        pc_transport=str(pc_worker.get("transport", "")),
+        pc_transport=str(pc_worker.get("transport", "mailbox")),
     )
     validate_config(config, allow_fixture=allow_fixture)
     return config
@@ -177,5 +177,5 @@ def default_config_dict() -> dict[str, Any]:
         },
         "sessions": {"financial_persistence": False},
         "medical": {"audit_retention_days": 14, "ordinary_artifacts": False},
-        "pc_worker": {"enabled": False, "device_id": "", "transport": ""},
+        "pc_worker": {"enabled": False, "device_id": "", "transport": "mailbox"},
     }

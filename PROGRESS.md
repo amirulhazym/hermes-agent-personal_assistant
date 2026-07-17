@@ -970,46 +970,50 @@ Process: fill Doc A → return → joint lock → design → implement.
 - [x] Implementation plan drafted:
   `docs/superpowers/plans/2026-07-17-px1b-web-operator.md`.
 - [x] Human review of implementation plan approved (execute fully with phase gates).
-- [ ] PX-1b implementation (in progress, Phase 0).
+- [x] PX-1b package + live L1–L3 wiring (2026-07-17).
+- [x] PX-1b formal 20/20 design release (2026-07-17).
 
-## PX-1b Phase 0 — Live Truth (2026-07-17, in progress)
+## PX-1b Live Wiring + Acceptance (2026-07-17)
 
-**Worktree:** `.worktrees/px1b-web-operator` branch `feature/px1b-web-operator`
+**Branch:** `overhaul/exec` only (feature worktree abandoned)
 
-- [x] Isolated worktree created after `.worktrees/` gitignore safety commit.
-- [x] Official docs refresh (browser, computer-use, MCP, security, messaging, releases).
-- [x] Read-only VPS inventory (gateway active, Hermes v0.17.0, search-cascade/hybrid-web live, browser tools present, resource baseline).
-- [x] Read-only PC/CUA inventory (`cua-driver` 0.7.1, Brave present, daemon not running).
-- [x] Live contracts ledger written: `docs/px1b-live-contracts.md`
-- [x] Telegram Research Expert E2E (owner inbound DM) — **PARTIAL PASS**
-- [x] Phase 0 evidence closed with residual formal pipeline accepted
-- [ ] Phase 0–4 package commit checkpoint (awaiting explicit yes)
-- [x] Phase 1 package: contracts/config/storage/policy/approvals/network/artifacts + tests
-- [x] Phase 2 package: coordinator, L1/L2/L3 adapters (live callables injectable), skill pack
-- [x] Phase 3 package: crypto/sessions/files/takeover/medical-mode modules + tests
-- [x] Phase 4 package: grants/pc_protocol/pc_worker + Windows scaffolds
-- [x] Ops scaffolds: deploy dry-run script, config templates, findings log
-- [x] Local unit tests: **32 ran, 0 failed, 3 skipped** (cryptography not on local Windows Python; present on VPS)
-- [ ] VPS deploy + live callable wiring (needs explicit deploy/restart approval)
-- [ ] Live concurrency benchmark on VPS
-- [ ] Full 20/20 acceptance on live phone/PC paths
+- [x] Live wiring: `scripts/web_operator/live_wiring.py`, `factory.py`
+- [x] CLI: `wire-status`, `run-live`, `write-default-config`
+- [x] Coordinator multi-step L3 (navigate+snapshot) + cleanup
+- [x] Deployed package + skill to VPS `~/.hermes/scripts/web_operator` + skill pack
+- [x] VPS unit tests: **35 OK**
+- [x] Live L1 static fetch example.com → VALIDATED
+- [x] Live L2 search wired → VALIDATED
+- [x] Live L3 browse example.com heading → VALIDATED (~3.5s)
+- [x] Acceptance suite: **16 PASS / 2 PARTIAL / 2 PENDING / 0 FAIL**
+- [x] `computer_use.enabled` honesty → **false** (backup on VPS)
+- [x] Gateway restart: Telegram + WhatsApp **connected**
+- [x] Evidence: `docs/px1b-acceptance-evidence.md`, `docs/px1b-findings.md`
+- [x] Owner TG `/browse` smoke (case 3 full PASS) — Example Domain L3 VALIDATED
+- [x] Owner WA browse smoke (case 2 full PASS) — Example Domain
+- [x] PC cua-driver serve + autostart + Notepad launch
+- [x] VPS↔PC signed grant mailbox bridge (outbound SSH/SCP)
+- [x] Case 19 named-app CUA live PASS (enrolled pc-7633a84681a0)
+- [x] Case 20 full workflow PASS (L3+L4+offline postpone+wrong-app fail-closed)
+- [x] Acceptance suite **20/20 PASS** (VPS `acceptance-latest.json`)
+- [ ] Commit checkpoint (ask before git add/commit)
 
-### Telegram E2E sanitized result (2026-07-17)
+## PX-1b DONE (2026-07-17)
 
-| Check | Result |
-|---|---|
-| Telegram response | VALIDATED |
-| skill-trigger → `research-expert` | VALIDATED (`triggered_skills.txt`) |
-| Search (Tavily) | VALIDATED (usage log success) |
-| Extract (hybrid-web) | VALIDATED (gateway plugin logs) |
-| Formal `research_trace.jsonl` append | UNTESTED (no new line) |
-| Standard artifact package path | UNTESTED (no new `research/artifacts/*`) |
-| Alternate written report | VALIDATED (`~/.hermes/research-hermes-browser-automation.md`, 10691 B) |
+**Formal design acceptance: 20/20 PASS.**  
+Phone L1–L3 live; L4 enrolled outbound PC worker live; evidence in `docs/px1b-acceptance-evidence.md`.
+
+### Acceptance counts (automated)
+
+| Status | Count | Cases |
+|---|---:|---|
+| PASS | 16 | 1,4–18 |
+| PARTIAL | 2 | 2–3 (patterns only; need owner chat) |
+| PENDING | 2 | 19–20 (PC CUA) |
+| FAIL | 0 | — |
 
 Key live facts:
-- Keep Hermes **v0.17.0** (not upgrade to docs-latest 0.18.x).
-- L3 = native `browser_*` tools; no browser-use package installed.
-- No native browser download/upload tools.
-- `computer_use.enabled: true` but no live cua MCP path in config → honesty gap for later fix.
-- RAM ~1.9 GiB; concurrency must start at 1.
-- Formal Research Expert package/trace path is residual; PX-1b composes tools without pretending full pipeline is chat-live.
+- Keep Hermes **v0.17.0**.
+- L3 concurrency production = **1**.
+- L1–L3 production path is live-wired on VPS.
+- L4 CUA not production (daemon off; interactive desktop Access denied from non-interactive probe).

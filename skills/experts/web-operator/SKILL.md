@@ -20,7 +20,8 @@ tools and the project-owned `scripts/web_operator` policy package. Skills ≠ to
 - Authenticated site operation after private takeover
 - Approved downloads/uploads
 - Named Windows app tasks via CUA worker
-- Explicit `/browse`
+- Explicit `/browse` (Telegram slash → alias to this skill) or `/web-operator`
+- Plain phrases: `browse open …`, `click through …`, `open https://…`
 
 ## When NOT to use
 
@@ -48,6 +49,26 @@ tools and the project-owned `scripts/web_operator` policy package. Skills ≠ to
 
 L0 refuse/pause → L1 HTTP → L2 PX-1 search/extract → L3 native browser → L4 PC CUA → L5 human handoff
 
+## How to execute (project package)
+
+Prefer the project-owned package over free-form browsing. On the Hermes host:
+
+```bash
+export HERMES_AGENT_ROOT="$HOME/.hermes/hermes-agent"
+export PYTHONPATH="$HOME/.hermes${PYTHONPATH:+:$PYTHONPATH}"
+CFG="$HOME/.hermes/web-operator/config.yaml"
+# ensure config once:
+python -m scripts.web_operator write-default-config --path "$CFG"
+# wire check:
+python -m scripts.web_operator wire-status
+# public interactive task:
+python -m scripts.web_operator run-live --config "$CFG" \
+  --owner-id "$OWNER" --channel telegram \
+  --text "browse https://example.com and summarize the main heading"
+```
+
+Use native Hermes `browser_*` / `web_search` / `web_extract` tools only through that package policy when possible. Always cleanup browser sessions.
+
 ## Output
 
 1. Direct answer / result
@@ -56,8 +77,8 @@ L0 refuse/pause → L1 HTTP → L2 PX-1 search/extract → L3 native browser →
 4. Label: VALIDATED / UNTESTED / REJECTED / PENDING / PARTIAL
 5. Artifact path when written
 
-## Residual known from Phase 0
+## Residual honesty
 
-- Formal Research Expert `research_trace.jsonl` + package path may not fire on every chat research phrasing
+- Formal Research Expert package/trace may not fire on every chat research phrasing
 - Native browser has no download/upload tools — use project file adapters
-- `computer_use.enabled` may be true without live PC worker — report honesty
+- PC CUA only when enrolled worker is online; otherwise report L4 unavailable (do not pretend CUA works)

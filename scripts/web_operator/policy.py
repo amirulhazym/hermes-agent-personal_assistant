@@ -59,7 +59,18 @@ class PolicyEngine:
                 requires_approval=True,
                 level=ExecutionLevel.L0,
             )
-        if re.search(r"\b(browse|click|navigate|open site|fill form|/browse)\b", text):
+        if re.search(
+            r"\b(desktop app|named app|computer use|cua|notepad|open notepad|windows app|pc worker)\b",
+            text,
+        ):
+            return PolicyDecision(
+                verdict=PolicyVerdict.ALLOW,
+                action_class=ActionClass.CUA_RUN,
+                reason="named desktop app / CUA request",
+                requires_approval=False,
+                level=ExecutionLevel.L4,
+            )
+        if re.search(r"\b(browse|click|navigate|open site|fill form|/browse|interactive)\b", text):
             return PolicyDecision(
                 verdict=PolicyVerdict.ALLOW,
                 action_class=ActionClass.PUBLIC_NAVIGATE,
@@ -67,13 +78,26 @@ class PolicyEngine:
                 requires_approval=False,
                 level=ExecutionLevel.L2,
             )
-        if re.search(r"\b(research|investigate|sources|literature)\b", text):
+        if re.search(
+            r"\b(research|investigate|sources|literature|extract|summarize|search)\b",
+            text,
+        ):
             return PolicyDecision(
                 verdict=PolicyVerdict.ALLOW,
                 action_class=ActionClass.PUBLIC_READ,
                 reason="research/read request",
                 requires_approval=False,
                 level=ExecutionLevel.L2,
+            )
+        if re.search(r"\b(static fetch|http_get|head request)\b", text) or re.search(
+            r"https?://\S+", request.text or ""
+        ):
+            return PolicyDecision(
+                verdict=PolicyVerdict.ALLOW,
+                action_class=ActionClass.PUBLIC_READ,
+                reason="public URL read",
+                requires_approval=False,
+                level=ExecutionLevel.L1,
             )
         return PolicyDecision(
             verdict=PolicyVerdict.PAUSE,

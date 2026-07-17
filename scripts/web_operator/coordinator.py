@@ -71,9 +71,19 @@ class WebOperator:
 
     def _route_for_text(self, text: str) -> list[ExecutionLevel]:
         low = text.lower()
-        if re.search(r"\b(click|fill form|navigate|browse|/browse)\b", low):
+        # Prefer pure L1 for static HTTP fetch of a single URL without interactivity.
+        if re.search(r"\b(http_get|static fetch|head request)\b", low):
+            return [ExecutionLevel.L1]
+        if re.search(
+            r"\b(desktop app|named app|computer use|cua|notepad|open notepad|windows app|pc worker)\b",
+            low,
+        ):
+            return [ExecutionLevel.L4]
+        if re.search(r"\b(click|fill form|navigate|browse|/browse|open site|js page|interactive)\b", low):
             return [ExecutionLevel.L2, ExecutionLevel.L3]
-        if re.search(r"\b(research|extract|summarize|read)\b", low):
+        if re.search(r"\b(research|extract|summarize|read|search)\b", low):
+            return [ExecutionLevel.L1, ExecutionLevel.L2]
+        if re.search(r"https?://\S+", text):
             return [ExecutionLevel.L1, ExecutionLevel.L2]
         return [ExecutionLevel.L2]
 
@@ -97,6 +107,30 @@ class WebOperator:
                 detail={"channel": request.channel, "route": route},
             )
         )
+        # L4 offline path: postpone instead of hard-fail when PC unavailable.
+        if ExecutionLevel.L4 in self._route_for_text(request.text):
+            l4 = self.executors.get(ExecutionLevel.L4)
+            if l4 is None:
+                self.store.update_task(task_id, TaskState.FAILED.value)
+                path = sink.finalize(
+                    task_id=task_id,
+                    state=TaskState.FAILED,
+                    level=ExecutionLevel.L4,
+                    label=OutcomeLabel.UNTESTED,
+                    summary="L4 requested but pc worker executor not configured",
+                    route=route,
+                    error="pc worker disabled",
+                )
+                return {
+                    "task_id": task_id,
+                    "state": TaskState.FAILED.value,
+                    "label": OutcomeLabel.UNTESTED.value,
+                    "summary": "L4 requested but pc worker executor not configured",
+                    "route": route,
+                    "postpone": True,
+                    "artifact_path": str(path) if path else "",
+                }
+
         if decision.verdict == PolicyVerdict.DENY:
             self.store.update_task(task_id, TaskState.FAILED.value)
             path = sink.finalize(
@@ -143,55 +177,68 @@ class WebOperator:
         last_level = ExecutionLevel.L0
         results: list[dict[str, Any]] = []
         empty_l2 = False
-        for level in self._route_for_text(request.text):
+        route_levels = self._route_for_text(request.text)
+        for level in route_levels:
             executor = self.executors.get(level)
             last_level = level
             if executor is None:
                 results.append({"ok": False, "error": f"no executor for {level.value}", "needs_live": True})
                 continue
-            if level == ExecutionLevel.L3:
-                budget.charge_action()
-            step = self._default_step(request, level, empty_l2=empty_l2)
-            outcome = await executor.execute(
-                {"task_id": task_id, "owner_id": request.owner_id},
-                step,
-            )
-            results.append(dict(outcome))
-            sink.record_event(
-                ExecutionEvent(
-                    ts=_ts(),
-                    kind="step",
-                    level=level.value,
-                    detail={
-                        "ok": bool(outcome.get("ok")),
-                        "needs_live": bool(outcome.get("needs_live")),
-                        "error": str(outcome.get("error", ""))[:120],
-                    },
+            steps = self._steps_for_level(request, level, empty_l2=empty_l2)
+            for step in steps:
+                if level == ExecutionLevel.L3:
+                    budget.charge_action()
+                outcome = await executor.execute(
+                    {"task_id": task_id, "owner_id": request.owner_id},
+                    step,
                 )
-            )
-            if level == ExecutionLevel.L2 and (
-                not outcome.get("ok") or outcome.get("empty") or outcome.get("needs_interactive")
-            ):
-                empty_l2 = True
-                # auto-escalate reason logged
+                results.append(dict(outcome))
                 sink.record_event(
                     ExecutionEvent(
                         ts=_ts(),
-                        kind="escalate",
-                        level=ExecutionLevel.L3.value,
-                        detail={"reason": "L2 insufficient; escalate to L3"},
+                        kind="step",
+                        level=level.value,
+                        detail={
+                            "ok": bool(outcome.get("ok")),
+                            "needs_live": bool(outcome.get("needs_live")),
+                            "kind": str(step.get("kind") or step.get("method") or ""),
+                            "error": str(outcome.get("error", ""))[:120],
+                        },
                     )
                 )
-                if ExecutionLevel.L3 not in self._route_for_text(request.text):
-                    l3 = self.executors.get(ExecutionLevel.L3)
-                    if l3 is not None:
-                        budget.charge_action()
-                        outcome = await l3.execute(
-                            {"task_id": task_id, "owner_id": request.owner_id},
-                            self._default_step(request, ExecutionLevel.L3, empty_l2=True),
+            if level == ExecutionLevel.L2:
+                last = results[-1] if results else {}
+                if not last.get("ok") or last.get("empty") or last.get("needs_interactive"):
+                    empty_l2 = True
+                    sink.record_event(
+                        ExecutionEvent(
+                            ts=_ts(),
+                            kind="escalate",
+                            level=ExecutionLevel.L3.value,
+                            detail={"reason": "L2 insufficient; escalate to L3"},
                         )
-                        results.append(dict(outcome))
-                        last_level = ExecutionLevel.L3
+                    )
+                    if ExecutionLevel.L3 not in route_levels:
+                        l3 = self.executors.get(ExecutionLevel.L3)
+                        if l3 is not None:
+                            for step in self._steps_for_level(
+                                request, ExecutionLevel.L3, empty_l2=True
+                            ):
+                                budget.charge_action()
+                                outcome = await l3.execute(
+                                    {"task_id": task_id, "owner_id": request.owner_id},
+                                    step,
+                                )
+                                results.append(dict(outcome))
+                                last_level = ExecutionLevel.L3
+
+        # Always attempt cleanup for L3 resources after the task path.
+        l3 = self.executors.get(ExecutionLevel.L3)
+        if l3 is not None:
+            try:
+                await l3.cancel(task_id)
+            except Exception:
+                pass
 
         ok_any = any(r.get("ok") for r in results)
         needs_live = any(r.get("needs_live") for r in results)
@@ -229,20 +276,52 @@ class WebOperator:
     def _default_step(
         self, request: TaskRequest, level: ExecutionLevel, *, empty_l2: bool = False
     ) -> dict[str, Any]:
+        steps = self._steps_for_level(request, level, empty_l2=empty_l2)
+        return steps[0] if steps else {}
+
+    def _steps_for_level(
+        self, request: TaskRequest, level: ExecutionLevel, *, empty_l2: bool = False
+    ) -> list[dict[str, Any]]:
+        m = re.search(r"https?://\S+", request.text)
+        url = m.group(0).rstrip(").,]>\"'") if m else "https://example.com"
         if level == ExecutionLevel.L1:
-            # best-effort URL extraction
-            m = re.search(r"https?://\S+", request.text)
-            return {"method": "GET", "url": m.group(0) if m else "https://example.com"}
+            return [{"method": "GET", "url": url}]
         if level == ExecutionLevel.L2:
-            return {"kind": "search", "query": request.text, "limit": 5}
+            low = request.text.lower()
+            if re.search(r"\bextract\b", low) and m:
+                return [{"kind": "extract", "urls": [url]}]
+            return [{"kind": "search", "query": request.text, "limit": 5}]
         if level == ExecutionLevel.L3:
-            m = re.search(r"https?://\S+", request.text)
-            return {
-                "kind": "navigate",
-                "url": m.group(0) if m else "https://example.com",
-                "reason": "interactive" if empty_l2 else "requested",
-            }
-        return {}
+            return [
+                {
+                    "kind": "navigate",
+                    "url": url,
+                    "reason": "interactive" if empty_l2 else "requested",
+                },
+                {
+                    "kind": "snapshot",
+                    "full": False,
+                    "user_task": request.text[:240],
+                },
+            ]
+        if level == ExecutionLevel.L4:
+            app = "Notepad"
+            m_app = re.search(
+                r"\b(notepad|brave|chrome|edge|calculator|wordpad)\b",
+                request.text,
+                re.I,
+            )
+            if m_app:
+                app = m_app.group(1)
+            return [
+                {
+                    "kind": "named_app",
+                    "app": app,
+                    "action": "launch_and_list",
+                    "window": "",
+                }
+            ]
+        return []
 
     async def cancel(self, task_id: str) -> dict[str, Any]:
         self.store.update_task(task_id, TaskState.CANCELLED.value)
