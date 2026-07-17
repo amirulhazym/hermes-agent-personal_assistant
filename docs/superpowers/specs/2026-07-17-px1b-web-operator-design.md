@@ -1,6 +1,6 @@
 # PX-1b Web Operator - Locked Design
 
-> **Status:** APPROVED IN CHAT - awaiting written-spec review
+> **Status:** APPROVED - implementation plan written, awaiting plan review
 > **Date:** 2026-07-17
 > **Track:** PX-1b Web Operator
 > **Method:** `docs/superpowers/specs/PX-PLANNING-FRAMEWORK.md`

@@ -9,7 +9,7 @@
 
 ## 0. ROLE & MANDATE
 
-You are executor for **PX-1 Research Capability Track** (all Fasa DONE). Next = PX-1b Web Operator written-design review, then implementation planning.
+You are executor for **PX-1 Research Capability Track** (all Fasa DONE). Next = PX-1b Web Operator implementation-plan review, then explicit Phase 0 approval.
 
 **Current state:** ALL Fasas 0-5 DONE on VPS + multi-key capacity deployed.
 Search, extract, research expert, verification, trace log, and knowledge export all live.
@@ -144,16 +144,17 @@ ssh ubuntu@119.28.119.151 'tail -3 ~/.hermes/logs/tavily_key_usage.jsonl'
 | Accidental med edit | Explicit path denylist; never open med files |
 | Skill trigger not firing | Verify E2E from actual chat (Fasa 5) |
 
-## 10. FIRST ACTIONS IN NEW SESSION (PX-1b WRITTEN-DESIGN REVIEW)
+## 10. FIRST ACTIONS IN NEW SESSION (PX-1b IMPLEMENTATION-PLAN REVIEW)
 
 1. Read canonical design:
    `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md`.
 2. Read Doc A Part 15 for the locked guided-chat decision record:
    `docs/superpowers/specs/2026-07-14-px1b-web-operator-planning-qna.md`.
-3. Human reviews the written design and requests corrections or explicitly approves it.
-4. Only after written-spec approval, invoke `writing-plans` and create the detailed
-   implementation plan. Do not implement while writing the plan.
-5. Implementation begins phase-by-phase only after plan review and the required human
+3. Read the implementation plan:
+   `docs/superpowers/plans/2026-07-17-px1b-web-operator.md`.
+4. Human reviews the implementation plan and requests corrections or explicitly
+   approves it. Do not implement while reviewing the plan.
+5. Implementation begins phase-by-phase only after plan approval and the required human
    approval. Phase 0 starts with the real Telegram PX-1 E2E gate and live-version truth.
 6. PX-1 is DONE. Do not re-run Fasa 0-5 except to repair a specifically failed contract.
    CDP signup/account farming stays human-operated PC ops only.

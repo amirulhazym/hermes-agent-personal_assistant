@@ -829,7 +829,7 @@ original workbook as planning history without pretending its blank tables remain
 - [x] Joint final discussion completed.
 - [x] Design sections 1-5 approved in guided chat on 2026-07-17.
 - [x] Design freeze authorized for the written specification.
-- [x] Status: **locked - awaiting written-spec review before implementation planning**.
+- [x] Status: **locked and written spec approved - implementation plan review next**.
 
 ## 15.7 Written-spec self-review clarifications
 

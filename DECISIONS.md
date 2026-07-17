@@ -262,4 +262,6 @@ All infrastructure and account questions resolved.
 | 18 | **Qwen/Sakana are optional comparisons** | They were historical CUA experiments, not product architecture. Test once later only after the real supported CUA path works. |
 
 Canonical design: `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md`.
-Implementation planning is blocked until the human reviews and approves the written spec.
+Written spec approved by the human on 2026-07-17. Implementation plan:
+`docs/superpowers/plans/2026-07-17-px1b-web-operator.md`. Implementation remains
+blocked until plan review and the explicit Phase 0 go-ahead.

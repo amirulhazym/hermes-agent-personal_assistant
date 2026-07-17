@@ -947,9 +947,9 @@ No implementation yet. Human offline review:
 
 Process: fill Doc A → return → joint lock → design → implement.
 
-## PX-1b Web Operator - Design Locked, Written Review Pending (2026-07-17)
+## PX-1b Web Operator - Design Approved, Implementation Plan Drafted (2026-07-17)
 
-**Status:** DESIGN APPROVED IN CHAT; NO IMPLEMENTATION STARTED
+**Status:** DESIGN APPROVED; IMPLEMENTATION PLAN DRAFTED; NO IMPLEMENTATION STARTED
 
 - [x] Read PRD fully and Section 7 twice for this planning cycle.
 - [x] Reviewed PX framework, audit recap, Q&A, continuation, PX-1 journey, trackers,
@@ -966,8 +966,10 @@ Process: fill Doc A → return → joint lock → design → implement.
 - [x] Froze a 20/20 acceptance suite and phases 0-6.
 - [x] Wrote canonical design:
   `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md`.
-- [ ] Human review of written design.
-- [ ] Implementation plan (only after written-design approval).
+- [x] Human review of written design approved on 2026-07-17.
+- [x] Implementation plan drafted:
+  `docs/superpowers/plans/2026-07-17-px1b-web-operator.md`.
+- [ ] Human review of implementation plan.
 - [ ] PX-1b implementation (not started).
 
 No VPS change, deployment, service action, secret access, real external action, git
