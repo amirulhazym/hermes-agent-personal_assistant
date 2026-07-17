@@ -1,0 +1,33 @@
+schema: web-operator/v1
+
+runtime:
+  state_dir: ~/.hermes/web-operator
+  max_l3_actions: 30
+  max_l3_active_seconds: 600
+  operation_timeout_seconds: 180
+  approval_ttl_seconds: 900
+  production_l3_concurrency: 1
+
+network:
+  allowed_schemes: [https, http]
+  deny_private_destinations: true
+  max_redirects: 5
+  max_response_bytes: 2000000
+  fixture_mode: false
+
+artifacts:
+  enabled: true
+  retention_days: 14
+  raw_frame_retention_seconds: 0
+
+sessions:
+  financial_persistence: false
+
+medical:
+  audit_retention_days: 14
+  ordinary_artifacts: false
+
+pc_worker:
+  enabled: false
+  device_id: ""
+  transport: ""

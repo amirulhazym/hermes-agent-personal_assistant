@@ -1,0 +1,22 @@
+# Minimal live Hermes config deltas for PX-1b (apply only after explicit approval).
+# Do NOT copy secret values. Env var names only.
+#
+# Keep live Hermes version. Do not set paid browser cloud providers.
+#
+# Suggested non-secret checks/edits:
+# 1) Ensure web.search_backend remains search-cascade and extract_backend hybrid-web
+# 2) browser.allow_private_urls: false
+# 3) security.allow_private_urls: false
+# 4) computer_use.enabled must match real PC worker health (honesty):
+#      - true only when enrolled outbound worker + cua-driver are available
+#      - false when PC offline / worker not enrolled
+# 5) Do not raise gateway.api_server.max_concurrent_runs for browser concurrency
+# 6) skill-trigger: add web-operator patterns only after skill is deployed
+#
+# Example skill-trigger additions (handler TRIGGER_MAP):
+#   (r"\b/browse\b", "web-operator"),
+#   (r"\bclick through\b", "web-operator"),
+#   (r"\bfill form\b", "web-operator"),
+#   (r"\blog ?in and\b", "web-operator"),
+#
+# Never edit med-tracker patterns.

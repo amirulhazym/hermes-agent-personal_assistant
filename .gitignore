@@ -36,3 +36,14 @@ Thumbs.db
 
 # Isolated implementation worktrees
 .worktrees/
+
+# PX-1b Web Operator runtime credentials/state
+web-operator/state/
+web-operator/profiles/
+web-operator/quarantine/
+web-operator/artifacts/
+web-operator/takeover/
+web-operator/medical-audit/
+web-operator/keys/
+__pycache__/
+*.pyc

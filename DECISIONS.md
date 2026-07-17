@@ -263,5 +263,13 @@ All infrastructure and account questions resolved.
 
 Canonical design: `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md`.
 Written spec approved by the human on 2026-07-17. Implementation plan:
-`docs/superpowers/plans/2026-07-17-px1b-web-operator.md`. Implementation remains
-blocked until plan review and the explicit Phase 0 go-ahead.
+`docs/superpowers/plans/2026-07-17-px1b-web-operator.md`.
+
+### Decisions Made (2026-07-17) - PX-1b execution line
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Work on `overhaul/exec` only** | Human rejected feature-branch/worktree workflow for simplicity. |
+| 2 | **Phase 0 Telegram E2E = PARTIAL PASS** | Chat tools + skill-trigger validated; formal research package/trace residual accepted for compose path. |
+| 3 | **Native-first L3 with injectable live callables** | Local package must unit-test without VPS imports; live wiring is deploy-time. |
+| 4 | **cryptography optional at unit-test time** | VPS has package; local Windows Python skipped crypto tests rather than silent install. |
