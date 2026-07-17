@@ -3,9 +3,13 @@
 > **Role:** Primary decision workbook. Fill offline. Return when ready.  
 > **Read first:** Doc B `2026-07-14-px1b-web-operator-audit-recap.md`  
 > **Method:** `docs/superpowers/specs/PX-PLANNING-FRAMEWORK.md`  
-> **No implementation until:** all critical Parts → Status **locked** + joint step (4).  
+> **No implementation until:** all critical Parts -> Status **locked** + joint step (4).
 > **Date opened:** 2026-07-14  
 > **How to fill:** Mark tables; write under Free text; set N.4 checkboxes.
+> **2026-07-17 update:** Guided chat replaced offline table filling. The canonical
+> locked answers are in Part 15 below and the approved design is
+> `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md`. Blank fields in
+> Parts 0-14 are historical prompts and are superseded by Part 15.
 
 ---
 
@@ -735,3 +739,115 @@ Copy your **locked** answers here when ready for step (4). Leave blank until the
 ---
 
 *End Doc A — Sequential Planning Q&A for PX-1b Web Operator.*
+
+---
+
+# Part 15 - Guided-chat locked decision addendum (2026-07-17)
+
+This addendum is the authoritative answer record for Parts 0-14. It preserves the
+original workbook as planning history without pretending its blank tables remain open.
+
+## 15.1 Process and foundation
+
+- [x] No implementation before design lock and implementation plan.
+- [x] Read-only VPS inspection and safe verification are allowed during planning.
+- [x] Guided chat is the Q&A return format; language may match Amirul/rojak.
+- [x] Every commit and push still requires separate explicit approval.
+- [x] Telegram Research Expert E2E is a required pre-implementation gate.
+- [x] A failed PX-1 dependency pauses PX-1b; repair only the failed contract.
+- [x] The full PX-1 anti-repeat playbook remains binding.
+
+## 15.2 Product and architecture
+
+- [x] V1 is complete L1-L4 plus a secure VPS-to-PC CUA worker and human L5 handoff;
+  there is no reduced day-one MVP.
+- [x] Amirul is the only user.
+- [x] Phone-first means WhatsApp/Telegram are universal command/control surfaces, VPS
+  is the 24/7 primary worker, PC is an optional high-power worker, and GitHub is the
+  durable source layer.
+- [x] Both Telegram and WhatsApp are release requirements.
+- [x] Use a separate `web-operator` expert, narrow natural-language triggers, and
+  optional `/browse`; Research Expert composes it when interaction is required.
+- [x] Start with L1/L2 and automatically escalate to L3 with a logged reason.
+- [x] Evaluate native Hermes browser tools first. Fill proven gaps with isolated
+  adapters; trial browser-use only if native acceptance fails.
+- [x] Keep the live Hermes version. Do not silently upgrade or patch live core freely.
+- [x] Paid browser cloud and extra VPS spending are not allowed.
+
+## 15.3 Runtime and integrations
+
+- [x] Benchmark one, two, then at most three browser jobs and lock the highest optimized
+  concurrency that preserves gateway health.
+- [x] Limit an unattended run to 30 actions or 10 minutes; cancel a single stuck
+  operation after 180 seconds.
+- [x] Bounded self-hosted compatibility adapters may be adopted only after measured
+  benefit; no automatic collection of every candidate tool.
+- [x] No arbitrary cap on enrolled site profiles; each site/account is separately
+  approved, isolated, expiring, and revocable.
+- [x] Qwen/Sakana are historical test references with one optional comparison after the
+  real CUA path works.
+- [x] PC availability: after CUA approval, proceed if online; if offline ask to turn it
+  on, postpone, schedule, or cancel. No Wake-on-LAN.
+
+## 15.4 Safety and privacy
+
+- [x] Personal form data requires approval before entry and again before submission.
+- [x] Every external message, comment, or post requires exact final approval.
+- [x] Every file download and upload requires action-bound approval.
+- [x] Checkout may finish only after transaction-bound final approval; banking/card/
+  payment secrets remain in the user's normal phone browser or official app.
+- [x] Ordinary passwords/non-financial OTPs use private phone takeover with all agent
+  input, observation, capture, clipboard/keystroke capture, and logging suspended.
+- [x] Approvals originate in the same chat with owner-only Telegram fallback and expire
+  after 15 minutes.
+- [x] Public HTTPS browsing is allowed with SSRF/private-network and dangerous-target
+  controls.
+- [x] CAPTCHA flow: permitted normal attempt, minimal human challenge completion,
+  resume, then full human L5 only as last resort. No bypass services/account farming.
+- [x] Private medical portals are allowed only in isolated high-sensitivity mode and
+  never touch existing med code/state, durable memory, or normal artifacts.
+- [x] Web/UI content is untrusted. Approvals are owner-only, single-use, task/action/
+  parameter-bound, and invalidated by material change.
+- [x] Maximum task completion applies only within safety, cost, and gateway rails.
+
+## 15.5 Evidence, acceptance, and phasing
+
+- [x] Keep minimum selected redacted browser/CUA evidence for 14 days; raw frames are
+  deleted immediately and capture is disabled during takeover/high-sensitivity screens.
+- [x] Store normalized redacted URLs, not tokens, query strings, account IDs, or
+  sensitive path sections.
+- [x] Acceptance uses controlled fixtures plus real phone workflows.
+- [x] All 20 frozen cases must pass; no waived or partial cases.
+- [x] Execute steady evidence-gated phases, one approved phase at a time.
+- [x] The PX Planning Framework may be reused, but decisions never carry forward as
+  automatic approval.
+
+## 15.6 Global lock
+
+- [x] Doc B was read and its residual `UNTESTED` items are accepted as the planning
+  baseline, not as completed capability claims.
+- [x] Joint final discussion completed.
+- [x] Design sections 1-5 approved in guided chat on 2026-07-17.
+- [x] Design freeze authorized for the written specification.
+- [x] Status: **locked - awaiting written-spec review before implementation planning**.
+
+## 15.7 Written-spec self-review clarifications
+
+These safety-preserving details close ambiguities found after the guided design review:
+
+- [x] Scheduled/postponed work preserves intent only and requires fresh approval at
+  execution time.
+- [x] Downloads use two stages: approve quarantine receipt, validate actual hash/type/
+  size, then approve release/open/move/share separately.
+- [x] VPS control plane owns grants; PC connects outbound-only and revalidates grants;
+  phone/worker disconnect stops input fail-closed.
+- [x] Private takeover canary tests prove model/capture/log channels are suspended.
+- [x] Runtime policy explicitly covers every reachable PRD Section 7.5 action class.
+- [x] L4 inherits public-destination restrictions; private/local target automation is
+  outside V1.
+- [x] Medical portal runs create only a separate encrypted metadata audit, never a
+  normal artifact.
+- [x] Session state is encrypted with host-local key custody and revocation deletes all
+  derived state.
+- [x] Resource/concurrency and run-budget pass criteria are objective and testable.
+- [x] The Phase 0 Telegram gate is rerun as case 1 of the clean final 20/20 suite.

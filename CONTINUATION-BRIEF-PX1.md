@@ -9,15 +9,16 @@
 
 ## 0. ROLE & MANDATE
 
-You are executor for **PX-1 Research Capability Track** (all Fasa DONE). Next = PX-1b Web Operator (design).
+You are executor for **PX-1 Research Capability Track** (all Fasa DONE). Next = PX-1b Web Operator written-design review, then implementation planning.
 
 **Current state:** ALL Fasas 0-5 DONE on VPS + multi-key capacity deployed.
 Search, extract, research expert, verification, trace log, and knowledge export all live.
 Do **NOT** re-install deps, re-configure search, or re-debug Turnstile paths.
 
 **Goal:** PX-1 complete. Research Expert is verified, traced, knowledge-ready.
-Next track: PX-1b Web Operator — reduce PC dependence for web tasks
-(browse/scrape/session), keep CUA for true desktop needs.
+Next track: PX-1b Web Operator - phone-first execution fabric. VPS is the 24/7
+primary L1-L3 worker; an enrolled Windows PC is the optional L4 CUA worker; L5 is
+human-operated handoff.
 
 **Principles:** evidence-first · incremental · per-step user go · zero/low cost ·
 compose don't rebuild · Research Expert composes skills/tools (skills ≠ expert).
@@ -143,13 +144,32 @@ ssh ubuntu@119.28.119.151 'tail -3 ~/.hermes/logs/tavily_key_usage.jsonl'
 | Accidental med edit | Explicit path denylist; never open med files |
 | Skill trigger not firing | Verify E2E from actual chat (Fasa 5) |
 
-## 10. FIRST ACTIONS IN NEW SESSION (PX-1 complete — PX-1b PLANNING)
+## 10. FIRST ACTIONS IN NEW SESSION (PX-1b WRITTEN-DESIGN REVIEW)
 
-1. Read `docs/superpowers/specs/PX-PLANNING-FRAMEWORK.md` (reusable for any future PX).  
-2. Read Doc B: `docs/superpowers/specs/2026-07-14-px1b-web-operator-audit-recap.md`.  
-3. Fill Doc A offline: `docs/superpowers/specs/2026-07-14-px1b-web-operator-planning-qna.md`.  
-4. Return filled Q&A → joint lock → design → implement. **No PX-1b code until lock.**  
-5. PX-1 is DONE. Do NOT re-run Fasa 0–5. CDP signup stays PC ops only.
+1. Read canonical design:
+   `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md`.
+2. Read Doc A Part 15 for the locked guided-chat decision record:
+   `docs/superpowers/specs/2026-07-14-px1b-web-operator-planning-qna.md`.
+3. Human reviews the written design and requests corrections or explicitly approves it.
+4. Only after written-spec approval, invoke `writing-plans` and create the detailed
+   implementation plan. Do not implement while writing the plan.
+5. Implementation begins phase-by-phase only after plan review and the required human
+   approval. Phase 0 starts with the real Telegram PX-1 E2E gate and live-version truth.
+6. PX-1 is DONE. Do not re-run Fasa 0-5 except to repair a specifically failed contract.
+   CDP signup/account farming stays human-operated PC ops only.
+
+### PX-1b locked essentials (2026-07-17)
+
+- Both WhatsApp and Telegram required.
+- Complete V1 L1-L4; secure enrolled PC CUA; human L5 handoff.
+- Native Hermes browser first; isolated adapters for proven gaps.
+- Keep live Hermes version; no silent upgrade/core patch.
+- No paid browser cloud and no VPS upgrade.
+- Benchmark 1-3 browser jobs; production uses highest gateway-safe optimized level.
+- Action-bound approvals, private phone takeover, per-site/account/device sessions.
+- Private medical portals isolated from existing med code/state and durable memory.
+- No Wake-on-LAN; offline PC means power-on/postpone/schedule/cancel.
+- Release requires one clean 20/20 acceptance run.
 
 ---
 

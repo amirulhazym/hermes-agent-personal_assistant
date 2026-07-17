@@ -946,3 +946,29 @@ No implementation yet. Human offline review:
 | Doc A sequential Q&A | `docs/superpowers/specs/2026-07-14-px1b-web-operator-planning-qna.md` |
 
 Process: fill Doc A → return → joint lock → design → implement.
+
+## PX-1b Web Operator - Design Locked, Written Review Pending (2026-07-17)
+
+**Status:** DESIGN APPROVED IN CHAT; NO IMPLEMENTATION STARTED
+
+- [x] Read PRD fully and Section 7 twice for this planning cycle.
+- [x] Reviewed PX framework, audit recap, Q&A, continuation, PX-1 journey, trackers,
+  integration docs, code patterns, and recent commits.
+- [x] Checked current official Hermes/browser documentation, including post-2026-07-10
+  changes. Latest tagged release found: v0.18.2 (2026-07-08); newer documented changes
+  may be unreleased `main` behavior and are not assumed present on VPS.
+- [x] Completed guided decisions for Parts 0-14 and added the authoritative Part 15
+  lock record to Doc A.
+- [x] Approved native-first phone execution fabric: phone control, VPS primary L1-L3,
+  optional enrolled PC CUA worker, human L5 handoff.
+- [x] Froze action-bound approvals, private takeover, session isolation, medical portal
+  isolation, evidence retention, runtime limits, and no-paid/no-upgrade constraints.
+- [x] Froze a 20/20 acceptance suite and phases 0-6.
+- [x] Wrote canonical design:
+  `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md`.
+- [ ] Human review of written design.
+- [ ] Implementation plan (only after written-design approval).
+- [ ] PX-1b implementation (not started).
+
+No VPS change, deployment, service action, secret access, real external action, git
+staging, commit, or push was performed during this documentation phase.

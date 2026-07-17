@@ -238,3 +238,28 @@ All infrastructure and account questions resolved.
 | 11 | **Signup pipeline = PC ops, NOT agent skills** | CDP Chrome, QRYPTY API, batch scripts live under `F:\HermesPrivate\`. Never deployed to VPS, never registered as Hermes skills. Account farming is ops, not product. |
 | 12 | **PX-1 Fasa 3 deferred (docs freeze first)** | Multi-key war consumed dev time. Journey doc + tracker updates first to prevent next session from re-installing deps or re-debugging dead Turnstile paths. Fasa 3 in next wave. |
 
+### Decisions Made (2026-07-17) - PX-1b Web Operator Design
+
+| # | Decision | Rationale |
+|---|---|---|
+| 1 | **Phone-first execution fabric** | WhatsApp/Telegram are universal control surfaces; VPS remains the 24/7 primary worker; PC is an optional desktop/CUA worker; GitHub is durable source. |
+| 2 | **Complete V1, phased delivery** | Build the full approved L1-L4 capability and human L5 handoff, but isolate risk through evidence-gated phases rather than a reduced MVP or unsafe parallel build. |
+| 3 | **Both Telegram and WhatsApp required** | Phone-first operation must work through both existing user surfaces; Telegram remains the richer approval fallback. |
+| 4 | **Separate Web Operator expert** | Interactive execution needs dedicated safety/routing policy. Research Expert composes it only when interaction is needed. |
+| 5 | **Native Hermes browser first** | Compose current capabilities before adding another framework. Isolated adapters fill proven gaps; browser-use is only a fallback trial. |
+| 6 | **Keep live Hermes version** | Current docs include post-10-July unreleased behavior. Do not silently upgrade or deploy `main`; build isolated adapters or stop honestly. |
+| 7 | **No extra spend** | No paid browser cloud and no VPS upgrade. Current free/self-hosted infrastructure must be measured; blockers remain honest Overhaul V2 evidence. |
+| 8 | **Measured maximum concurrency** | Benchmark 1-3 L3 jobs and use the highest optimized level that preserves gateway health instead of forcing three Chromium workers on 2 GB RAM. |
+| 9 | **Action-bound approvals** | Owner-only, single-use, task/action/parameter-bound approvals prevent stale or changed sends, forms, files, purchases, and CUA actions. |
+| 10 | **Private phone takeover** | Ordinary secrets are typed by the user while agent input/observation/capture is suspended; financial secrets remain in normal phone browser/app. |
+| 11 | **Per-site/account/device sessions** | No arbitrary site count; each session is separately enrolled, isolated, expiring, and revocable. No automatic VPS-PC session copying. |
+| 12 | **Medical portals isolated** | Private portals are allowed under high-sensitivity mode but never modify existing med code/state or enter durable memory/artifacts. |
+| 13 | **Secure enrolled PC worker** | Remote CUA needs mutual authentication, encryption, replay protection, per-task grants, visible activity, and kill controls; no public control port. |
+| 14 | **PC availability, no remote wake** | If online after approval, proceed; if offline, ask to power on, postpone, schedule, or cancel. Mobile hotspot makes Wake-on-LAN unsuitable now. |
+| 15 | **Bounded CAPTCHA/compatibility policy** | Permit normal interaction and measured self-hosted compatibility only; no solver farms, paid bypass, account farming, or repeated hard-wall probing. |
+| 16 | **14-day redacted evidence** | Keep minimum selected redacted evidence and normalized URLs; delete raw frames immediately and detailed evidence after 14 days. |
+| 17 | **20/20 release gate** | All frozen controlled and real-phone acceptance cases must pass in one clean run; correct safe refusal/handoff passes only where expected. |
+| 18 | **Qwen/Sakana are optional comparisons** | They were historical CUA experiments, not product architecture. Test once later only after the real supported CUA path works. |
+
+Canonical design: `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md`.
+Implementation planning is blocked until the human reviews and approves the written spec.
