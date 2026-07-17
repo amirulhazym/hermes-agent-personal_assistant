@@ -271,5 +271,24 @@ Written spec approved by the human on 2026-07-17. Implementation plan:
 |---|---|---|
 | 1 | **Work on `overhaul/exec` only** | Human rejected feature-branch/worktree workflow for simplicity. |
 | 2 | **Phase 0 Telegram E2E = PARTIAL PASS** | Chat tools + skill-trigger validated; formal research package/trace residual accepted for compose path. |
+
+### Decision Made (2026-07-17) - PX-1 Stage 6 repair
+
+| # | Decision | Reason |
+|---|---|---|
+| 1 | **Use a deterministic repo-owned Stage 6 writer** | The live Telegram path loaded the research skill and used web tools, but Stage 6 existed only as model instructions. `scripts/research_stage6.py` now creates `meta.yaml`, `report.md`, `sources.json`, and appends `research_trace.jsonl` from one validated JSON payload. |
+| 2 | **Require path verification before reporting completion** | The skill and pipeline docs now treat a non-zero runner result or missing returned paths as a failed package, preventing silent compose-only success. |
+| 3 | **No live deployment in this change** | Deployment would alter `~/.hermes/scripts/` and require a gateway restart; implementation and deterministic validation are complete locally without touching secrets, med files, or services. |
 | 3 | **Native-first L3 with injectable live callables** | Local package must unit-test without VPS imports; live wiring is deploy-time. |
 | 4 | **cryptography optional at unit-test time** | VPS has package; local Windows Python skipped crypto tests rather than silent install. |
+
+### Decision: Windows PC worker autostart (2026-07-17)
+
+- Use a project-owned per-user Scheduled Task at logon for the mailbox worker, not only
+  `cua-driver autostart`.
+- The task starts `web-operator-worker-autostart.ps1 -Action Run`; its supervisor invokes
+  `web-operator-worker.ps1 -Action Run -Seconds 0` and restarts after unexpected exits.
+- Use `InteractiveToken` and `Limited` run level so the task does not require elevation
+  or expose a non-interactive desktop control path.
+- Keep the existing SSH/SCP mailbox transport unchanged and outbound-only; no inbound
+  PC listener or secret-bearing task arguments are introduced.

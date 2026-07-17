@@ -73,6 +73,8 @@ python -m scripts.web_operator.acceptance_suite --config $CFG \
 ```powershell
 pwsh -File windows/web-operator-worker.ps1 -Action Enroll
 pwsh -File windows/web-operator-worker.ps1 -Action Run -Seconds 300
+# Optional persistent logon worker (register once; do not run during static tests)
+pwsh -File windows/web-operator-worker-autostart.ps1 -Action Install
 ```
 
 ## Telegram fix note

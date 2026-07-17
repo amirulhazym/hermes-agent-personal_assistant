@@ -910,7 +910,16 @@ After user approval to continue autonomously while sleeping, completed:
   - verification: none → 7-rule cross-check
   - trace log: none → JSONL audit log
   - knowledge export: none → contract + export stub
-  - research expert: no skill → full 6-stage domain owner
+   - research expert: no skill → full 6-stage domain owner
+
+## PX-1 Stage 6 Repair — IMPLEMENTED (2026-07-17)
+
+- [x] Reproduced the Telegram gap: skill-trigger and web tools ran, but no standard artifact/trace was produced
+- [x] Added deterministic `scripts/research_stage6.py` writer/runner
+- [x] Wired `research-expert` and pipeline docs to require the runner and verify returned paths
+- [x] Added regression test covering standard artifact files and append-only trace output
+- [x] Updated `RUNBOOK.md`, `PX1-RESEARCH-TRACK-PLAN.md`, and the research skill README
+- [x] Local focused test passes; no VPS deployment or gateway restart performed
 
 ### PX-1 Final State (all Fasa complete)
 
@@ -1017,3 +1026,17 @@ Key live facts:
 - L3 concurrency production = **1**.
 - L1–L3 production path is live-wired on VPS.
 - L4 CUA not production (daemon off; interactive desktop Access denied from non-interactive probe).
+
+## PX-1b Windows Worker Autostart (2026-07-17)
+
+- [x] Root cause confirmed: `cua-driver autostart` starts only the daemon; it does not
+  start the Python mailbox worker loop. The worker's default `Run` window was finite.
+- [x] Added `windows/web-operator-worker-autostart.ps1` with per-user logon task
+  registration, limited interactive-token execution, and worker restart supervision.
+- [x] Changed `web-operator-worker.ps1 -Action Run -Seconds 0` to mean run forever.
+- [x] Updated `RUNBOOK.md` and `docs/px1b-acceptance-evidence.md` with install/check/
+  uninstall commands and outbound-only behavior.
+- [x] Added static contract coverage in
+  `scripts/web_operator/tests/test_windows_autostart.py`.
+- [x] No task was registered on this development machine; no service, port, or secret
+  was touched.

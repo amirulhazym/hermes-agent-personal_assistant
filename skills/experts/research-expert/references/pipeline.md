@@ -73,17 +73,25 @@ Structure:
 
 ## Stage 6 — Artifact package
 
-Write files under:
+Pass the completed Stage 1–5 result to the deterministic writer, which writes files under:
 
 `~/.hermes/research/artifacts/YYYY-MM-DD-<slug>/`
 
-Required files: see `artifact-format.md`.
+Required files: see `artifact-format.md`. The standard runner is:
+
+```bash
+python3 ~/.hermes/scripts/research_stage6.py < stage6-payload.json
+```
+
+Treat a non-zero exit, invalid JSON response, missing `artifact_dir`, or missing
+`trace_path` as a failed pipeline. Do not claim a completed research package until
+both returned paths exist.
 
 Write research trace log entry at:
 
 `~/.hermes/logs/research_trace.jsonl`
 
-Format: see `references/trace-log.md`. One JSON line per pipeline run.
+Format: see `references/trace-log.md`. The runner appends one JSON line per pipeline run.
 
 ## Parallelism sketch
 

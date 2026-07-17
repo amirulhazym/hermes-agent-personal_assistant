@@ -489,7 +489,40 @@ Full doc: `~/mjay/docs/git_workflow.md`
 
 ---
 
-## 16. PX-1 Research — Operational Reference
+## 16. PX-1b Windows Web Operator Worker
+
+The Windows PC worker is an optional outbound-only mailbox worker. It uses SSH/SCP
+to exchange bridge files with the VPS and does not expose a listener, web port, CDP
+port, MCP port, or CUA control port.
+
+### Install per-user auto-start
+
+Run once in PowerShell 7 after confirming the repository path:
+
+```powershell
+pwsh -File "F:\AI Prep\OVIS\Hermes Agent\MJay\windows\web-operator-worker-autostart.ps1" -Action Install
+```
+
+This registers `Hermes Web Operator PC Worker` in the current user’s Task Scheduler
+with an interactive-token, limited-privilege logon trigger. The task launches the
+project launcher, which owns the mailbox loop and restarts it after an unexpected
+exit. It is separate from `cua-driver autostart`, which only starts the CUA daemon.
+
+### Check or remove auto-start
+
+```powershell
+Get-ScheduledTask -TaskName "Hermes Web Operator PC Worker"
+pwsh -File "F:\AI Prep\OVIS\Hermes Agent\MJay\windows\web-operator-worker-autostart.ps1" -Action Uninstall
+```
+
+The registration command does not start the task immediately. Start it manually
+only when the PC worker is intentionally being enabled:
+
+```powershell
+Start-ScheduledTask -TaskName "Hermes Web Operator PC Worker"
+```
+
+## 17. PX-1 Research — Operational Reference
 
 ### Search Cascade (Tavily Multi-Key Pool)
 
@@ -523,7 +556,13 @@ Full doc: `~/mjay/docs/git_workflow.md`
 | Path | `~/.hermes/skills/experts/research-expert/` |
 | Artifacts | `~/.hermes/research/artifacts/YYYY-MM-DD-<slug>/` |
 | Pipeline | plan → search → extract → verify → synthesize → artifact |
+| Stage 6 writer | `~/.hermes/scripts/research_stage6.py` |
 | Constraints | depth=1 / max=3, no med, labels VALIDATED/UNTESTED/REJECTED |
+
+The final research response must invoke the Stage 6 writer with the completed JSON
+payload. It returns `artifact_dir` and `trace_path`; both paths must exist before the
+result is reported. A successful package contains `meta.yaml`, `report.md`, and
+`sources.json`, and appends one JSON object to `~/.hermes/logs/research_trace.jsonl`.
 
 ### Signup Pipeline (PC Only — NOT on VPS)
 

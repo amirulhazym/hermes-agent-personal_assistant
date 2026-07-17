@@ -105,6 +105,7 @@ Verify hybrid-web / web_extract on static + JS URL.
 Cross-check, freshness, contradiction flags; research trace log; SOUL grounding.
 - `references/verification.md` (7-rule cross-check, freshness, contradictions, quality gates)
 - `references/trace-log.md` (JSONL audit format, schema, querying, rotation)
+- deterministic Stage 6 writer (`scripts/research_stage6.py`) for artifact + trace output
 - Pipeline Stage 4 expanded with contradiction handling + self-audit
 
 ### Fasa 4 — Knowledge layer contract — DONE (2026-07-14)

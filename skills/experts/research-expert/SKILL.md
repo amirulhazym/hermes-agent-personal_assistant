@@ -38,6 +38,7 @@ not a single tool. Skills ≠ experts.
 | Extract | `web_extract` / hybrid-web (static trafilatura → SPA crawl4ai → Playwright) |
 | Verify | `references/verification.md` (Fasa 3 grounding rules — mandatory for non-trivial research) |
 | Trace | `references/trace-log.md` (Fasa 3 audit log — append to `~/.hermes/logs/research_trace.jsonl`) |
+| Package | `python3 ~/.hermes/scripts/research_stage6.py` with the completed Stage 1–5 JSON payload |
 | Browser | Playwright path only when extract needs JS; keep ≤3 parallel |
 | Notes | Knowledge export stub (Fasa 4): `~/.hermes/scripts/research_knowledge.py` |
 
@@ -59,7 +60,7 @@ Follow stages in order. Full detail: `references/pipeline.md`.
 3. **Extract** — ≤3 URLs per batch; prefer primary sources
 4. **Verify** — cross-check claims, dates, contradictions; drop weak hits
 5. **Synthesize** — answer + confidence + open questions
-6. **Artifact** — write package per `references/artifact-format.md`
+6. **Artifact** — invoke the deterministic Stage 6 writer with the completed pipeline payload; verify its returned artifact and trace paths
 
 Skip stages only for trivial single-fact lookups (still cite URL if used).
 
@@ -78,6 +79,23 @@ Default working dir for packages:
 `~/.hermes/research/artifacts/YYYY-MM-DD-<slug>/`
 
 Template: `templates/research-artifact.md`
+
+## Deterministic Stage 6 requirement
+
+Do not rely on model prose or direct ad-hoc file writes for the final package. After
+Synthesize, construct one JSON payload containing `question`, `report`, `sources`,
+`pipeline_stages`, `stage_log`, and any available `meta`/`outcome` fields, then run:
+
+```bash
+python3 ~/.hermes/scripts/research_stage6.py <<'JSON'
+{"question":"...","report":"...","sources":[],"pipeline_stages":["plan","search","extract","verify","synthesize"],"stage_log":[]}
+JSON
+```
+
+The command must succeed and return `artifact_dir` and `trace_path`. Check that both
+paths exist before reporting the research result. The writer creates `meta.yaml`,
+`report.md`, `sources.json`, and appends one JSON object to
+`~/.hermes/logs/research_trace.jsonl`.
 
 ## Failure / fallback
 

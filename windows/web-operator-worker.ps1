@@ -77,8 +77,8 @@ if ($Action -eq 'Enroll') {
 }
 
 if ($Action -eq 'Once' -or $Action -eq 'Run') {
-  $deadline = [datetime]::UtcNow.AddSeconds($Seconds)
-  while ([datetime]::UtcNow -lt $deadline) {
+  $deadline = if ($Seconds -gt 0) { [datetime]::UtcNow.AddSeconds($Seconds) } else { $null }
+  while ($null -eq $deadline -or [datetime]::UtcNow -lt $deadline) {
     & $SyncScript -Action SyncOnce -VpsHost $VpsHost -LocalBridge $LocalBridge -RemoteBridge "$RemoteHermes/web-operator/bridge"
     & $PythonExe -m scripts.web_operator worker-loop --bridge-root $LocalBridge --seconds 2 --poll 0.5 --cua-exe $cua
     & $SyncScript -Action SyncOnce -VpsHost $VpsHost -LocalBridge $LocalBridge -RemoteBridge "$RemoteHermes/web-operator/bridge"
