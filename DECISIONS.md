@@ -269,10 +269,17 @@ Written spec approved by the human on 2026-07-17. Implementation plan:
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| 1 | **Freeze PX-1 Research + PX-1b as complete family** before PX-2 | Fresh VPS recheck 2026-07-18 confirms live search/extract/experts/web_operator; 20/20 PX-1b already accepted 2026-07-17. Avoid re-opening finished tracks. |
-| 2 | **PX-2 starts in planning mode only** (framework + Doc A/B) | Same method as PX-1b; no code until goal named and Q&A locked. |
-| 3 | **Canonical closeout doc** | `docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md` is the freeze index for future agents. |
-| 4 | **Honest residual: research formal package/trace in every chat** | PARTIAL only — optional narrow repair, not a PX-2 blocker unless human prioritizes. |
+| 1 | **Freeze PX-1 Research + PX-1b as complete family** | Fresh VPS recheck 2026-07-18; 20/20 PX-1b already accepted 2026-07-17. Avoid re-opening finished tracks. |
+| 2 | **Canonical closeout doc for PX-1 family only** | `docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md` — does **not** define PX-2. |
+| 3 | **Honest residual: research formal package/trace in every chat** | PARTIAL only — optional narrow repair, separate from closeout freeze. |
+
+### Decisions Made (2026-07-18) — PX-2 mis-brief correction
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | **Delete wrong `CONTINUATION-BRIEF-PX2.md`** | Agent-authored brief framed PX-2 as generic next-capability candidates (ops/Obsidian/residual/etc.). Human’s prior-chat PX-2 is **problem intelligence** (PROBLEMS/SOLUTIONS/TRACKER). Brief conflicted and misled. |
+| 2 | **Do not invent PX-2 in this session’s closeout** | PX-2 concept is human-owned from another chat; strip A–F lists; no replacement brief until human asks to write the correct one. |
+| 3 | **Keep PX-1 closeout evidence** | Revert wrong PX-2 narrative only; do not undo PX-1/PX-1b freeze verification. |
 
 ### Decisions Made (2026-07-17) - PX-1b execution line
 

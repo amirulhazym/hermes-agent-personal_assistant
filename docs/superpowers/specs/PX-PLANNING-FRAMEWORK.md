@@ -2,7 +2,7 @@
 
 > **Purpose:** Standard method to plan any **PX-*** track (or major capability upgrade) before code.  
 > **Origin:** PX-1b Web Operator planning (2026-07-14).  
-> **Status:** CANONICAL — reuse for PX-1b, PX-2, PX-3, future verticals.  
+> **Status:** CANONICAL — reuse for future PX tracks when human starts planning. Do not invent track goals.  
 > **Owner:** amirulhazym · Executor: OpenCode (MJ verifier only)
 
 ---

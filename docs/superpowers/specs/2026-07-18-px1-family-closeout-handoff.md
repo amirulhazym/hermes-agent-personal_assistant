@@ -2,9 +2,10 @@
 
 > **Date:** 2026-07-18 (fresh verification this session)  
 > **Branch:** `overhaul/exec`  
-> **Purpose:** Official freeze of **PX-1 Research** and **PX-1b Web Operator** before any **PX-2** work.  
-> **Method:** verification-before-completion · evidence labels · PX Planning Framework for next track  
-> **Do not** re-open acceptance without regression evidence.
+> **Purpose:** Official freeze of **PX-1 Research** and **PX-1b Web Operator** only.  
+> **Method:** verification-before-completion · evidence labels  
+> **Do not** re-open acceptance without regression evidence.  
+> **Do not** use this file to invent or redefine **PX-2**.
 
 ---
 
@@ -16,7 +17,7 @@
 | **PX-1b Web Operator** | **COMPLETE / LIVE** | VALIDATED 20/20 design acceptance (2026-07-17) |
 | **P0–P3** med/gateway overhaul | COMPLETE / LIVE | Prior trackers |
 | **P4** multi-agent OS | **ON HOLD** | HOLD specs |
-| **PX-2** | **NOT STARTED** | Planning required first (framework) |
+| **PX-2** | **OUT OF SCOPE of this closeout** | Human-owned concept (prior chat). **Not** defined by this document. Wrong agent brief removed. |
 
 **Fresh re-check (2026-07-18, this session):**
 
@@ -66,7 +67,7 @@
 
 | Item | Label | Action for PX-2 |
 |------|-------|-----------------|
-| Every chat research always writes formal `research_trace.jsonl` + full artifact package | **PARTIAL** | Optional narrow repair if daily use hurts; not a PX-2 blocker |
+| Every chat research always writes formal `research_trace.jsonl` + full artifact package | **PARTIAL** | Optional narrow repair if daily use hurts; separate from PX-1 freeze |
 | Journey §11 Wave 1 text in older copies | STALE if not updated | Prefer this closeout + PROGRESS |
 
 ### 1.4 Anti-repeat (still binding)
@@ -108,7 +109,7 @@ Phone (TG/WA) = control surface. VPS = always-on brain. PC = optional power work
 - Plan: `docs/superpowers/plans/2026-07-17-px1b-web-operator.md`  
 - Code: `scripts/web_operator/`, skill `web-operator`, Windows worker scripts under `windows/`
 
-### 2.3 Ops hardening backlog (not PX-2 unless chosen)
+### 2.3 Ops hardening backlog (PX-1b follow-up only — not a PX-2 product definition)
 
 From PX-1b journey §9A — short follow-ups, not re-acceptance:
 
@@ -132,36 +133,27 @@ From PX-1b journey §9A — short follow-ups, not re-acceptance:
 ```text
 P0–P3 med/gateway ──────── COMPLETE LIVE
 P4 multi-agent OS ───────── ON HOLD
-PX-1 Research ───────────── COMPLETE LIVE  ← frozen here
-PX-1b Web Operator ──────── COMPLETE LIVE  ← frozen here
-PX-2 ────────────────────── NEXT (undefined until planning)
-PX-3+ ───────────────────── later
+PX-1 Research ───────────── COMPLETE LIVE  ← frozen in this closeout
+PX-1b Web Operator ──────── COMPLETE LIVE  ← frozen in this closeout
+PX-2 / later tracks ─────── NOT DEFINED HERE
 ```
-
-**Planning method for any new PX:**  
-`docs/superpowers/specs/PX-PLANNING-FRAMEWORK.md`
 
 ---
 
-## 4. Gate to start PX-2
+## 4. PX-2 notice (correction — 2026-07-18)
 
-Do **not** start PX-2 implementation until:
+**This closeout does not own PX-2.**
 
-1. [ ] Human names **PX-2 goal in one sentence**  
-2. [ ] Agent produces Doc B audit + Doc A Q&A (or human reuses framework)  
-3. [ ] Human fills Q&A offline and returns  
-4. [ ] Joint lock → design → plan → build  
+An earlier agent draft wrongly treated PX-2 as a “generic next capability” list  
+(ops hardening / Obsidian / research residual / portals / experts / V2) and shipped  
+`CONTINUATION-BRIEF-PX2.md` with that framing. **That draft is wrong and was removed.**
 
-**Suggested PX-2 candidates** (pick one; do not invent paid scope):
+The human’s original PX-2 was discussed in another session (problem-intelligence  
+system with linked PROBLEMS / SOLUTIONS / TRACKER files). That concept is **owned  
+by the human / that session** — it is **not** redefined, planned, or implemented  
+in this closeout. Future agents must **not** invent PX-2 goals from this file.
 
-| Candidate | Notes |
-|-----------|--------|
-| A. Ops hardening only | Short; finish PX-1b ops backlog |
-| B. Knowledge / Obsidian productization | Builds on PX-1 Fasa 4 stub |
-| C. Research formalization residual | Trace/artifact always-on in chat |
-| D. Private-site / portal drills | Owner-gated; high safety |
-| E. New domain expert vertical | e.g. ops, finance, content — not full P4 |
-| F. Overhaul V2 / Hermes upgrade path | Explicit version decision required |
+Optional PX-1b ops follow-ups (§2.3) remain **ops**, not “PX-2.”
 
 ---
 
@@ -175,7 +167,7 @@ Do **not** start PX-2 implementation until:
 | `2026-07-14-px1b-web-operator-planning-qna.md` | PX-1b Doc A (+ Part 15 lock) |
 | `2026-07-17-px1b-web-operator-design.md` | PX-1b locked design |
 | `2026-07-17-px1b-web-operator-journey.md` | PX-1b execution narrative |
-| `2026-07-18-px1-family-closeout-handoff.md` | **This file** — freeze before PX-2 |
+| `2026-07-18-px1-family-closeout-handoff.md` | **This file** — PX-1 family freeze only |
 | `2026-07-11-phase4-os-vision-HOLD.md` | P4 hold |
 | `2026-07-11-phase4-multi-agent-partial-design.md` | P4 partial (held) |
 | `2026-06-30-dual-rebuild-audit-decision.md` | Historical rebuild |
@@ -189,7 +181,7 @@ Related non-spec evidence:
 
 ---
 
-## 6. Fresh session checklist (before PX-2 planning)
+## 6. Fresh session checklist (PX-1 family status only)
 
 ```bash
 # Local
@@ -198,8 +190,6 @@ git -C "F:\AI Prep\OVIS\Hermes Agent\MJay" log --oneline -8
 
 # Read
 # docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md  (this file)
-# docs/superpowers/specs/PX-PLANNING-FRAMEWORK.md
-# CONTINUATION-BRIEF-PX2.md  (when present)
 
 # VPS smoke
 ssh ubuntu@119.28.119.151 'systemctl --user is-active hermes-gateway'
@@ -207,7 +197,7 @@ ssh ubuntu@119.28.119.151 'grep -E "search_backend|extract_backend" ~/.hermes/co
 ssh ubuntu@119.28.119.151 'ls ~/.hermes/skills/experts/ ~/.hermes/plugins/'
 ```
 
-**Do not:** re-run PX-1 Fasa 0 install; re-open PX-1b 20/20 without failure evidence; touch med_*.
+**Do not:** re-run PX-1 Fasa 0 install; re-open PX-1b 20/20 without failure evidence; touch med_*; invent PX-2 from this closeout.
 
 ---
 
@@ -230,9 +220,9 @@ ssh ubuntu@119.28.119.151 'ls ~/.hermes/skills/experts/ ~/.hermes/plugins/'
 
 | Role | Statement |
 |------|-----------|
-| Agent (this session) | PX-1 family closed for handoff on evidence above. Ready for **PX-2 planning only**. |
-| Human | Approve this closeout before PX-2 Q&A package (optional explicit yes). |
+| Agent (this session) | PX-1 Research + PX-1b frozen on evidence above. |
+| Human | Closeout is for PX-1 family only; PX-2 is separate human-owned track. |
 
 ---
 
-*End closeout. Next: name PX-2 → Planning Framework → Doc B/A → lock → build.*
+*End closeout. PX-1 family frozen. Do not redefine PX-2 here.*

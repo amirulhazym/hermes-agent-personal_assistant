@@ -1042,7 +1042,7 @@ Key live facts:
 
 ## PX-1 Family Closeout (2026-07-18)
 
-**Status:** CLOSED — ready for PX-2 **planning only**
+**Status:** CLOSED — PX-1 Research + PX-1b frozen
 
 - [x] Fresh VPS recheck: gateway active; search-cascade + hybrid-web; 11 Tavily keys
 - [x] Live `web_search` smoke: success=True, backend=tavily, n=2
@@ -1050,10 +1050,11 @@ Key live facts:
 - [x] Specs tree reviewed under `docs/superpowers/specs/`
 - [x] Closeout handoff written:
   `docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md`
-- [x] PX-2 continuation brief:
-  `CONTINUATION-BRIEF-PX2.md`
-- [ ] Human names PX-2 one-line goal
-- [ ] PX-2 Doc B + Doc A (Planning Framework)
-- [ ] Lock → design → plan → implement
+
+### PX-2 correction (2026-07-18, same session)
+
+- [x] **Removed** wrong agent-authored `CONTINUATION-BRIEF-PX2.md` (generic A–F “next capability” framing — **not** human’s PX-2)
+- [x] Stripped invented PX-2 goals from closeout / trackers
+- [x] PX-2 remains **human-owned** (prior chat: problem-intelligence 3-file system). Not redefined here.
 
 **Do not** re-open PX-1/PX-1b acceptance without regression evidence.

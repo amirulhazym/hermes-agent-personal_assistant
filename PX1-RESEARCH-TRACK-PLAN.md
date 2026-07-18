@@ -4,9 +4,9 @@
 **Track type:** Separate from P0–P3 med/gateway; **parallel to P4 (P4 ON HOLD)**  
 **Owner:** amirulhazym  
 **Created:** 13 July 2026 · **Updated:** 18 July 2026 (closeout recheck)  
-**Handoff brief:** `CONTINUATION-BRIEF-PX1.md` (historical) · next track `CONTINUATION-BRIEF-PX2.md`  
+**Handoff brief:** `CONTINUATION-BRIEF-PX1.md` (historical / closed)  
 **Journey:** `docs/superpowers/specs/2026-07-14-px1-research-journey.md`  
-**Closeout:** `docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md`  
+**Closeout:** `docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md` (PX-1 family only; does not define PX-2)  
 **P4 freeze:** `CONTINUATION-BRIEF-P4.md` + `docs/superpowers/specs/2026-07-11-phase4-os-vision-HOLD.md`
 
 ---
