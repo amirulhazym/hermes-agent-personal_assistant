@@ -944,9 +944,9 @@ After user approval to continue autonomously while sleeping, completed:
 - [x] Knowledge layer contract doc + export stub
 - [x] E2E validated (2 full pipeline runs + fallback + quality comparison)
 
-### Next: PX-1b Web Operator — PLANNING PACKAGE READY (2026-07-14)
+### Next: PX-1b Web Operator — PLANNING → BUILD (superseded by sections below)
 
-No implementation yet. Human offline review:
+Planning package (2026-07-14) led to design lock and full implementation 2026-07-17.
 
 | Doc | Path |
 |-----|------|
@@ -954,11 +954,9 @@ No implementation yet. Human offline review:
 | Doc B audit recap | `docs/superpowers/specs/2026-07-14-px1b-web-operator-audit-recap.md` |
 | Doc A sequential Q&A | `docs/superpowers/specs/2026-07-14-px1b-web-operator-planning-qna.md` |
 
-Process: fill Doc A → return → joint lock → design → implement.
-
 ## PX-1b Web Operator - Design Approved, Implementation Plan Drafted (2026-07-17)
 
-**Status:** DESIGN APPROVED; IMPLEMENTATION PLAN DRAFTED; NO IMPLEMENTATION STARTED
+**Status:** DESIGN APPROVED; IMPLEMENTATION PLAN APPROVED; **IMPLEMENTATION COMPLETE (see DONE below)**
 
 - [x] Read PRD fully and Section 7 twice for this planning cycle.
 - [x] Reviewed PX framework, audit recap, Q&A, continuation, PX-1 journey, trackers,
@@ -1009,23 +1007,22 @@ Process: fill Doc A → return → joint lock → design → implement.
 
 ## PX-1b DONE (2026-07-17)
 
-**Formal design acceptance: 20/20 PASS.**  
-Phone L1–L3 live; L4 enrolled outbound PC worker live; evidence in `docs/px1b-acceptance-evidence.md`.
+**Formal design acceptance: 20/20 PASS** (clean RC).  
+Evidence: `docs/px1b-acceptance-evidence.md` · suite artifact VPS `~/.hermes/web-operator/acceptance-latest.json`.
 
-### Acceptance counts (automated)
-
-| Status | Count | Cases |
-|---|---:|---|
-| PASS | 16 | 1,4–18 |
-| PARTIAL | 2 | 2–3 (patterns only; need owner chat) |
-| PENDING | 2 | 19–20 (PC CUA) |
-| FAIL | 0 | — |
+| Status | Count |
+|---|---:|
+| PASS | **20** |
+| FAIL | 0 |
+| PARTIAL | 0 |
+| PENDING | 0 |
 
 Key live facts:
 - Keep Hermes **v0.17.0**.
 - L3 concurrency production = **1**.
-- L1–L3 production path is live-wired on VPS.
-- L4 CUA not production (daemon off; interactive desktop Access denied from non-interactive probe).
+- L1–L3 production path live-wired on VPS.
+- L4 enrolled outbound PC mailbox worker (cases 19–20 PASS).
+- Phone TG/WA browse smokes PASS.
 
 ## PX-1b Windows Worker Autostart (2026-07-17)
 
@@ -1040,3 +1037,23 @@ Key live facts:
   `scripts/web_operator/tests/test_windows_autostart.py`.
 - [x] No task was registered on this development machine; no service, port, or secret
   was touched.
+
+---
+
+## PX-1 Family Closeout (2026-07-18)
+
+**Status:** CLOSED — ready for PX-2 **planning only**
+
+- [x] Fresh VPS recheck: gateway active; search-cascade + hybrid-web; 11 Tavily keys
+- [x] Live `web_search` smoke: success=True, backend=tavily, n=2
+- [x] Experts present: research-expert + web-operator; web_operator package on VPS
+- [x] Specs tree reviewed under `docs/superpowers/specs/`
+- [x] Closeout handoff written:
+  `docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md`
+- [x] PX-2 continuation brief:
+  `CONTINUATION-BRIEF-PX2.md`
+- [ ] Human names PX-2 one-line goal
+- [ ] PX-2 Doc B + Doc A (Planning Framework)
+- [ ] Lock → design → plan → implement
+
+**Do not** re-open PX-1/PX-1b acceptance without regression evidence.

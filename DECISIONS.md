@@ -265,6 +265,15 @@ Canonical design: `docs/superpowers/specs/2026-07-17-px1b-web-operator-design.md
 Written spec approved by the human on 2026-07-17. Implementation plan:
 `docs/superpowers/plans/2026-07-17-px1b-web-operator.md`.
 
+### Decisions Made (2026-07-18) — PX-1 family closeout
+
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | **Freeze PX-1 Research + PX-1b as complete family** before PX-2 | Fresh VPS recheck 2026-07-18 confirms live search/extract/experts/web_operator; 20/20 PX-1b already accepted 2026-07-17. Avoid re-opening finished tracks. |
+| 2 | **PX-2 starts in planning mode only** (framework + Doc A/B) | Same method as PX-1b; no code until goal named and Q&A locked. |
+| 3 | **Canonical closeout doc** | `docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md` is the freeze index for future agents. |
+| 4 | **Honest residual: research formal package/trace in every chat** | PARTIAL only — optional narrow repair, not a PX-2 blocker unless human prioritizes. |
+
 ### Decisions Made (2026-07-17) - PX-1b execution line
 
 | # | Decision | Rationale |

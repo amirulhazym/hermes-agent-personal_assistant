@@ -1,11 +1,12 @@
 # PX-1 Research Capability Track — Plan
 
-**Status:** COMPLETE — Fasa 0–5 done + multi-key capacity on VPS · next = PX-1b Web Operator (design)  
+**Status:** COMPLETE / CLOSED — Fasa 0–5 + multi-key LIVE · family closeout 2026-07-18  
 **Track type:** Separate from P0–P3 med/gateway; **parallel to P4 (P4 ON HOLD)**  
 **Owner:** amirulhazym  
-**Created:** 13 July 2026 · **Updated:** 14 July 2026 (all Fasa complete)  
-**Handoff brief:** `CONTINUATION-BRIEF-PX1.md`  
+**Created:** 13 July 2026 · **Updated:** 18 July 2026 (closeout recheck)  
+**Handoff brief:** `CONTINUATION-BRIEF-PX1.md` (historical) · next track `CONTINUATION-BRIEF-PX2.md`  
 **Journey:** `docs/superpowers/specs/2026-07-14-px1-research-journey.md`  
+**Closeout:** `docs/superpowers/specs/2026-07-18-px1-family-closeout-handoff.md`  
 **P4 freeze:** `CONTINUATION-BRIEF-P4.md` + `docs/superpowers/specs/2026-07-11-phase4-os-vision-HOLD.md`
 
 ---
