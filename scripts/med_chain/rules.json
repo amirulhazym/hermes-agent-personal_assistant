@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "domain": "medication",
+  "constraints": [
+    {"id": "rule_001", "type": "min_gap", "from": "A", "to": "B", "hours": 1, "priority": 95},
+    {"id": "rule_002", "type": "fixed_gap", "from": "B", "to": "C", "hours": 4, "priority": 95},
+    {"id": "rule_003", "type": "fixed_gap", "from": "C", "to": "D", "hours": 4, "priority": 95},
+    {"id": "rule_004", "type": "anchor", "slot": "B", "time": "08:00", "priority": 100},
+    {"id": "rule_005", "type": "anchor", "slot": "E", "time": "20:00", "priority": 100},
+    {"id": "rule_006", "type": "independent", "slot": "A", "priority": 100},
+    {"id": "rule_007", "type": "independent", "slot": "E", "priority": 100}
+  ]
+}
