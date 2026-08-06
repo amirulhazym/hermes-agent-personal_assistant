@@ -1,0 +1,102 @@
+{
+  "schema": 1,
+  "note": "Shared cross-channel operation ledger. Telegram and WhatsApp sessions MUST check this before starting long-running work and attach themselves to the active task. Do not re-run an audit or task already recorded as active or complete.",
+  "tasks": [
+    {
+      "id": "gate-1-preservation",
+      "title": "Gate 1 — preservation bundles + runtime capture",
+      "status": "complete",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "GATE 1 PASS; artifacts at /home/ubuntu/backups/gate1 and D:\\hermes-gate1"
+    },
+    {
+      "id": "gate-2-integration",
+      "title": "Gate 2 — rescue refs + med-safety/P1/P2 integration",
+      "status": "complete",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "GATE 2 PASS; integration tip 24c2bf2"
+    },
+    {
+      "id": "gate-3-hermes-live",
+      "title": "Gate 3 — hermes-live selective reconciliation",
+      "status": "complete",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "GATE 3 PASS; integration 05d7016"
+    },
+    {
+      "id": "gate-4-runtime-source",
+      "title": "Gate 4 — live runtime source reconciliation",
+      "status": "complete",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "GATE 4 PASS; integration 497b3e8"
+    },
+    {
+      "id": "gate-5-pc-leftovers",
+      "title": "Gate 5 — PC workspace reconciliation + release candidate",
+      "status": "complete",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "GATE 5 PASS; integration 13baa13"
+    },
+    {
+      "id": "gate-6-deploy",
+      "title": "Gate 6 — promote main + controlled live deployment",
+      "status": "complete",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "GATE 6 PASS; main 13baa13; tag release/2026-08-06-reconciled; rollback /home/ubuntu/backups/gate6-predeploy-20260806_104013"
+    },
+    {
+      "id": "gate-7-cleanup",
+      "title": "Gate 7 — safe post-release cleanup",
+      "status": "complete",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "GATE 7 PASS; only main remains; tag archive/hermes-live-20260805"
+    },
+    {
+      "id": "post-gate7-audit",
+      "title": "Post-reconciliation live audit (Hermes)",
+      "status": "complete",
+      "channel": "telegram",
+      "completed_at": "2026-08-06",
+      "evidence": "LIVE RELEASE PASS; canonical audit hermes-live-state-audit-20260806-2.md; 1/26 test-only overlay drift + 12 candidates classified"
+    },
+    {
+      "id": "governance-v2-bootstrap",
+      "title": "Operator governance v2 bootstrap — AGENTS.md rewrite, 4 skills, guard scripts, ledger, CI, main protection",
+      "status": "active",
+      "channel": "opencode",
+      "branch": "operator-governance-v2",
+      "started_at": "2026-08-06",
+      "notes": "Steps 1-9 in progress; STOP for APPROVE RELEASE <sha>; then deploy governance files, add repo-scoped deploy key, run 2 pilots"
+    },
+    {
+      "id": "audit-debt-overlay-gap",
+      "title": "Overlay gap: tests/agent/test_nontech_contract.py (live 76 lines vs patch 75 lines; live newer with extra deep-check assertion)",
+      "status": "classified",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "Live supersedes patch; test-only; regen overlay patch in maintenance release"
+    },
+    {
+      "id": "audit-debt-12-candidates",
+      "title": "12 nested candidates classified: 8 upstream-tree-only (do not port), .install_method runtime, whatsapp-bridge.old archive, bridge.reconnect.test.mjs port, skills/computer-use port",
+      "status": "classified",
+      "channel": "opencode",
+      "completed_at": "2026-08-06",
+      "evidence": "Classification in gate-7b prep; ports queued for maintenance release"
+    },
+    {
+      "id": "gdrive-offsite",
+      "title": "Encrypted Google Drive offsite copy of Gate 1 artifacts",
+      "status": "pending",
+      "channel": "opencode",
+      "notes": "Operational backup follow-up; non-blocking"
+    }
+  ]
+}
