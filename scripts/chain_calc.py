@@ -463,14 +463,26 @@ def get_default_time(slot: str, schedule: dict) -> str:
     return first_time if ':' in first_time else DEFAULT_TIMES.get(slot, '00:00')
 
 
+# Heads-up pre-notices are restricted to this window before the actual ready
+# time. A slot pushed late by a gap rule (e.g. B: 08:00 configured -> 09:10
+# ready because A was taken at 08:10) must never nag the user to take a drug
+# that is not actually due yet.
+HEADS_UP_WINDOW_MIN = 30
+
+
 def is_scheduled_heads_up(slot: str, schedule: dict, now_min: int,
                           ready_time: str | None) -> bool:
-    """Configured dose time arrived but dynamic minimum gap is not mature."""
+    """Configured dose time arrived but dynamic minimum gap is not mature.
+
+    Only pre-notifies within HEADS_UP_WINDOW_MIN of the actual ready time.
+    """
     if not ready_time:
         return False
     scheduled_min = time_str_to_minutes(get_default_time(slot, schedule))
     ready_min = time_str_to_minutes(ready_time)
-    return ready_min > scheduled_min and scheduled_min <= now_min < ready_min
+    if not (ready_min > scheduled_min and scheduled_min <= now_min < ready_min):
+        return False
+    return now_min >= ready_min - HEADS_UP_WINDOW_MIN
 
 
 def calculate_ready_time(
@@ -637,6 +649,12 @@ def calculate_chain() -> dict:
                     continue
 
             if heads_up:
+                # Heads-up fires at most ONCE per slot per day so the 30-min
+                # pre-window cannot spam the same text twice. Once it has
+                # fired, the slot falls through to the real due branch when
+                # now >= ready_time (cooldown applies there as usual).
+                if reminder_counts.get(slot, 0) > 0:
+                    continue
                 if is_within_cooldown(slot, reminder_counts, chain_state, now_min):
                     continue
                 should_fire = True
