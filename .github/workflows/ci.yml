@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [main, "feat/*", "docs/*", "release/*-candidate"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run med-chain unit tests
+        run: |
+          python -m unittest discover -s scripts/med_chain/tests -p "test_*.py"
+      - name: Run med-chain integration tests (isolated temp-HOME)
+        run: |
+          python -m unittest scripts.test_chain_adapter scripts.test_chain_llm scripts.test_effective_done scripts.test_cc_atomic
+      - name: Syntax check
+        run: |
+          python -m py_compile scripts/chain_calc.py scripts/chain_llm.py scripts/test_effective_done.py scripts/med_chain/*.py
+          bash -n scripts/chain_monitor.sh scripts/guard/*.sh
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secret scan (tracked tree)
+        run: |
+          bash scripts/guard/secret-scan.sh --tree
+      - name: Secret scan (diff vs previous)
+        run: |
+          bash scripts/guard/secret-scan.sh --diff "${{ github.event.before }}" "${{ github.sha }}" || true
