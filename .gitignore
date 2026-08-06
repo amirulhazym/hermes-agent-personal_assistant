@@ -47,3 +47,10 @@ web-operator/medical-audit/
 web-operator/keys/
 __pycache__/
 *.pyc
+
+# Union from hermes-live 5de4a36 (donor: 62729fc) — safe runtime/PII ignores
+cache/
+jobs.json
+gateway_state.json
+pairing/
+med-*.json
