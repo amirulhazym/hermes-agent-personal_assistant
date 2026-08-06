@@ -69,17 +69,18 @@ User must approve before any automated deployment.
 OpenCode makes changes on local MJay repo → git commit to a temporary branch →
 push to GitHub → VPS pulls from GitHub. Or rsync specific files directly.
 
-### Git workflow (default path)
+### Git workflow (default path — owner-ratified)
 ```bash
 # On Windows (OpenCode or manual):
 cd /mnt/f/AI\ Prep/OVIS/Hermes\ Agent/MJay/
+git checkout -b temp/<purpose>   # or integration/reconcile-<date>
 git add -A
 git commit -m "sync: <description>"
-git push origin hermes-live
+git push origin temp/<purpose>
 
-# On VPS (manual or cron):
-cd ~/mjay
-git pull origin hermes-live
+# Tests + review -> promote (no force):
+git checkout main && git merge --ff-only temp/<purpose> && git push origin main
+# temp branch is then removed (auto cleanup after tested promotion)
 ```
 
 ### Direct rsync (for urgent config/script changes)
