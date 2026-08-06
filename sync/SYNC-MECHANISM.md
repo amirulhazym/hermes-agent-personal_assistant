@@ -9,8 +9,8 @@
 | Direction | Method | Trigger | Security |
 |-----------|--------|---------|----------|
 | **VPS → WSL2** | rsync pull (WSL2 pulls from VPS) | User opens PC, runs pull script | SSH key auth, exclude .env/secrets |
-| **WSL2 → VPS** | git push hermes-live → VPS git pull | Explicit user action OR auto-cron (user must approve) | SSH key, no force push |
-| **GitHub** | docs/code source of truth (main) | User merges hermes-live PR → main | Standard GitHub auth |
+| **WSL2 → VPS** | git push temp branch → VPS git pull | Explicit user action OR auto-cron (user must approve) | SSH key, no force push |
+| **GitHub** | docs/code source of truth (main) | Temporary branches promoted to main only after tested approval | Standard GitHub auth |
 
 ## VPS → WSL2 (runtime state mirror)
 
@@ -66,7 +66,7 @@ User must approve before any automated deployment.
 ## PC → VPS (code/docs changes)
 
 ### How it works
-OpenCode makes changes on local MJay repo → git commit to `hermes-live` branch →
+OpenCode makes changes on local MJay repo → git commit to a temporary branch →
 push to GitHub → VPS pulls from GitHub. Or rsync specific files directly.
 
 ### Git workflow (default path)
@@ -120,9 +120,9 @@ Jane (native VPS agent) checks daily:
 Alerts user via Telegram if any mismatch detected.
 
 ## Deployment Checklist (requires user "yes" for each)
-- [ ] Enable cron on VPS for daily git push of docs to hermes-live
+- [ ] Enable cron on VPS for daily git push of docs to a temporary branch
 - [ ] Enable cron on VPS for daily drift check (Jane verifier)
 - [ ] Add Windows Startup shortcut for auto-pull on PC login
-- [ ] Merge hermes-live → main on GitHub (after audit fixes complete)
+- [ ] Promote tested temporary branch to main (after audit fixes complete)
 
 *End of sync mechanism doc. Do not deploy any cron/auto-script without explicit user approval.*
