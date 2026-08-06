@@ -3,9 +3,10 @@
 #
 # Every 15 minutes:
 # 1. Check current chain state via chain_calc.py
-# 2. (G-5) Housekeeping: advance chain-state.json 'today' + reset confirmed-slot
+# 2. (G-5) Housekeeping: advance chain-state.json 'today' + reset resolved-slot
 #    counts on EVERY tick (not only when a reminder fires) so the chain can
-#    never freeze on a stale date.
+#    never freeze on a stale date. A resolved slot may contain intentional
+#    skips; it is not necessarily fully taken.
 # 3. If a reminder should fire: increment count, generate + deliver reminder.
 # 4. If nothing should fire -> silent (empty stdout)
 #
@@ -52,12 +53,13 @@ if state_today != today:
     state['today'] = today
     state.pop('slot_overrides', None)
 
-# Reset counts for slots that are fully confirmed today.
+# Reset counts for slots that are effectively resolved today. This includes
+# intentional skips, but does not relabel them as taken.
 import sys as _sys
 _sys.path.insert(0, '$SCRIPT_DIR')
 import chain_calc
 for slot_letter in ['A', 'B', 'C', 'D', 'E']:
-    if chain_calc.is_confirmed(slot_letter):
+    if chain_calc.is_effectively_done(slot_letter):
         state.setdefault('reminder_counts', {}).pop(slot_letter, None)
         state.setdefault('last_reminder_sent', {}).pop(slot_letter, None)
         state.setdefault('last_reminder_times', {}).pop(slot_letter, None)

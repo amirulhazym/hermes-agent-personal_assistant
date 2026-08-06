@@ -387,9 +387,14 @@ def get_pending_required_drugs(slot: str) -> list[dict]:
     """
     schedule = load_json(SCHEDULE_FILE)
     required = get_required_drug_ids(slot, schedule)
-    taken = get_taken_drugs(slot)
-    
-    pending_ids = set(required) - set(taken.keys())
+    entry = get_slot_entry(slot)
+    drugs_state = entry.get('drugs', {}) if isinstance(entry, dict) else {}
+    accounted_ids = {
+        did for did in required
+        if drugs_state.get(did, {}).get('status') in {'taken', 'skipped'}
+    }
+
+    pending_ids = set(required) - accounted_ids
     drugs = get_drugs_for_slot(slot, schedule)
     return [d for d in drugs if d.get('drug_id') in pending_ids]
 
@@ -406,6 +411,28 @@ def is_partial(slot: str) -> bool:
     schedule = load_json(SCHEDULE_FILE)
     overall = get_drug_level_overall(slot, schedule)
     return overall == 'partial'
+
+
+def is_effectively_done(slot: str) -> bool:
+    """True when every required drug has a terminal user decision.
+
+    ``is_confirmed`` remains intake-only: skipped must never be represented as
+    taken. This predicate is for reminder resolution and housekeeping only.
+    """
+    schedule = load_json(SCHEDULE_FILE)
+    required = get_required_drug_ids(slot, schedule)
+    if not required:
+        return False
+
+    entry = get_slot_entry(slot)
+    if not isinstance(entry, dict) or 'drugs' not in entry:
+        return False
+
+    drugs = entry['drugs']
+    return all(
+        drugs.get(did, {}).get('status') in {'taken', 'skipped'}
+        for did in required
+    )
 
 
 def get_actual_time(slot: str, drug_id: str | None = None) -> str | None:
@@ -545,18 +572,21 @@ def calculate_chain() -> dict:
         
         overall = get_drug_level_overall(slot, schedule)
         confirmed = overall == 'completed'
+        effectively_done = is_effectively_done(slot)
         actual = get_actual_time(slot)
         ready = (
             calculate_ready_time(slot, schedule, chain_times, resolved_times)
             if slot_active and timing_error is None else None
         )
-        pending_drugs = get_pending_required_drugs(slot) if not confirmed and slot_active else []
+        pending_drugs = get_pending_required_drugs(slot) if not effectively_done and slot_active else []
         
         # Determine status
         if not slot_active:
             status = 'inactive'  # Deactivated by taper phase
         elif confirmed:
             status = 'done'
+        elif effectively_done:
+            status = 'resolved'
         elif is_partial(slot):
             # Partial — some drugs taken, some still pending
             if ready and now_min >= time_str_to_minutes(ready) - 15:
@@ -572,6 +602,7 @@ def calculate_chain() -> dict:
         
         slot_states[slot] = {
             'confirmed': confirmed,
+            'effectively_done': effectively_done,
             'overall': overall,
             'actual_time': actual,
             'ready_time': ready,
@@ -586,14 +617,14 @@ def calculate_chain() -> dict:
         if not slot_states[slot].get('active', True):
             continue
         st = slot_states[slot]
-        if st['status'] in ('ready', 'partial_ready', 'partial') and not st['confirmed']:
+        if st['status'] in ('ready', 'partial_ready', 'partial') and not st['effectively_done']:
             next_slot = slot
             break
     if not next_slot:
         for slot in SLOTS:
             if not slot_states[slot].get('active', True):
                 continue
-            if not slot_states[slot]['confirmed']:
+            if not slot_states[slot]['effectively_done']:
                 next_slot = slot
                 break
     
@@ -608,6 +639,9 @@ def calculate_chain() -> dict:
         elif st['confirmed']:
             t = st['actual_time'] or '✓'
             chain_parts.append(f'{slot} ✅ {t}')
+        elif st['effectively_done']:
+            t = st['actual_time'] or '⏭'
+            chain_parts.append(f'{slot} ⏭ {t}')
         elif st['overall'] == 'partial':
             t = st['actual_time'] or '◐'
             chain_parts.append(f'{slot} ◐ {t}')
@@ -635,7 +669,7 @@ def calculate_chain() -> dict:
             st = slot_states[slot]
             if not st.get('active', True):
                 continue
-            if st['status'] == 'done':
+            if st['effectively_done']:
                 continue
 
             heads_up = is_scheduled_heads_up(slot, schedule, now_min, st['ready_time'])
@@ -755,6 +789,9 @@ def generate_reminder(slot: str, chain: dict) -> str:
     prev_time = get_prev_time(slot, chain)
     overall = chain['slots'][slot].get('overall', 'pending')
     pending_str = format_pending_drugs(slot, chain)
+
+    if chain['slots'][slot].get('effectively_done'):
+        return ''
     
     med_name = med_info.get('name', f'Medication {slot}')
     drugs = med_info.get('drugs', [])
