@@ -91,9 +91,12 @@ scp -i ~/.ssh/id_ed25519 ~/.hermes/scripts/new_script.py ubuntu@119.28.119.151:~
 
 ## GitHub (source of truth)
 
-### Branch strategy
-- **`main`** — human-reviewed stable branch. Only merged from `hermes-live` via PR.
-- **`hermes-live`** — agent-pushed working branch. Auto-pushed by OpenCode or Jane.
+### Branch strategy (owner-ratified workflow)
+- **`main`** — the SOLE permanent source branch. Source of truth for application code and docs.
+- **Temporary branches** — `rescue/*`, `integration/*`, `feat/*` — created only as safety/integration
+  tooling and automatically removed after their work is tested and promoted to `main`.
+- **Hermes works from clean source** — clean clone -> temporary branch -> tests -> `main`
+  -> explicit deploy -> live verification. No agent pushes directly to `main`.
 
 ### What goes to GitHub
 - MJay docs: PRD, PROGRESS, DECISIONS, RUNBOOK, AUDIT, AGENTS
