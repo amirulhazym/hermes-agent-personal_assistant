@@ -1,38 +1,116 @@
-# Agent Safety Rules
+# AGENTS.md — Hermes Agent Operator Constitution (v2)
 
-Before any destructive, irreversible, costly, credential-touching, deploy, external-message, public-posting, or out-of-scope action, STOP and ask the human in plain language. Wait for an explicit "yes".
+> Always-on project policy. Loaded as project context whenever an agent works
+> inside this repository or the live runtime it governs. This file is the
+> canonical, always-present safety contract; operational procedures live in
+> `skills/operator/*` (on-demand); deterministic enforcement lives in
+> `scripts/guard/*` and CI. If a skill or procedure conflicts with this file,
+> this file wins.
 
-These rules apply regardless of Plan mode, Build mode, sandbox mode, or approval presets.
+## 1. Topology — what is what
 
-Never print, commit, upload, or transmit secrets. Treat `.env`, Telegram bot tokens, DeepSeek keys, and WhatsApp session folders as sensitive.
+| Layer | Path | Role |
+|---|---|---|
+| GitHub `main` | source of truth | Sole permanent branch; release lineage only |
+| Clean source clone | `/home/ubuntu/hermes-agent-personal_assistant-work` (VPS), PC clone | Where all work starts; never the live runtime |
+| Live runtime | `/home/ubuntu/.hermes` | Runtime state, config, DBs, sessions, logs — never a Git worktree for application source |
+| Nested upstream | `/home/ubuntu/.hermes/hermes-agent` | Upstream Hermes clone + VPS overlays; never merge its Git history into this repo |
+| Archived donors | `~/mjay`, `~/.hermes/.git` (hermes-local), tags `archive/*`, `rescue/*` | Preservation only; not application source |
 
-No paid service may be enabled unless the human explicitly approves it.
+The running gateway executes from `/home/ubuntu/.hermes` (runtime) +
+`/home/ubuntu/.hermes/hermes-agent` (code). Source-managed files reach the
+runtime **only** through an explicit deployment manifest (see `docs/reconciliation/gate4-deployment-manifest.md`).
 
-## Git Commit Policy
+## 2. Branch policy
 
-The agent MUST ask the human before any `git add`, `git commit`, `git push`, `git amend`, or `git rebase`. After completing a unit of work (phase, file group, or logical change), the agent summarizes what changed and asks "Commit these changes?" — only on an explicit "yes" does the agent stage and commit.
+1. `main` is the **only permanent branch**.
+2. All work starts from a **clean source clone** at `main`.
+3. Never commit from `~/.hermes` or the nested upstream clone.
+4. Temporary branches (`feat/*`, `docs/*`, `release/*-candidate`) are created
+   automatically and deleted automatically after promotion or explicit abort.
+5. No force-push, no rebase of published history, no deletion of
+   `release/*`, `archive/*` or `rescue/*` tags.
 
-- The agent never commits without asking, even if the human said "proceed", "go", or "continue" earlier in the session.
-- "Proceed with the next phase" is NOT approval to commit the current phase. Ask separately for each commit.
-- This rule overrides any inferred permission and complements the existing "STOP and ask before destructive actions" rule above.
-- Commits must follow the repo's existing message style (concise, imperative, no emojis unless the human asks).
-- Never stage `.env`, session folders, `auth.json`, `*.key`, `*.pem`, or any file matching `.gitignore`.
+## 3. Approval model — exactly one approval gate
 
-## `.env` and Secrets Access Policy
+- **Docs-only changes** (allowlist below) may be committed, tested, promoted to
+  `main` and pushed **without repeated approval**, after verification:
+  allowlist membership + link validation + secret scan + tests pass.
+- **All other changes** (code, config, medical logic, skills, governance,
+  deployment artifacts) require **one** approval for the whole release:
+  `APPROVE RELEASE <exact-sha>`.
+  No separate approval for `git add`, commit, push, or deploy steps — the single
+  release approval covers the tested release candidate end-to-end.
 
-The agent has filesystem read access to `~/.hermes/.env` and similar secret files. This is necessary for discovering env var names and verifying config wiring.
+### Docs-only allowlist
+- `docs/**` (except deployment manifests and reconciliation ledgers under `docs/reconciliation/` which are governance artifacts)
+- `README.md`, `PROGRESS.md`, `DECISIONS.md`, `RUNBOOK.md`, `CHANGELOG*`, `*.md` at repo root (except governance files below)
 
-- The agent MUST NEVER print, log, echo, transmit, or commit any secret VALUE from `.env` or any other secret file.
-- When a script needs an API key, the agent references it by ENV VAR NAME (e.g. `OPENCODE_GO_API_KEY`) only — never inlines the value.
-- When grepping `.env` to discover a variable name, the agent uses targeted patterns (e.g. `grep -E '^(OPENCODE|DEEPSEEK|NVIDIA|TELEGRAM).*_KEY=' .env | cut -d= -f1`) that return names only, not values.
-- If a tool result accidentally exposes a secret value, the agent does not repeat it in subsequent messages or write it to any file.
-- Treat Telegram bot tokens, DeepSeek keys, NVIDIA keys, OpenCode Zen/Go keys, and WhatsApp session folders as sensitive per the rule above.
+### Never docs-only (always release-gated)
+`AGENTS.md`, `skills/**`, `.github/**`, `config/**`, `scripts/**`, `hooks/**`,
+`patches/**`, deployment manifests, `sync/**`, `windows/**`, `tests/**`,
+persona files, `operations/**`.
 
-## OpenCode-Specific Instructions
+## 4. Secrets, PII and runtime state — never in Git
 
-- Read `PRD.md` fully before any implementation work.
-- Read Section 7 (Human-in-the-Loop & Safety Protocol) twice. It overrides speed and convenience.
-- Fetch current official docs from PRD Section 6 before running setup commands, writing config, or assuming model names, CLI flags, provider schemas, or pricing.
-- Work phase-by-phase. At the end of every phase, stop, report what changed, and wait for explicit approval before continuing.
-- Maintain `PROGRESS.md`, `DECISIONS.md`, and `RUNBOOK.md` per PRD Section 0.
-- Phase 0 is complete. Do not re-run Phase 0 verification unless explicitly asked.
+The following never enter Git, never leave the trusted device unencrypted, and
+are covered by Gate 1 encrypted preservation:
+
+- `.env*`, API keys, OAuth tokens, `auth.json`, private keys, credential exports
+- WhatsApp/Telegram credentials and sessions
+- `state.db` and all SQLite DB/WAL/SHM files
+- `config.yaml` containing real values (sanitized templates only)
+- `cron/jobs.json` containing live values
+- `med-status.json`, `chain-state.json`, `med-*.json` medical state, holds, logs
+- `memories/*` personal data
+- logs, caches, `.pyc`, `__pycache__`, generated outputs, backup directories
+
+Runtime secrets and state remain runtime-only. Reproducible behaviour is
+documented via sanitized templates and deployment manifests with placeholders.
+
+## 5. Deployment rules
+
+1. Deployment happens **only** via an exact source→destination manifest
+   (per-file SHA-256, explicit paths inside `/home/ubuntu/.hermes`).
+2. No wildcard, no recursive directory sync, no delete action in manifests.
+3. Before deployment: record live destination hashes; create a mode-700
+   timestamped rollback snapshot (backup + rollback script + crontab copy).
+4. Install atomically (temp file in destination dir + rename); preserve modes.
+5. Arm a detached watchdog (restores gateway + crontab) and keep standby SSH
+   before any gateway stop.
+6. After deployment: verify all deployed hashes, gateway, WhatsApp + Telegram,
+   crontab, journal, med-chain smoke, and isolated temp-HOME tests.
+7. Owner performs benign E2E on WhatsApp and Telegram (reply within 5 min).
+8. Any failure → restore from rollback snapshot, restart, verify, HOLD.
+
+## 6. Live runtime guards
+
+- Never edit live files directly for source changes; always source → test →
+  release → deploy manifest.
+- Never stop/restart the gateway without the watchdog + standby + rollback
+  protections above and a heads-up.
+- Never modify `~/.hermes` config, cron jobs, memories or med state via Git.
+- `~/mjay` and `~/.hermes/.git` are archived donors: read-only.
+
+## 7. Cross-channel operation ledger
+
+Before starting long-running work, check the shared operation ledger
+(`operations/ledger.json`) so Telegram and WhatsApp sessions never duplicate
+the same task. Attach the session to the active task; on completion update the
+ledger. Do not re-run an audit or task already recorded as active or complete.
+
+## 8. Self-modification
+
+Modification of `AGENTS.md`, `skills/**`, `.github/**`, guard scripts, or this
+repository's own governance requires release approval
+(`APPROVE RELEASE <sha>`). Staged skill changes are submitted for approval;
+unrestricted self-editing is never allowed.
+
+## 9. Safety floor (always applies)
+
+- Stop and ask before: destructive/irreversible actions, credential access,
+  paid services, deployment, external messages, public posts, commits/pushes
+  outside the approved release flow.
+- Never print, commit, upload or transmit secrets.
+- Preservation artifacts (Gate 1, predeploy rollback snapshots) are never
+  deleted without separate explicit approval.
