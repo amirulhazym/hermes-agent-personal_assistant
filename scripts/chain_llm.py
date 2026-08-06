@@ -388,8 +388,44 @@ TIME_LABELS = {
 }
 
 
+# Escalation wording per reminder tier. The tier is derived from the reminder
+# count for the slot (see _escalation_tier): reminders 1-2 are gentle, 3-4 are
+# a push, 5+ are urgent. Every tier keeps the full drug names + dosages so the
+# text always passes validate_reminder_text. Deterministic on purpose — no LLM
+# in the delivery path, so no hallucination risk.
+ESCALATION_WORDING = {
+    "gentle": "Hai boss, {drugs} belum ambil lagi. Dah pukul {now}, update bila dah ambil.",
+    "push": "Hai boss, ini kali ke-{count} saya ingatkan — {drugs} masih belum ambil. "
+            "Dah pukul {now}, jangan lupa ya, update lepas makan.",
+    "urgent": "Hai boss!! {drugs} masih belum ambil walaupun dah pukul {now}. "
+              "Ni dah {count} kali saya ingatkan — kalau boleh, ambil sekarang dan update saya.",
+}
+
+
+def _escalation_tier(count: int) -> str:
+    """Reminder #1-2 gentle, #3-4 push, #5+ urgent."""
+    if count >= 5:
+        return "urgent"
+    if count >= 3:
+        return "push"
+    return "gentle"
+
+
+def _time_to_minutes(t: str) -> int:
+    h, m = map(int, t.split(":"))
+    return h * 60 + m
+
+
 def render_reminder(slot: str, chain: dict, slot_meta: dict, *, date_code: str | None = None) -> str:
-    """Render the fixed WhatsApp reminder contract from current pending drugs."""
+    """Render the WhatsApp reminder contract from current pending drugs.
+
+    Two distinct texts:
+    - Heads-up: slot is NOT actually ready yet (now < ready_time). Says when it
+      becomes due — never "belum ambil lagi" — so a late-shifted slot can't
+      push the user into taking a drug too early.
+    - Due reminder (now >= ready_time): count-aware escalation tiers
+      (gentle -> push -> urgent) so repeated messages carry escalating urgency.
+    """
     pending = slot_meta.get("pending_drugs") or []
     if not pending:
         raise ValueError(f"slot {slot} has no pending drugs")
@@ -412,9 +448,24 @@ def render_reminder(slot: str, chain: dict, slot_meta: dict, *, date_code: str |
     now = chain.get("now", "?")
     count = int((chain.get("reminder_counts") or {}).get(slot, 0)) + 1
     date_code = date_code or datetime.now().strftime("%y%m%d")
+
+    ready_time = slot_meta.get("ready_time")
+    if (
+        ready_time
+        and now != "?"
+        and _time_to_minutes(now) < _time_to_minutes(ready_time)
+    ):
+        body = (
+            f"Hai boss, {drugs_text} belum due lagi — boleh ambil lepas {ready_time}. "
+            "Tunggu sampai waktu tu ya, nanti saya ingatkan balik."
+        )
+    else:
+        tier = _escalation_tier(count)
+        body = ESCALATION_WORDING[tier].format(drugs=drugs_text, now=now, count=count)
+
     return (
         f"‼️ Waktu Ubat ({TIME_LABELS[slot]}) ‼️\n\n"
-        f"Hai boss, {drugs_text} belum ambil lagi. Dah pukul {now}, update bila dah ambil.\n\n"
+        f"{body}\n\n"
         f"[{slot}:{count}-{date_code}]"
     )
 
