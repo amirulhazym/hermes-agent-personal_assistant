@@ -8,9 +8,8 @@ import json
 import os
 import pathlib
 import tempfile
-from pathlib import Path
 
-SPEC = str(Path(__file__).resolve().parent / "handler.py")
+SPEC = "/home/ubuntu/.hermes/hooks/med-auto-confirm/handler.py"
 spec = importlib.util.spec_from_file_location("mah_chain", SPEC)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)

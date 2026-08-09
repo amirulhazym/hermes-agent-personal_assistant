@@ -1,6 +1,6 @@
 ---
 name: med-tracker
-description: Medication confirmation logging, drug resolution, schedule-based disambiguation, risk-based intake holds, clinician/hospital regimen-change handling, and status read-back. See references/time-only-confirmations.md and references/safety-gate-and-regimen-protocol.md.
+description: Medication confirmation logging, drug resolution, schedule-based disambiguation, and status read-back. See refs time-only-confirmations.md, skipped-drug-reminder-pitfall.md, live-confirmation-pitfalls.md, chain-reminder-engine.md.
 ---
 
 # Medication Tracker
@@ -16,30 +16,6 @@ When you see ANY drug name or shorthand in a user message:
 4. **SECOND** run `python3 med_resolve.py <drug_name> [--time HH:MM] [--slot LETTER]`
 5. **THIRD** only use the `drug_id` returned by the resolve script
 6. If resolve returns `UNKNOWN`, ask the user which drug they mean
-
-### Risk-Based Intake Hold and Regimen Changes
-
-A syntactically valid drug/time statement is not automatically safe to write. Before any auto-confirm write, the hook evaluates the complete message against the active `med-schedule.json` plus current `dexa_taper.json` phase.
-
-**ALLOW** only when all parsed medication mentions resolve to one active planned slot and stated time fits that slot window.
-
-**HOLD** when any of these applies:
-- multiple active slots in one reported intake;
-- stated time outside active slot window;
-- ambiguous or unresolvable medication;
-- active schedule unavailable or malformed;
-- dexamethasone dose maps to a taper-inactive slot;
-- doctor/doktor, hospital/hosp, clinic/klinik, ward, discharge, consultant, or specialist change language.
-
-HOLD must never mutate `med-status.json`, `med-supply.json`, `med-schedule.json`, `dexa_taper.json`, or `chain-state.json`. Permitted side effect: append structured audit + persist an `OPEN` hold in `med-holds.json`.
-
-The agent must inspect latest open hold before responding. Ask natural confirmation first, quote what was heard and why it diverges. Do not auto-retry the original wording.
-
-- Correction/typo: close using `med_hold.py --resolve HOLD_ID --outcome CORRECTED --note '...'`; then log only corrected, explicit intake through `med_confirm.py`.
-- Actual unusual intake: explain and confirm what physically taken. Do not change regimen merely to accommodate an intake event.
-- Doctor/hospital/clinic change: treat as a **regimen-update candidate**, never as intake. Ask one missing detail at a time: source, exact old→new change, dose, timing/frequency, effective date, end/review date, related medicines, optional evidence. Then show full impact and require final approval before a later atomic/versioned regimen update. If document unavailable, label `self-reported, document unavailable`; lack of document does not block urgent safe handling.
-
-Current Phase 1 supports hold detection, evidence capture, and hold resolution only. It does **not** activate clinician/hospital regimen updates. Active schedule/taper remain immutable runtime inputs until a dedicated atomic/versioned updater exists.
 
 ### Quoted Transcript Guard
 
@@ -138,29 +114,7 @@ if slot in slot_overrides:
         continue
 ```
 
-**Pitfall — Cron Isolation (2026-07-08):** The `chain_monitor.sh` no_agent cron has no context of the active conversation. When user says "going to sleep" or "stick with original schedule" in chat, you MUST manually set the slot_overrides in chain-state.json. The cron has no way to detect this context on its own. This is your responsibility as the chat agent — never assume the cron will "figure it out."
-
-**Pitfall — Set immediately, not "noted later":** When user says "stick with original schedule" while going to sleep, set the override IMMEDIATELY before the next cron tick (which fires every 15 min). A 10-minute delay means the cron could fire one unwanted reminder. On this pattern (2026-07-08): user said at 04:24, I "noted" at 04:24, but B reminder fired at 05:15 because I never set the override. If I had set it at 04:24, the 05:00+ ticks would have been suppressed.
-
-**Pitfall — Update override when user wakes up earlier than suppress_until:** If user said "stick with original schedule / suppress until 08:00" but then wakes at 09:27 and says "B should be jap lagi around 9:30", you MUST update the override's `suppress_until` to match the new intended time (09:30), NOT leave it at 08:00. Leaving it at 08:00 means the 08:00-09:30 window fires unwanted reminders. On 2026-07-08: user slept past 08:00, woke at 09:27, said B around 9:30 — override was updated from 08:00 → 09:30 in the same turn. The override is a living value, not a one-time set.
-
-**Pitfall — Cron isolation means chat agent owns context propagation:** The `chain_monitor.sh` no_agent cron has ZERO awareness of the active conversation. It only reads `chain-state.json` + `med-status.json`. Any contextual instruction from the user in chat ("going to sleep", "stick with original schedule", "B around 9:30 not 8") MUST be translated into a state-file mutation by the chat agent. The cron will never infer it. This is a hard architectural boundary, not a bug to "fix in the cron" — the cron is deliberately stateless for reliability.
-
-**Pitfall — Don't fire med reminders during user-stated sleep window:** When user explicitly says "aku nak tidur" / "going to sleep" in chat, even if chain_calc says a slot is ready, do NOT send any proactive reminder until they wake or explicitly say otherwise. The suppress_until override handles the cron side; the chat agent must also self-suppress. ADHD safety-net (every 15 min until reply) does NOT override an explicit sleep statement — sleep wins.
-
-## Pitfall: Slot Override on Cooldown Re-entry (2026-07-08)
-
-If a slot fires a reminder at 05:15 (before you set the override), then you set suppress_until=08:00, the cooldown is irrelevant because the override check runs BEFORE the cooldown check in chain_calc.py. The cooldown `last_reminder_times` might still show the 05:15 fire, but the override skips the slot before cooldown is consulted. This is correct behavior — the override takes precedence.
-
-## Cooldown System: Anti-Spam
-
-Without a cooldown, once `should_fire=True` for a slot, the cron fires EVERY 15-min tick until the slot is confirmed. This causes rapid escalation and user rage — exactly what happened with D in the 2026-07-04 session (4 reminders before user could even respond).
-
-**Mechanism:** `chain_calc.py` stores `last_reminder_times` in `chain-state.json` alongside `reminder_counts`. Before firing, it checks how many minutes have passed since the last reminder for that slot. If under the cooldown threshold, it skips the tick (silently — no output, no delivery).
-
-**Cooldown intervals based on reminder count:**
-
-| Count | Interval | Rationale |
+**Pitfall — Cron isolation:** `chain_monitor.sh` has no conversation context; chat instructions such as sleep windows, original timing, or changed intended time must be translated immediately into `chain-state.json` overrides. The cron will not infer them. Update the override when the user wakes or changes the intended time, and suppress reminders during an explicit sleep window. | Rationale |
 |-------|----------|-----------|
 | 0 (first) | 0 min | Fire immediately when slot becomes ready |
 | 1-2 | 60 min | Gentle spacing — user gets ~1/hour |
@@ -412,11 +366,14 @@ Boss, dah makan Dexa dose tengah hari ke belum? B tadi 08:16 ✅. Nak confirmkan
 
 ## Response Style
 
-- **KEEP TOOL CALLS HIDDEN.** Do not show read_file, search_files, or terminal invocations in the chat response. Log via med_confirm.py silently in the background, acknowledge directly. If the user sees tool calls in your response, they will be frustrated — this is a hard rule.
-- **Response length: 1-2 lines max.** Acknowledge, show status + chain, done. No commentary, no backstory. User wants "Noted boss." levels of brevity.
-- Never ask the user to repeat info they already gave you. If the user says "dah reply tadi" / "dah bagitahu", you missed or hallucinated prior context — acknowledge the error, don't defend.
-- **After confirmation:** Show status + chain immediately.
-- **If unclear / tak jelas / tak tahu → ASK once, never assume.** Especially Malay "makan" (food vs ubat). One clarifying question beats a wrong silent log or a wrong "bukan ubat". Full rule: `references/makan-ambiguity-ask-dont-assume.md`.
+- Keep tool calls hidden; acknowledge directly in concise Malay/Manglish.
+- After confirmation, show status + chain immediately; do not ask the user to repeat information already given.
+- If “makan” is ambiguous, ask once whether it means medicine or food; never assume.
+- For CLI result interpretation and future-intent splitting, see `references/20260729-cli-confirmation-and-future-intent.md`.
+
+## Confirmation CLI and Future Intent
+
+A valid JSON payload can accompany exit code 1 when a slot is partial (`overall: partial`, `confirmed: false`). Inspect the payload before classifying the operation as failed, and do not chain partial checks with `&&`. Log only completed intake; future intent such as “jap lagi makan letram” is not a confirmation. If a natural name is `UNKNOWN` but the resolver provides a canonical suggestion, resolve that canonical ID before confirming.
   - Full completion: `✅ B logged (Dexa + Levetiracetam at 08:30). Chain: A ✅ 07:00 → B ✅ 08:16 → C ~12:16 → D ~16:00 → E ~20:16`
   - Partial completion: `◐ B partial — Dexa ✅ at 08:16, Levetiracetam still pending. Chain: A ✅ 07:00 → B ◐ 08:16 → C ~12:16 → D ~16:00 → E ~20:16`
 - **No celebration** — log + chain, that's it
@@ -480,7 +437,7 @@ On 2026-07-13 the agent told the user "tunggu ~10:02 (2j lepas Akurit)" — WRON
 
 Data source: `~/.hermes/med-schedule.json` — single source of truth.
 
-⚠️ **Doses are DYNAMIC, not fixed.** Dexamethasone follows a tapering schedule (Tb Meningitis regime). The values below reflect the CURRENT phase. Always check `~/.hermes/med-schedule.json` and `references/dexamethasone-tapering-schedule.md` for the latest dosing before assuming a dose is correct.
+⚠️ **Dexa doses are dynamic.** Do not trust static `dosage` fields or `med_resolve.py`'s Dexa dosage display after a taper transition. Resolve for drug_id/slot, then use `chain_calc.py --taper-display` or `dexa_taper.json` for the current-date dose. See `references/dexa-resolver-and-timing.md`.
 
 | Slot | Window | Drugs | Notes |
 |------|--------|-------|-------|
@@ -947,7 +904,7 @@ Agent (truth): "CCC" = SLOT C only (Dexa #2 + Calcium + Calcitriol). NOT C+D.
 - **"CC"** = Calcium Carbonate + Calcitriol ONLY (both in Slot C, taken dengan lunch). User's final words 2026-07-09: "cc tu maksudnya calcium carbonate + calcitriol. simple, benak." NEVER C+D, NEVER "Slot C" as a whole (Slot C also contains Dexa #2).
 - **"bukan CC"** (user's own words 2026-07-07): "Our main priority is Dexa, Akurit-4, and Letram. Any gaps or timeframe must prioritize this, bukan CC." → "CC" there = the Calcium+Calcitriol passengers, explicitly the LOW-priority items.
 - D (Dexa #3, 4pm) is a SEPARATE slot. User never bundles it with CC.
-- **Logging CC when user says "dah makan cc pukul HH:MM":** it is TWO drugs in Slot C, not slot-level. Use drug-level confirm for each:
+- **CC:** Calcium Carbonate + Calcitriol only. Inspect live CLI; never use slot-level confirmation or fabricate source text. If live resolver lacks compound support or live `med_confirm.py` lacks `--compound`, do not fall back to sequential writes: run the existing atomic CC test suite, dry-run the tested candidate with copied `HERMES_HOME`, confirm exactly both components and unchanged live hashes, then perform the explicit intake transaction and read back both drugs, Slot C, chain, and journal absence. This is runtime-state handling, not source deployment. Full recipe: `references/compound-runtime-drift-20260804.md`.
   ```bash
   python3 ~/.hermes/scripts/med_confirm.py C calcium --at HH:MM
   python3 ~/.hermes/scripts/med_confirm.py C calcitriol --at HH:MM

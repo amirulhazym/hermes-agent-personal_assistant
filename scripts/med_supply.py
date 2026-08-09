@@ -13,18 +13,12 @@ Usage:
 """
 
 import json
-import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-_SCRIPTS_DIR = Path(__file__).parent
-if str(_SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPTS_DIR))
-from med_state_lock import exclusive_state_lock, locked_mutation
-
-HERMES_HOME = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
+HERMES_HOME = Path.home() / ".hermes"
 SUPPLY_FILE = HERMES_HOME / "med-supply.json"
 MYT = ZoneInfo("Asia/Kuala_Lumpur")
 
@@ -54,7 +48,6 @@ def get_drug(data: dict, drug_id: str) -> dict | None:
     return data.get("drugs", {}).get(drug_id)
 
 
-@locked_mutation
 def decrement(drug_id: str, amount: int = 1) -> dict:
     """Decrement supply for a drug. Returns updated drug info."""
     data = load_supply()
@@ -81,7 +74,6 @@ def decrement(drug_id: str, amount: int = 1) -> dict:
     return result
 
 
-@locked_mutation
 def refill(drug_id: str, amount: int) -> dict:
     """Set supply to amount (refill)."""
     data = load_supply()
@@ -95,7 +87,6 @@ def refill(drug_id: str, amount: int) -> dict:
     return {"ok": True, "drug_id": drug_id, "current": amount, "refilled": True}
 
 
-@locked_mutation
 def set_supply(drug_id: str, amount: int) -> dict:
     """Set supply to exact value (manual correction)."""
     data = load_supply()

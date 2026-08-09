@@ -1,0 +1,4 @@
+name: skill-trigger
+description: "Auto-detect medication/message patterns and write trigger file for skill auto-loading"
+events:
+  - agent:start

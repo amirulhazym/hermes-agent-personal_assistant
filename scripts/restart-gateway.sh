@@ -1,4 +1,4 @@
 #!/bin/bash
-sleep 3
-export PATH="/home/amirul/.local/bin:$PATH"
-/home/amirul/.local/bin/hermes gateway restart >> /home/amirul/.hermes/logs/gateway-restart.log 2>&1
+set -euo pipefail
+systemctl --user restart hermes-gateway
+echo "Gateway restarted at $(TZ=Asia/Kuala_Lumpur date '+%H:%M:%S %Z')"

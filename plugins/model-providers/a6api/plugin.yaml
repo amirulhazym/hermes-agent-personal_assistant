@@ -1,0 +1,5 @@
+name: a6api-provider
+kind: model-provider
+version: "1.0"
+description: A6API model gateway — routing proxy with multi-vendor channels
+author: amirulhazym

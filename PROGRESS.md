@@ -744,7 +744,7 @@ After user approval to continue autonomously while sleeping, completed:
 - [x] **Git workflow setup on VPS**:
   - Cloned `https://github.com/amirulhazym/hermes-agent-personal_assistant` to `~/mjay/`
   - Created `hermes-live` branch for agent-pushed docs
-  - Configured git user (hermes@amirulhazym.framer.ai, "Hermes Agent (VPS)")
+  - Configured git user (owner@example.invalid, "Hermes Agent (VPS)")
   - Created `docs/git_workflow.md` with full strategy (main = human, hermes-live = agent)
   - Existing `.gitignore` already excludes secrets/sessions/logs
   - Committed workflow doc to hermes-live branch
@@ -1007,7 +1007,7 @@ Planning package (2026-07-14) led to design lock and full implementation 2026-07
 
 ## PX-1b DONE (2026-07-17)
 
-**Formal design acceptance: 20/20 PASS** (clean RC).  
+**Formal design acceptance: 20/20 PASS** (clean RC).
 Evidence: `docs/px1b-acceptance-evidence.md` · suite artifact VPS `~/.hermes/web-operator/acceptance-latest.json`.
 
 | Status | Count |
@@ -1058,3 +1058,19 @@ Key live facts:
 - [x] PX-2 remains **human-owned** (prior chat: problem-intelligence 3-file system). Not redefined here.
 
 **Do not** re-open PX-1/PX-1b acceptance without regression evidence.
+
+---
+
+## Governance v3 candidate construction (2026-08-08)
+
+- [x] Verified remote `main` still resolves to the approved baseline SHA before construction.
+- [x] Created an isolated local temporary worktree from that baseline.
+- [x] Built concise `AGENTS.md` v3 and corrected operator skills.
+- [x] Ported the bounded 190-record source-closure universe with private/sanitized dispositions.
+
+### 2026-08-08 bounded closure correction
+
+- [x] During final candidate testing, a required untracked bridge dependency (`scripts/whatsapp-bridge/reconnect-controller.js`) was exposed by the ported reconnect regression test and added explicitly; final bounded ledger is 191 records, not 190.
+- [x] Repaired secret and manifest guard false-PASS paths; PII review remains a separate gate.
+- [ ] Local tests, scans and final candidate commit — in progress.
+- [ ] Public `main` promotion/deployment — not authorized in this phase.

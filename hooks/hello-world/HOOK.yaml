@@ -1,0 +1,4 @@
+name: hello-world
+description: "Send 'Hello World' message after every gateway restart"
+events:
+  - gateway:startup

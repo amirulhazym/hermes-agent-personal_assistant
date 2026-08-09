@@ -9,6 +9,7 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 
+
 class TestChainAdapterRuntime(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="chain-adapter-"))
@@ -44,6 +45,40 @@ class TestChainAdapterRuntime(unittest.TestCase):
     @staticmethod
     def partial(drug_id, at):
         return {"overall": "partial", "drugs": {drug_id: {"status": "taken", "time": at}}}
+
+    def test_empty_pre_b_state_resolves_all_active_pending_slots(self):
+        result = self.run_chain({})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertIn(data["next_slot"], {"A", "B", "C", "D", "E"})
+        self.assertIn("C ~12:00", data["chain_str"])
+        self.assertIn("D ~16:00", data["chain_str"])
+
+    def test_pyridoxine_only_does_not_shift_b(self):
+        result = self.run_chain({"A": self.partial("pyridoxine", "07:18")})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("B ~08:00", json.loads(result.stdout)["chain_str"])
+
+    def test_levetiracetam_only_does_not_drive_c_or_d(self):
+        result = self.run_chain({"B": self.partial("levetiracetam_b", "09:13")})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        chain = json.loads(result.stdout)["chain_str"]
+        self.assertIn("C ~12:00", chain)
+        self.assertIn("D ~16:00", chain)
+
+    def test_calcium_only_does_not_drive_d(self):
+        result = self.run_chain({"C": self.partial("calcium", "13:37")})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("D ~16:00", json.loads(result.stdout)["chain_str"])
+
+    def test_pending_reminder_cooldown_matches_polling_cadence(self):
+        result = subprocess.run(
+            ["python3", "-c", "import chain_calc; print(chain_calc.get_cooldown_interval(1))"],
+            env={**os.environ, "HOME": str(self.tmp)},
+            cwd=str(self.hermes / "scripts"), capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "15")
 
     def test_scheduled_window_can_emit_heads_up_before_dynamic_ready_time(self):
         result = subprocess.run(
@@ -104,6 +139,41 @@ class TestChainAdapterRuntime(unittest.TestCase):
     @staticmethod
     def completed(drug_id, at):
         return {"overall": "completed", "drugs": {drug_id: {"status": "taken", "time": at}}}
+
+    def test_d_reminds_at_scheduled_time_when_c_gap_ends_later(self):
+        result = self.run_chain(
+            {
+                "A": self.completed("akurit_2", "06:05"),
+                "B": self.completed("dexamethasone_1", "08:10"),
+                "C": self.completed("dexamethasone_2", "12:20"),
+            },
+            frozen_now="2026-07-19T16:00:00+08:00",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertTrue(data["should_fire"], data)
+        self.assertEqual(data["reason"], "D")
+
+    def test_d_retries_on_next_poll_after_unconfirmed_reminder(self):
+        result = self.run_chain(
+            {
+                "A": self.completed("akurit_2", "06:05"),
+                "B": self.completed("dexamethasone_1", "08:10"),
+                "C": self.completed("dexamethasone_2", "12:20"),
+            },
+            frozen_now="2026-07-19T16:45:00+08:00",
+            chain_state={
+                "today": "2026-07-19",
+                "reminder_counts": {"D": 1},
+                "last_reminder_sent": {"D": 1},
+                "last_reminder_times": {"D": "16:30"},
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertTrue(data["should_fire"], data)
+        self.assertEqual(data["reason"], "D")
+
 
 if __name__ == "__main__":
     unittest.main()

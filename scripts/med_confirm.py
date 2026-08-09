@@ -26,13 +26,10 @@ Safety:
 State file: ~/.hermes/med-status.json
 """
 
-import base64
 import json
 import os
 import sys
 import re
-import tempfile
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -40,16 +37,9 @@ _SCRIPTS_DIR = Path(__file__).parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 from med_resolve import resolve as resolve_drug
-from med_state_lock import exclusive_state_lock, locked_mutation
 
-HERMES_HOME = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
-STATE_FILE = HERMES_HOME / "med-status.json"
-SCHEDULE_FILE = HERMES_HOME / "med-schedule.json"
-SUPPLY_FILE = HERMES_HOME / "med-supply.json"
-LOCK_FILE = HERMES_HOME / ".med-confirm.lock"
-TXN_FILE = HERMES_HOME / ".med-confirm-transaction.json"
-COMPOUNDS = {"cc": {"slot": "C", "drug_ids": ["calcium", "calcitriol"]}}
-COMPLETION_RE = re.compile(r"\b(dah\s*makan|sudah\s*makan|dah\s*ambil|dah\s*telan|done|took|ate|confirm)\b", re.IGNORECASE)
+STATE_FILE = Path.home() / ".hermes" / "med-status.json"
+SCHEDULE_FILE = Path.home() / ".hermes" / "med-schedule.json"
 
 ALL_SLOTS = ['A', 'B', 'C', 'D', 'E']
 
@@ -138,114 +128,6 @@ def find_drug_by_fragment(slot: str, fragment: str, schedule: dict) -> str | Non
     return None
 
 
-def _fsync_dir(path: Path) -> None:
-    fd = os.open(str(path), os.O_RDONLY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-
-
-def _atomic_json_write(path: Path, data: dict) -> None:
-    """Write one JSON file atomically without backup rotation.
-
-    Used only inside a multi-file transaction which retains exact before-images
-    for rollback. Do not call this for ordinary single-file operations.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(data, handle, indent=2, sort_keys=True)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_name, path)
-        _fsync_dir(path.parent)
-    except Exception:
-        try:
-            os.unlink(tmp_name)
-        except FileNotFoundError:
-            pass
-        raise
-
-
-@contextmanager
-def _compound_lock():
-    """Serialize compound confirmation against other med-confirm writers."""
-    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(LOCK_FILE, "a+", encoding="utf-8") as lock:
-        try:
-            import fcntl
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        except ImportError:
-            pass
-        try:
-            yield
-        finally:
-            try:
-                import fcntl
-                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
-            except ImportError:
-                pass
-
-
-def _write_transaction(before: dict[Path, bytes | None]) -> None:
-    payload = {
-        "version": 1,
-        "status": "PREPARED",
-        "files": {
-            str(path): None if raw is None else base64.b64encode(raw).decode("ascii")
-            for path, raw in before.items()
-        },
-    }
-    _atomic_json_write(TXN_FILE, payload)
-
-
-def _recover_prepared_transaction() -> bool:
-    """Restore exact before-images left by an interrupted compound transaction."""
-    if not TXN_FILE.exists():
-        return False
-    try:
-        payload = json.loads(TXN_FILE.read_text(encoding="utf-8"))
-        if payload.get("status") != "PREPARED":
-            raise ValueError("unrecognised transaction status")
-        for raw_path, encoded in payload.get("files", {}).items():
-            path = Path(raw_path)
-            raw = None if encoded is None else base64.b64decode(encoded.encode("ascii"))
-            _restore_exact(path, raw)
-        TXN_FILE.unlink(missing_ok=True)
-        _fsync_dir(TXN_FILE.parent)
-        return True
-    except Exception as exc:
-        raise RuntimeError(f"MED_TRANSACTION_RECOVERY_FAILED: {exc}") from exc
-
-
-def _atomic_bytes_write(path: Path, raw: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(raw)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_name, path)
-        _fsync_dir(path.parent)
-    except Exception:
-        try:
-            os.unlink(tmp_name)
-        except FileNotFoundError:
-            pass
-        raise
-
-
-def _restore_exact(path: Path, before: bytes | None) -> None:
-    if before is None:
-        path.unlink(missing_ok=True)
-        _fsync_dir(path.parent)
-        return
-    _atomic_bytes_write(path, before)
-
-
 # ── State operations ────────────────────────────────────────────────────────
 
 def get_slot_entry(state: dict, slot: str) -> dict:
@@ -317,7 +199,6 @@ def save_and_recalc(slot: str, entry: dict) -> dict:
 
 # ── Operations ──────────────────────────────────────────────────────────────
 
-@locked_mutation
 def confirm_slot(slot: str, time_val: str | None = None, source_text: str | None = None) -> dict:
     """Mark ALL drugs in a slot as taken (slot-level confirmation).
 
@@ -439,97 +320,6 @@ def _source_mentions_drug(slot: str, drug_id: str, source_text: str | None) -> b
     return False
 
 
-def confirm_compound(slot: str, compound_id: str, time_val: str | None = None,
-                     source_text: str | None = None) -> dict:
-    """Confirm all components of one approved compound in one recoverable transaction.
-
-    Status and supply are prepared fully before either is written. If second-file
-    commit fails, exact before-images are restored. This function never falls
-    back to sequential component confirmation.
-    """
-    compound = COMPOUNDS.get(compound_id.lower())
-    if compound is None or compound["slot"] != slot:
-        return {"ok": False, "error": f"Unknown compound '{compound_id}' for slot {slot}"}
-    drug_ids = compound["drug_ids"]
-    now = time_val or get_now_hm()
-    if not validate_time(now):
-        return {"ok": False, "error": f"Invalid time: {now}"}
-    lowered = (source_text or "").lower()
-    if not COMPLETION_RE.search(lowered):
-        return {"ok": False, "error": "REJECTED: source-backed intake completion wording required"}
-    if "cc" not in re.findall(r"[a-z0-9_-]+", lowered):
-        # Explicit component pair is also valid compound evidence.
-        if not ("calcium" in lowered and "calcitriol" in lowered):
-            return {"ok": False, "error": "REJECTED: source-backed CC or both component names required"}
-
-    with _compound_lock():
-        try:
-            _recover_prepared_transaction()
-        except RuntimeError as exc:
-            return {"ok": False, "error": str(exc)}
-        before = {path: path.read_bytes() if path.exists() else None for path in (STATE_FILE, SUPPLY_FILE)}
-        state, schedule, supply = load_json(STATE_FILE), load_schedule(), load_json(SUPPLY_FILE)
-        scheduled = set(get_all_drug_ids(slot, schedule))
-        if not set(drug_ids).issubset(scheduled):
-            return {"ok": False, "error": "REJECTED: CC components unavailable in active Slot C schedule"}
-        supply_drugs = supply.get("drugs", {})
-        missing_supply = [did for did in drug_ids if did not in supply_drugs]
-        if missing_supply:
-            return {"ok": False, "error": f"REJECTED: supply tracking missing {missing_supply}"}
-
-        entry = get_slot_entry(state, slot)
-        drugs = entry.setdefault("drugs", {})
-        already_taken = [did for did in drug_ids if drugs.get(did, {}).get("status") == "taken"]
-        if already_taken:
-            # Compound duplicate is idempotent only when whole same-time event already exists.
-            all_same = all(drugs.get(did, {}).get("status") == "taken" and drugs.get(did, {}).get("time") == now for did in drug_ids)
-            if all_same:
-                return {"ok": True, "idempotent": True, "compound": compound_id, "med": slot, "date": get_today(), "drugs": {did: drugs[did] for did in drug_ids}}
-            return {"ok": False, "error": f"REJECTED: partial/conflicting CC state for {already_taken}; create HOLD, do not overwrite"}
-
-        for did in drug_ids:
-            drugs[did] = {"status": "taken", "time": now}
-        entry["overall"] = recalc_overall(slot, entry, schedule)
-        state.setdefault("meds", {}).setdefault(slot, {})[get_today()] = entry
-
-        supply_result = {}
-        for did in drug_ids:
-            item = supply_drugs[did]
-            current = item.get("current")
-            if current is not None:
-                item["current"] = max(0, current - 1)
-            supply_result[did] = item.get("current")
-        supply["last_updated"] = get_today()
-
-        if DRY_RUN:
-            return {"ok": True, "dry_run": True, "compound": compound_id, "med": slot, "would_set": {did: now for did in drug_ids}, "would_supply": supply_result}
-        try:
-            _write_transaction(before)
-            _atomic_json_write(STATE_FILE, state)
-            _atomic_json_write(SUPPLY_FILE, supply)
-            TXN_FILE.unlink(missing_ok=True)
-            _fsync_dir(TXN_FILE.parent)
-        except Exception as exc:
-            rollback_errors = []
-            for path in (STATE_FILE, SUPPLY_FILE):
-                try:
-                    _restore_exact(path, before[path])
-                except Exception as rollback_exc:
-                    rollback_errors.append(f"{path.name}: {rollback_exc}")
-            if not rollback_errors:
-                try:
-                    TXN_FILE.unlink(missing_ok=True)
-                    _fsync_dir(TXN_FILE.parent)
-                except Exception as rollback_exc:
-                    rollback_errors.append(f"transaction journal: {rollback_exc}")
-            if rollback_errors:
-                return {"ok": False, "error": f"COMPOUND_COMMIT_AND_ROLLBACK_FAILED: {exc}; {'; '.join(rollback_errors)}"}
-            return {"ok": False, "error": f"COMPOUND_COMMIT_FAILED_ROLLED_BACK: {exc}"}
-
-    return {"ok": True, "compound": compound_id, "med": slot, "date": get_today(), "overall": entry["overall"], "drugs": {did: drugs[did] for did in drug_ids}, "supply": supply_result}
-
-
-@locked_mutation
 def confirm_drug(slot: str, drug_id: str, time_val: str | None = None,
                  source_text: str | None = None,
                  intent: str = "CONFIRM_INTAKE") -> dict:
@@ -611,7 +401,6 @@ def status() -> dict:
     return out
 
 
-@locked_mutation
 def reset_slot(slot: str, drug_id: str | None = None) -> dict:
     global DRY_RUN
     state = load_json(STATE_FILE)
@@ -642,7 +431,6 @@ def reset_slot(slot: str, drug_id: str | None = None) -> dict:
     return {"ok": True, "med": slot, "reset": True}
 
 
-@locked_mutation
 def update_time(slot: str, new_time: str) -> dict:
     global DRY_RUN
     state = load_json(STATE_FILE)
@@ -747,30 +535,6 @@ def main() -> int:
         print(f"Unknown option: {arg}")
         return 1
 
-    # ── Compound confirmation ──
-    elif arg == "--compound":
-        if len(sys.argv) < 4:
-            print("Need slot and compound: C --compound cc")
-            return 1
-        slot = sys.argv[2].upper()
-        compound_id = sys.argv[3].lower()
-        time_val = None
-        source_text = None
-        i = 4
-        while i < len(sys.argv):
-            if sys.argv[i] == "--at" and i + 1 < len(sys.argv):
-                time_val = validate_time(sys.argv[i + 1])
-                i += 2
-            elif sys.argv[i] == "--source-text" and i + 1 < len(sys.argv):
-                source_text = sys.argv[i + 1]
-                i += 2
-            else:
-                i += 1
-        if time_val is None and any(arg == "--at" for arg in sys.argv[4:]):
-            print("Invalid --at time. Use HH:MM format.")
-            return 1
-        result = confirm_compound(slot, compound_id, time_val, source_text=source_text)
-
     # ── Default: confirm mode ──
     else:
         slot = arg.upper()
@@ -779,18 +543,12 @@ def main() -> int:
             return 1
 
         drug_id = None
-        compound_id = None
         time_val = None
-        time_supplied = False
         source_text = None
 
         i = 2
         while i < len(sys.argv):
-            if sys.argv[i] == "--compound" and i + 1 < len(sys.argv):
-                compound_id = sys.argv[i + 1].lower()
-                i += 2
-            elif sys.argv[i] == "--at" and i + 1 < len(sys.argv):
-                time_supplied = True
+            if sys.argv[i] == "--at" and i + 1 < len(sys.argv):
                 time_val = validate_time(sys.argv[i + 1])
                 i += 2
             elif sys.argv[i] == "--source-text" and i + 1 < len(sys.argv):
@@ -813,18 +571,13 @@ def main() -> int:
             else:
                 i += 1
 
-        if compound_id:
-            if time_supplied and time_val is None:
-                result = {"ok": False, "error": "Invalid --at time. Use HH:MM format."}
-            else:
-                result = confirm_compound(slot, compound_id, time_val, source_text=source_text)
-        elif drug_id:
+        if drug_id:
             result = confirm_drug(slot, drug_id, time_val, source_text=source_text)
         else:
             result = confirm_slot(slot, time_val, source_text=source_text)
 
     print(json.dumps(result, indent=2))
-    return 0 if result.get("ok") else 1
+    return 0
 
 
 if __name__ == "__main__":

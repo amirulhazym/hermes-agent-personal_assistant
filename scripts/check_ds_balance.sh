@@ -1,6 +1,6 @@
 #!/bin/bash
 # DeepSeek balance checker - outputs formatted balance
-source /home/amirul/.hermes/.env 2>/dev/null
+source /home/ubuntu/.hermes/.env 2>/dev/null
 json=$(curl -s "https://api.deepseek.com/user/balance" \
   -H "Authorization: Bearer $DEEPSEEK_API_KEY")
 

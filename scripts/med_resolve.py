@@ -16,18 +16,11 @@ Usage:
     → {"ok": true, "drug_id": "dexamethasone_2", "slot": "C", "drug": "Dexamethasone"}
 """
 import json
-import os
 import sys
 from pathlib import Path
 
-HERMES_HOME = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
+HERMES_HOME = Path.home() / ".hermes"
 SCHEDULE_FILE = HERMES_HOME / "med-schedule.json"
-
-# Compound aliases intentionally expand to several distinct medication records.
-# A compound alias is never a synthetic drug and never completes an entire slot.
-COMPOUND_ALIASES = {
-    "cc": ["calcium", "calcitriol"],
-}
 
 # ── Alias table ────────────────────────────────────────────────────────────
 # Map user shorthand → canonical drug name. The resolution engine matches
@@ -164,37 +157,6 @@ def pick_slot_by_time(matches: list[dict], time_24h: str) -> list[dict]:
     return matches
 
 
-def _resolve_compound(fragment: str, schedule: dict, slot: str = None, time_24h: str = None) -> dict | None:
-    """Expand an established multi-drug shorthand into its component records."""
-    component_ids = COMPOUND_ALIASES.get(fragment.strip().lower())
-    if component_ids is None:
-        return None
-    candidates = all_drugs_flat(schedule)
-    if slot:
-        candidates = [d for d in candidates if d["slot"] == slot.upper()]
-    components = []
-    for drug_id in component_ids:
-        matches = [d for d in candidates if d["drug_id"] == drug_id]
-        if len(matches) != 1:
-            return {
-                "ok": False,
-                "error": f"COMPOUND_COMPONENT_UNAVAILABLE: '{fragment}' -> '{drug_id}'",
-            }
-        components.append(matches[0])
-    slots = {d["slot"] for d in components}
-    if len(slots) != 1:
-        return {"ok": False, "error": f"COMPOUND_SPANS_SLOTS: '{fragment}'"}
-    return {
-        "ok": True,
-        "compound": True,
-        "compound_id": fragment.strip().lower(),
-        "all_drug_ids": [d["drug_id"] for d in components],
-        "components": components,
-        "slot": components[0]["slot"],
-        "drug": " + ".join(d["drug"] for d in components),
-    }
-
-
 def resolve(fragment: str, slot: str = None, time_24h: str = None) -> dict:
     """
     Resolve a drug name/fragment/shorthand to drug_id + slot.
@@ -211,10 +173,6 @@ def resolve(fragment: str, slot: str = None, time_24h: str = None) -> dict:
     f = fragment.strip().lower()
     if not f:
         return {"ok": False, "error": "Empty fragment"}
-
-    compound = _resolve_compound(f, schedule, slot=slot, time_24h=time_24h)
-    if compound is not None:
-        return compound
 
     # Step 1: Expand alias
     expanded = ALIASES.get(f, f)

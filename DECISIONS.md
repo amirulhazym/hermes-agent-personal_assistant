@@ -209,7 +209,7 @@ All infrastructure and account questions resolved.
 | # | Decision | Rationale |
 |---|---|---|
 | 1 | **Git workflow: `main` = human-only, `hermes-live` = agent-pushed** | User can review agent-generated docs on phone via GitHub PR, then merge to main. Single source of truth. |
-| 2 | **Git identity on VPS** | `hermes@amirulhazym.framer.ai` / "Hermes Agent (VPS)" so commits are clearly from the agent, not user. |
+| 2 | **Git identity on VPS** | `owner@example.invalid` / "Hermes Agent (VPS)" so commits are clearly from the agent, not user. |
 | 3 | **24h stability check as cron, not on-demand** | User sleeps 04:00-12:00+. Scheduled check at +24h reports to `~/stability-report.txt` and can be retrieved by user via SSH when they wake. |
 | 4 | **Stability check uses "since last restart" error window** | Old errors from before a fix shouldn't fail a current check. The script finds the last "Starting Hermes Gateway" line and counts errors after it. |
 | 5 | **hybrid-web plugin: full WebSearchProvider inheritance** | Earlier `register(ctx)` + `ctx.register_web_search_provider()` made plugin load, but provider class failed the ABC check. Refactored to `class HybridWebSearchProvider(WebSearchProvider)` with required methods. |
@@ -308,3 +308,14 @@ Written spec approved by the human on 2026-07-17. Implementation plan:
   or expose a non-interactive desktop control path.
 - Keep the existing SSH/SCP mailbox transport unchanged and outbound-only; no inbound
   PC listener or secret-bearing task arguments are introduced.
+
+---
+
+## Governance v3 correction (2026-08-08)
+
+This dated addition supersedes conflicting historical branch/approval wording above:
+`AGENTS.md` v3 is the current operator authority; `main` is the only permanent
+application-source branch; live VPS is operational truth; every intentional custom
+source is preserved or safely represented; and every promotion to public `main`
+uses one tested exact-SHA owner release approval. The 2026-08-08 candidate is local
+only until that approval.

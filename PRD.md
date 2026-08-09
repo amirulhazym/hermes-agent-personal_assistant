@@ -1,25 +1,25 @@
 # PRD — Hermes Personal AI Agent on WhatsApp + Telegram, powered by DeepSeek V4
 
-> **Document type:** Product Requirements Document + build brief for an AI coding agent such as OpenCode or Codex.  
-> **Product:** Personal Hermes Agent based on the real open-source Nous Research Hermes Agent.  
-> **Version:** 2.0 final candidate  
-> **Last updated:** 24 June 2026  
-> **Primary language:** English for implementation precision. The finished assistant may speak Malay, English, or rojak according to user preference.  
-> **Owner:** Amirul / user  
+> **Document type:** Product Requirements Document + build brief for an AI coding agent such as OpenCode or Codex.
+> **Product:** Personal Hermes Agent based on the real open-source Nous Research Hermes Agent.
+> **Version:** 2.0 final candidate
+> **Last updated:** 24 June 2026
+> **Primary language:** English for implementation precision. The finished assistant may speak Malay, English, or rojak according to user preference.
+> **Owner:** Amirul / user
 > **Execution style:** Build in explicit phases, with human checkpoints and strict human-in-the-loop guardrails.
 
 ---
 
 ## 0. How the coding agent must read this PRD
 
-This file is the master spec. Treat it as the single source of truth unless the human explicitly updates it.
+> **Governance authority correction (2026-08-08):** This remains the product/design record. Current operator governance, source preservation, evidence precedence and release approval live in root `AGENTS.md`; the latest explicit owner instruction overrides stale product-history wording.
 
 Before doing implementation work:
 
 1. Read this entire PRD first.
 2. Read Section 7, Human-in-the-Loop & Safety Protocol, twice. It overrides speed and convenience.
 3. Fetch the latest official docs listed in Section 6 before running setup commands, writing config, or assuming model names, CLI flags, provider schemas, or pricing.
-4. Work phase-by-phase. At the end of every phase, stop, report what changed, and wait for explicit approval before continuing.
+4. Work in explicit phases for product planning. Release and deployment authorization follows current `AGENTS.md`: one tested exact-SHA approval for the complete release, not approval-per-Git-command or an obsolete phase checkpoint.
 5. Maintain:
    - `PROGRESS.md` — what was done, commands run, blockers, test results.
    - `DECISIONS.md` — decisions made, source links checked, reasons, and human approvals.
@@ -75,28 +75,28 @@ Everything else must use free tiers, open-source software, self-hosting, or hard
 
 ### 2.1 Goals
 
-G1 — **Same Hermes brain across WhatsApp and Telegram**  
+G1 — **Same Hermes brain across WhatsApp and Telegram**
 The user can talk to Hermes from either platform. Hermes should understand the same user, remember the same durable facts, and apply the same persona and safety policy.
 
-G2 — **DeepSeek as the only paid brain**  
+G2 — **DeepSeek as the only paid brain**
 Default model is `deepseek-v4-flash`. Optional escalation to `deepseek-v4-pro` is allowed because it is still the same paid DeepSeek line item, but it must be owner-controlled.
 
-G3 — **Humanized personal assistant**  
+G3 — **Humanized personal assistant**
 Hermes should feel like a useful, warm, sharp personal assistant — not a generic chatbot. It should adapt to the user’s language, tone, routines, goals, and preferred level of detail.
 
-G4 — **Proactive behavior**  
+G4 — **Proactive behavior**
 Hermes can message first: briefings, check-ins, reminders, follow-ups, habit nudges, unfinished task prompts, and operational alerts.
 
-G5 — **Persistent memory**  
+G5 — **Persistent memory**
 Hermes remembers useful durable facts, preferences, commitments, recurring goals, deadlines, and corrections across restarts and across both messaging platforms.
 
-G6 — **Free infrastructure where possible**  
+G6 — **Free infrastructure where possible**
 The runtime should live on Oracle Cloud Always Free ARM or user-owned hardware. No paid infrastructure unless the human explicitly chooses it.
 
-G7 — **Strict human-in-the-loop control**  
+G7 — **Strict human-in-the-loop control**
 Build-time coding agents and the finished runtime assistant must both ask before destructive, irreversible, costly, credential-touching, public, third-party, or security-sensitive actions.
 
-G8 — **Operationally survivable**  
+G8 — **Operationally survivable**
 The gateway should survive reboots and crashes, protect secrets, rotate logs, document recovery steps, and provide a runbook.
 
 ### 2.2 Non-goals for v1

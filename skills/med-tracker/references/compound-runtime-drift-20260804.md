@@ -22,6 +22,28 @@ The loaded med-tracker references documented a `med_confirm.py C --compound cc .
 - Chain remained Dexa-driven: `A 06:22 -> B 08:03 -> C 12:58 -> D ~16:58 -> E ~20:00`.
 - Supply counters were `null` by design (exact count not tracked), so no numeric decrement occurred.
 
+## 2026-08-08 live-runtime reproduction and safe workaround
+
+User statement: `Dah makan cc jam 9.35pm tadi` → stated intake time `21:35`.
+
+Live preflight evidence:
+
+- Live `med_resolve.py calcium --time 21:35 --slot C` → `drug_id=calcium`.
+- Live `med_resolve.py calcitriol --time 21:35 --slot C` → `drug_id=calcitriol`.
+- Live `med_resolve.py` had no `COMPOUND_ALIASES`; `med_confirm.py` had no `--compound` dispatch.
+- `med_confirm.py C calcium --at 21:35` and the equivalent Calcitriol command both rejected with `REJECTED: source-backed CONFIRM_INTAKE required`; the literal source only contains `cc`, so appending component names would have fabricated source text.
+- Slot-level `med_confirm.py C --at ...` was not used because it would also mark Dexa #2 at the CC time.
+
+Safe workaround used:
+
+1. Candidate atomic implementation: `/home/ubuntu/hermes-agent-personal_assistant-work/scripts/med_confirm.py`; its `test_cc_atomic.py` ran `9 tests ... OK`.
+2. Copied live `med-status.json`, `med-supply.json`, and `med-schedule.json` to a temporary `HERMES_HOME`.
+3. Dry-run with exact source text returned `ok=true`, `would_set={calcium: 21:35, calcitriol: 21:35}`; live status and supply SHA-256 hashes remained unchanged.
+4. Ran the tested compound transaction against live runtime state. Output: `overall=completed`, both drugs `taken` at `21:35`; supply values remained `null` by design.
+5. Read-back: `med_confirm.py --check C` showed Dexa #2 at `12:22`, Calcium and Calcitriol at `21:35`, `overall=completed`; chain was `A ✅ 06:08 → B ✅ 08:16 → C ✅ 12:22 → D ✅ 17:52 → E ✅ 20:17`; `.med-confirm-transaction.json` was absent.
+
+Important provenance: this is a tested candidate runtime-state transaction, not proof that compound support is deployed in the live `~/.hermes/scripts/med_confirm.py`. Future CC confirmations should repeat the inspect → isolated test → copied-state dry-run → explicit live transaction → read-back sequence until the live implementation is deployed and re-tested.
+
 ## Maintenance rule
 
 References describing `--compound` must be treated as candidate/unverified until the live script's CLI and function are inspected. Keep this reference linked from the main skill until the compound path is deployed to `~/.hermes/scripts/med_confirm.py` and re-tested against the live runtime.

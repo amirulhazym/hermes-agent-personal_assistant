@@ -1,0 +1,4 @@
+name: google-workspace-commands
+version: 1.0.0
+description: "Slash commands for Google Workspace — /gdocs, /gdrive, /gsheet, /gmail, /gworkspace. Auto-routes NL instructions to subagent with full Google API access."
+author: "@amirulhazym"

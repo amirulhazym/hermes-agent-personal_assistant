@@ -41,12 +41,12 @@ NVIDIA_MODELS = [
 ]
 
 ZEN_MODELS = [
+    # Source of truth: models.py — the 3 dead models (minimax-m3-free, qwen3.6-plus-free,
+    # north-mini-code-free) were removed after live API verification (they returned HTTP 401).
+    # Do NOT re-add them here without also updating models.py.
     "deepseek-v4-flash-free",
-    "minimax-m3-free",
     "mimo-v2.5-free",
-    "qwen3.6-plus-free",
     "nemotron-3-ultra-free",
-    "north-mini-code-free",
 ]
 
 GO_MODELS = [

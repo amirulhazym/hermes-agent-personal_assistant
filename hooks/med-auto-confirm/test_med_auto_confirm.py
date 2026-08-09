@@ -68,7 +68,6 @@ class TestExactUserConfirmations(unittest.TestCase):
         with patch.object(handler, "_already_logged", return_value=False), \
              patch.object(handler, "_check_chain_consistency"), \
              patch.object(handler, "_validate_timestamp", return_value=True), \
-             patch.object(handler, "evaluate_safety", return_value={"decision": "ALLOW", "mentions": [{"slot": "A", "drug_id": "akurit_2"}, {"slot": "A", "drug_id": "pyridoxine"}]}), \
              patch.object(handler, "CONFIRM_SCRIPT", Path("/tmp/fake-med-confirm.py")), \
              patch.object(Path, "exists", return_value=True), \
              patch.object(handler.subprocess, "run", side_effect=fake_run), \
@@ -93,7 +92,6 @@ class TestExactUserConfirmations(unittest.TestCase):
         with patch.object(handler, "_already_logged", return_value=False), \
              patch.object(handler, "_check_chain_consistency"), \
              patch.object(handler, "_validate_timestamp", return_value=True), \
-             patch.object(handler, "evaluate_safety", return_value={"decision": "ALLOW", "mentions": [{"slot": "A", "drug_id": "akurit_2"}, {"slot": "A", "drug_id": "pyridoxine"}]}), \
              patch.object(handler, "CONFIRM_SCRIPT", Path("/tmp/fake-med-confirm.py")), \
              patch.object(Path, "exists", return_value=True), \
              patch.object(handler.subprocess, "run", side_effect=fake_run), \
@@ -107,29 +105,6 @@ class TestExactUserConfirmations(unittest.TestCase):
             self.assertEqual(command[-4:-2], ["--at", "06:45"])
             self.assertEqual(command[-2], "--source-text")
             self.assertEqual(command[-1], text)
-
-    def test_safety_hold_never_invokes_med_confirm(self):
-        calls = []
-        held = []
-
-        def fake_run(*args, **kwargs):
-            calls.append((args, kwargs))
-            raise AssertionError("med_confirm must not run for HOLD")
-
-        decision = {
-            "decision": "HOLD",
-            "findings": [{"rule_id": "CROSS_SLOT_COMBINATION"}],
-            "mentions": [{"drug_id": "dexamethasone_1", "slot": "B"}, {"drug_id": "pyridoxine", "slot": "A"}],
-        }
-        text = "Dah makan dexa pagi dan pyridoxine jam 6.08am tadi"
-        with patch.object(handler, "evaluate_safety", return_value=decision), \
-             patch.object(handler, "persist_hold", side_effect=lambda value: held.append(value) or {"hold_id": "hold-test"}), \
-             patch.object(handler.subprocess, "run", side_effect=fake_run), \
-             patch.object(handler, "_audit"):
-            handler.handle("agent:start", {"message": text})
-
-        self.assertEqual(calls, [])
-        self.assertEqual(held, [decision])
 
 
 if __name__ == "__main__":

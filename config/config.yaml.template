@@ -2,11 +2,32 @@ model:
   default: deepseek-v4-flash-free
   provider: opencode
   base_url: https://opencode.ai/zen/v1
-providers: {}
+  models:
+    deepseek-v4-flash-free:
+      context_length: 0
+    mimo-v2.5-free:
+      context_length: 0
+    ling-3.0-flash-free:
+      context_length: 0
+    laguna-s-2.1-free:
+      context_length: 0
+    big-pickle:
+      context_length: 0
+providers:
+  a6api:
+    api_key_env: ''
+    base_url: https://example.invalid/
+    default_model: <EXAMPLE>
+    name: <EXAMPLE>
+  ftf:
+    api_key_env: ''
+    base_url: https://example.invalid/
+    name: <EXAMPLE>
 fallback_providers: []
-credential_pool_strategies: {}
+credential_pool_strategies:
+  custom:ftf: <EXAMPLE>
 toolsets:
-  - hermes-cli
+- hermes-cli
 max_concurrent_sessions: null
 agent:
   max_turns: 60
@@ -65,7 +86,10 @@ agent:
     hype: YOOO LET'S GOOOO!!! 🔥🔥🔥 I am SO PUMPED to help you today! Every question
       is AMAZING and we're gonna CRUSH IT together! This is gonna be LEGENDARY! ARE
       YOU READY?! LET'S DO THIS! 💪😤🚀
+    caveman: <EXAMPLE>
   verify_on_stop: false
+  personality: <EXAMPLE>
+  system_prompt: ''
 terminal:
   backend: local
   modal_mode: auto
@@ -339,12 +363,14 @@ display:
       streaming: false
     whatsapp:
       show_reasoning: false
+      busy_ack_detail: false
+      tool_progress: false
   runtime_footer:
     enabled: false
     fields:
-      - model
-      - context_pct
-      - cwd
+    - model
+    - context_pct
+    - cwd
   copy_shortcut: auto
   pet:
     enabled: false
@@ -504,11 +530,11 @@ discord:
     speech_gain: 1.0
     ack_enabled: true
     ack_phrases:
-      - Let me look into that.
-      - One moment.
-      - Checking on that now.
-      - Give me a sec.
-      - On it.
+    - Let me look into that.
+    - One moment.
+    - Checking on that now.
+    - Give me a sec.
+    - On it.
 whatsapp: {}
 telegram:
   reactions: false
@@ -532,13 +558,13 @@ approvals:
   mcp_reload_confirm: true
   destructive_slash_confirm: false
 command_allowlist:
-  - script execution via -e/-c flag
-  - sudo with privilege flag (stdin/askpass/shell/list)
-  - script execution via heredoc
-  - overwrite system file via redirection
-  - execute_code
-  - in-place edit of Hermes config/env
-  - shell command via -c/-lc flag
+- script execution via -e/-c flag
+- sudo with privilege flag (stdin/askpass/shell/list)
+- script execution via heredoc
+- overwrite system file via redirection
+- execute_code
+- in-place edit of Hermes config/env
+- shell command via -c/-lc flag
 quick_commands:
   billing:
     type: exec
@@ -556,6 +582,10 @@ quick_commands:
     type: exec
     command: /home/amirul/.hermes/scripts/restart-gateway.sh
     description: Restart the Hermes gateway (admin only)
+  browse:
+    description: <EXAMPLE>
+    target: <EXAMPLE>
+    type: <EXAMPLE>
 platform_hints: {}
 hooks: {}
 hooks_auto_accept: false
@@ -617,28 +647,28 @@ gateway:
     telegram:
       extra:
         allow_from:
-          - '<YOUR_TELEGRAM_USER_ID>'
+        - <YOUR_TELEGRAM_USER_ID>
         allow_admin_from:
-          - '<YOUR_TELEGRAM_USER_ID>'
+        - <YOUR_TELEGRAM_USER_ID>
         user_allowed_commands:
-          - help
-          - whoami
-          - status
-          - billing
-          - sakana
-          - qwen
-          - restart
+        - help
+        - whoami
+        - status
+        - billing
+        - sakana
+        - qwen
+        - restart
         command_menu:
           max_commands: 100
           priority_mode: prepend
           priority:
-            - billing
-            - sakana
-            - qwen
-            - restart
-            - status
-            - whoami
-            - help
+          - billing
+          - sakana
+          - qwen
+          - restart
+          - status
+          - whoami
+          - help
     whatsapp:
       unauthorized_dm_behavior: ignore
 streaming:
@@ -657,6 +687,7 @@ sessions:
 onboarding:
   seen:
     busy_input_prompt: true
+    profile_build_offered: false
   profile_build: ask
 updates:
   pre_update_backup: false
@@ -690,7 +721,8 @@ computer_use:
 _config_version: 31
 plugins:
   enabled:
-    - web-trafilatura
+  - web-trafilatura
+  disabled: []
 session_reset:
   mode: both
   idle_minutes: 240
@@ -698,27 +730,27 @@ session_reset:
 group_sessions_per_user: true
 platform_toolsets:
   cli:
-    - hermes-cli
+  - hermes-cli
   telegram:
-    - hermes-telegram
+  - hermes-telegram
   discord:
-    - hermes-discord
+  - hermes-discord
   whatsapp:
-    - hermes-whatsapp
+  - hermes-whatsapp
   slack:
-    - hermes-slack
+  - hermes-slack
   signal:
-    - hermes-signal
+  - hermes-signal
   homeassistant:
-    - hermes-homeassistant
+  - hermes-homeassistant
   qqbot:
-    - hermes-qqbot
+  - hermes-qqbot
   yuanbao:
-    - hermes-yuanbao
+  - hermes-yuanbao
   teams:
-    - hermes-teams
+  - hermes-teams
   google_chat:
-    - hermes-google_chat
+  - hermes-google_chat
 proactive:
   quiet_hours_start: 23
   quiet_hours_end: 7
@@ -729,26 +761,9 @@ mcp_servers:
   cua-driver:
     command: /mnt/f/hermes/cua-driver/cua-driver.exe
     args:
-      - mcp
-
-# ── Fallback Model ────────────────────────────────────────────────────
-# Automatic provider failover when primary is unavailable.
-# Uncomment and configure to enable. Triggers on rate limits (429),
-# overload (529), service errors (503), or connection failures.
-#
-# Supported providers:
-#   openrouter   (OPENROUTER_API_KEY)  — routes to any model
-#   openai-codex (OAuth — hermes auth) — OpenAI Codex
-#   nous         (OAuth — hermes auth) — Nous Portal
-#   zai          (ZAI_API_KEY)         — Z.AI / GLM
-#   kimi-coding  (KIMI_API_KEY)        — Kimi / Moonshot
-#   kimi-coding-cn (KIMI_CN_API_KEY)   — Kimi / Moonshot (China)
-#   minimax      (MINIMAX_API_KEY)     — MiniMax
-#   minimax-cn   (MINIMAX_CN_API_KEY)  — MiniMax (China)
-#   bedrock      (AWS IAM / boto3)     — AWS Bedrock (Converse API)
-#
-# For custom OpenAI-compatible endpoints, add base_url and key_env.
-#
-# fallback_model:
-#   provider: openrouter
-#   model: anthropic/claude-sonnet-4
+    - mcp
+  tavily:
+    connect_timeout: 0
+    timeout: 0
+    url: https://example.invalid/
+personality: <EXAMPLE>

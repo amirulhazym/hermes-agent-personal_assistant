@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hermes mutable coordination ledger (schema only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "updated_at", "owner_state", "items"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "owner_state": {"enum": ["RUN", "HOLD", "PAUSE"]},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "summary"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "status": {"enum": ["queued", "active", "blocked", "done", "cancelled"]},
+          "summary": {"type": "string", "minLength": 1},
+          "evidence_ref": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}

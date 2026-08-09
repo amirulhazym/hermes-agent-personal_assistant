@@ -1,0 +1,5 @@
+name: search-cascade
+version: 1.0.0
+description: Search cascade — Tavily primary, DDGS fallback on error/empty
+author: Amirul
+kind: standalone

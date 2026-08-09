@@ -1,0 +1,4 @@
+name: med-auto-confirm
+description: "Auto-log medication confirmations BEFORE the agent processes them. Fail-open. (Pattern G fixed 2026-07-11)"
+events:
+  - agent:start

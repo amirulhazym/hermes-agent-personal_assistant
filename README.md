@@ -7,6 +7,8 @@
 
 **One brain, many faces.** A personal AI assistant that lives across WhatsApp and Telegram — same memory, same persona, same skills. Powered by DeepSeek V4. Operational since June 2026.
 
+> **Current-state note (2026-08-08):** This public repository is the durable application-source and recovery record. `main` is the only permanent application-source branch. The live operator runs on the Tencent Lighthouse VPS under `/home/ubuntu/.hermes`; older WSL2/Windows descriptions below are historical unless explicitly marked current. Promotion to `main` requires one tested exact-SHA owner release approval. See `AGENTS.md` v3.
+
 ```
                          USER
                           │
@@ -17,7 +19,7 @@
            │                             │
            └──────────────┬──────────────┘
                           ▼
-               Hermes Gateway (WSL2)
+               Hermes Gateway (VPS runtime)
                           │
                 ┌─────────┴─────────┐
                 ▼                   ▼
@@ -131,7 +133,7 @@ DeepSeek API (https://api.deepseek.com)
 | Knowledge base | Obsidian 1.12.7 portable (F:) + vault (F:) | Second brain with PARA structure, accessible to both Hermes and user |
 | Cron | Hermes built-in + Linux crontab | 27+ scheduled jobs + watchdog (incl. 20 med reminders) |
 | Monitoring | status.ps1 (PowerShell) + logs + Telegram alerts | Gateway health, disk space, cron status |
-| Source control | Git + GitHub (private repo) | All config, docs, decisions tracked |
+| Source control | Git + GitHub public application-source repo | Durable source/recovery record; raw private runtime state stays outside public Git |
 
 ### 🔄 Data Flow
 

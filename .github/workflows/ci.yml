@@ -1,0 +1,22 @@
+name: source-closure-guards
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Unit tests for guards
+        run: python3 -m unittest discover -s tests/guard -p 'test_*.py'
+      - name: Secret scan
+        run: bash scripts/guard/secret-scan.sh --tree
+      - name: PII review screen
+        run: python3 scripts/guard/pii-review.py --diff "${{ github.event.pull_request.base.sha || github.event.before }}\..${{ github.sha }}"
+      - name: Validate source coverage manifest
+        run: bash scripts/guard/manifest-validate.sh docs/reconciliation/v3-source-coverage-manifest.json "$GITHUB_SHA"

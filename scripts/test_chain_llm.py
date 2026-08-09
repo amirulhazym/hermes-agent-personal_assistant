@@ -5,7 +5,27 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import chain_llm
 
+
 class TestChainLLMProviderAdapter(unittest.TestCase):
+    def test_a6api_provider_key_and_base_url(self):
+        self.assertEqual(chain_llm.PROVIDER_KEY_ENV["a6api"], "A6API_API_KEY")
+        self.assertEqual(
+            chain_llm.DEFAULT_BASE_URLS["a6api"], "https://a6api.com/v1"
+        )
+
+    def test_v1_base_is_not_duplicated(self):
+        base = "https://a6api.com/v1"
+        api_base = base.rstrip("/")
+        if not api_base.endswith("/v1"):
+            api_base += "/v1"
+        self.assertEqual(api_base + "/chat/completions", "https://a6api.com/v1/chat/completions")
+
+    def test_origin_base_gets_v1(self):
+        base = "https://example.test"
+        api_base = base.rstrip("/")
+        if not api_base.endswith("/v1"):
+            api_base += "/v1"
+        self.assertEqual(api_base + "/chat/completions", "https://example.test/v1/chat/completions")
     def test_reminder_format_accepts_natural_template(self):
         text = (
             "‼️ Waktu Ubat (Malam) ‼️\n\n"
@@ -36,6 +56,18 @@ class TestChainLLMProviderAdapter(unittest.TestCase):
         self.assertFalse(chain_llm.validate_reminder_text(text, "E", [
             {"drug": "Levetiracetam", "dosage": "500mg"},
         ]))
+    def test_sse_parser_reassembles_content(self):
+        raw = (
+            'data: {"choices":[{"delta":{"content":"Hello "}}]}\n\n'
+            'data: {"choices":[{"delta":{"content":"boss"}}]}\n\n'
+            'data: [DONE]\n\n'
+        )
+        self.assertEqual(chain_llm._parse_sse_content(raw), "Hello boss")
+
+    def test_json_parser_keeps_compatibility(self):
+        raw = '{"choices":[{"message":{"content":"Hello boss"}}]}'
+        self.assertEqual(chain_llm._parse_sse_content(raw), "Hello boss")
+
     def test_deterministic_renderer_obeys_contract_for_partial_c(self):
         chain = {
             "now": "13:22",
@@ -115,6 +147,7 @@ class TestChainLLMProviderAdapter(unittest.TestCase):
         self.assertIn("Hai boss!!", text)
         self.assertIn("dah 6 kali saya ingatkan", text)
         self.assertIn("ambil sekarang", text)
+
 
 if __name__ == "__main__":
     unittest.main()

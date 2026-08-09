@@ -1,7 +1,9 @@
 # RUNBOOK — Hermes Personal AI Agent
 
 > Operational handover for the Hermes AI assistant running on **Tencent Cloud Lighthouse VPS (Singapore)**.
-> Last updated: 2026-07-01 (post-VPS migration)
+> Last updated: 2026-07-01 (historical sections retained)
+>
+> **Current-state correction (2026-08-08):** The VPS is the live operator system and `/home/ubuntu/.hermes` is operational truth. The clean application repository's `main` is the durable source/recovery record. The old WSL2/Windows startup, backup and `hermes-live` branch sections below are historical procedures, not the current release workflow. See `AGENTS.md` v3 and `skills/operator/*`.
 
 ---
 
@@ -13,7 +15,7 @@ Hermes is a personal AI assistant accessible via WhatsApp and Telegram, powered 
 
 ```
 Tencent Cloud Lighthouse VPS (Singapore)
-  └── Ubuntu 24.04, user: ubuntu, IP: 119.28.119.151
+  └── Ubuntu 24.04, user: ubuntu, IP: [REDACTED—private runtime address]
         └── Hermes Agent v0.17.0 at ~/.hermes/   ← LIVE
               ├── config.yaml         (hardened: timezone KL, STT off, vision=opencode-zen/mimo)
               ├── .env                (API keys: DEEPSEEK, OPENCODE_ZEN, OPENCODE_GO, TELEGRAM)
@@ -461,7 +463,9 @@ cat ~/stability-report.txt                 # view last report
 ## 14. Git Workflow (VPS → GitHub)
 
 ```bash
-# VPS writes to hermes-live branch
+# Historical only: old VPS writes to hermes-live branch
+# Current workflow: local temporary application worktree from verified main;
+# promote only after one exact-SHA owner release approval.
 cd ~/mjay
 git add -A
 git commit -m "hermes: <description>"
@@ -471,7 +475,7 @@ git push origin hermes-live
 # Merges to main → triggers workflow
 ```
 
-Branch strategy: `main` = human-only, `hermes-live` = agent-pushed working branch.
+Historical branch strategy: `main` = human-only, `hermes-live` = agent-pushed working branch. Superseded on 2026-08-08: `main` is the only permanent application-source branch; temporary branches/worktrees are local by default and every promotion uses one exact-SHA owner approval.
 Full doc: `~/mjay/docs/git_workflow.md`
 
 ---
