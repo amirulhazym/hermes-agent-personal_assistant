@@ -17,6 +17,14 @@ jobs:
       - name: Secret scan
         run: bash scripts/guard/secret-scan.sh --tree
       - name: PII review screen
-        run: python3 scripts/guard/pii-review.py --diff "${{ github.event.pull_request.base.sha || github.event.before }}\..${{ github.sha }}"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          printf 'PII_RANGE=%s..%s\n' "$BASE_SHA" "$CURRENT_SHA"
+          git cat-file -e "$BASE_SHA^{commit}"
+          git cat-file -e "$CURRENT_SHA^{commit}"
+          python3 scripts/guard/pii-review.py --diff "$BASE_SHA..$CURRENT_SHA"
       - name: Validate source coverage manifest
         run: bash scripts/guard/manifest-validate.sh docs/reconciliation/v3-source-coverage-manifest.json "$GITHUB_SHA"
