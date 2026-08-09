@@ -312,7 +312,7 @@ Match these patterns (case-insensitive) in user messages:
 
 1. **Extract** the slot letter, drug name, and optional time from user message
 2. **Log** via `med_confirm.py` with appropriate args (drug-level or slot-level)
-3. **Show chain** — run `chain_calc.py --display` and output the result (chat responses only — NOT in cron reminders)
+3. **Show chain** — run `python3 ~/.hermes/scripts/chain_calc.py --display` and output the result (chat responses only — NOT in cron reminders). PITFALL: `chain_calc.py` lives in `~/.hermes/scripts/` ROOT — it is NOT in `med_chain/` (that dir has chain_trace/chain_review/chain_consistency/validate_semantic but no chain_calc). Running `python3 med_chain/chain_calc.py` fails with Errno 2 (no such file). Same full-path rule applies to step 4's `--update <LETTER>`.
 4. **Reset reminder count for that slot** — run `chain_calc.py --update <LETTER>` so cron moves to next pending slot
 
 **Critical: When to reset (2026-07-07):** Whenever user confirms a drug in a slot that goes from `pending` → `partial` (some drugs taken, others still pending), ALWAYS reset the reminder count. This bypasses the cooldown and lets the next cron tick fire a NEW reminder about the remaining drugs. Without the reset, the cooldown (60 min after the first reminder) blocks ANY follow-up — the user gets no prompt about remaining drugs because the system is still waiting out the cooldown from the initial reminder.

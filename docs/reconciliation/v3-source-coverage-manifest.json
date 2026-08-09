@@ -750,7 +750,7 @@
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/med-tracker/SKILL.md",
-      "source_sha256": "0445d641a2adf96106816cb6072ead6424ccdb0f89e66d221f4538c5c288e363"
+      "source_sha256": "240060459493ae7e75c3817ec9bb18d0c45280d29224e1276fe2e2f78305ab2b"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/references/20260729-cli-confirmation-and-future-intent.md",
@@ -1283,6 +1283,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "53a92c9718ed9a5bbe82caf23d72a8bd811931a23c90f3a0940472c2db4b77e0",
+  "payload_sha256": "bfb5caa77aa2fbbaa0d1de373b7b6af21d6996a128e80d6fb6338246df663ffd",
   "schema_version": 1
 }
