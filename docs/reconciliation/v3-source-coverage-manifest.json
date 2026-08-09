@@ -6,7 +6,7 @@
       "destination": null,
       "kind": "source-only",
       "source": ".github/workflows/ci.yml",
-      "source_sha256": "85b90cac474b996df3abb2daccbd05d7cbd79d5dde99d7ae23214a4d2a34c9c2"
+      "source_sha256": "c395ce1fb8382440e83b945e22bd5b67fc878d799aa944749238cd5ce88b2698"
     },
     {
       "destination": null,
@@ -1283,6 +1283,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "bfb5caa77aa2fbbaa0d1de373b7b6af21d6996a128e80d6fb6338246df663ffd",
+  "payload_sha256": "bbb1a6f686c125e16e86b8190209b3463ffab8efbf5d8b1f70c1e041feb3d26f",
   "schema_version": 1
 }
