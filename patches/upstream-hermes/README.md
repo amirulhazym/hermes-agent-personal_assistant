@@ -19,6 +19,14 @@ source-worthy VPS customizations; upstream history stays in its own lane.
    turn finalizer, WhatsApp bridge reconnect controller, models/codex models,
    and their tests. Excludes: ui-tui/*, whatsapp-bridge.old/, .install_method,
    venv, node_modules, vendored deps.
+3. `2026-08-11_a4-model-purge-and-test-stability.patch`
+   (base `1620de974d2f84577b4afcc2d05e31f41f3ee1da`, extracted candidate
+   `08a2cdb3d5ab7cb098e1a93940f30d4ff63ca66b`)
+   Purpose: A4 DeepSeek legacy-alias purge/model-catalog updates plus the
+   associated stale-test, launcher-harness, revert-fixture, and MCP mtime
+   test corrections. This is an upstream overlay patch; it is not a merge of
+   upstream Git history into this repository. SHA-256:
+   `c79ab7b83790182fc997726a650868a5c3238a87bf407d485a4bcd64b96e8177`.
 
 ## Deterministic apply
 ```bash
