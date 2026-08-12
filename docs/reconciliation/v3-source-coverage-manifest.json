@@ -630,7 +630,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/test_chain_adapter.py",
       "kind": "runtime-deploy",
       "source": "scripts/test_chain_adapter.py",
-      "source_sha256": "be5f8530d660bca2ea4e77dbbaeb2bb35685ff353e49acb8330ef7d03f7b56c3"
+      "source_sha256": "7c5b67978feaf925b2bccab03a654c20b94dad5472a20bb3083d632276824567"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/test_chain_llm.py",
