@@ -1285,6 +1285,156 @@
       "kind": "source-only",
       "source": "tests/test_model_forces_max_completion_tokens.py",
       "source_sha256": "6503617d39545dd8071324c14cf54c6174291075fde8a5385a04efa6e1305f88"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/grill-me/SKILL.md",
+      "source_sha256": "6189dfceb7304a6e5558f75d87e68fa3bc7fcf7ba120e44f21f8a61fe01eba54"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/grill-me/agents/openai.yaml",
+      "source_sha256": "c061e39c3e0f9d865fb1b97556d485704af2a8a58f4b8221a8917a5c2074a32b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/grilling/SKILL.md",
+      "source_sha256": "fa5c1e5ee76b1c8f1ae56101f52c9e239de75d5c578adc61227b92d10b7e52ef"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/grilling/agents/openai.yaml",
+      "source_sha256": "1411d7df7d99b7e621a1ff8283c8133cc2464be63d064e52d8ce169c6800ee9b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/to-spec/SKILL.md",
+      "source_sha256": "5d26479544b08048d3a8f79d937b39bc613a617f026b3fd083bafc1e99a7b811"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/to-spec/agents/openai.yaml",
+      "source_sha256": "1c5b4d1e3d8e52287ef19cc2742fdbbfae1914ac75d33af3e4c8174f08cc55bb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/SKILL.md",
+      "source_sha256": "310fb1a73c0467e617e17d7c41d4a2278b5405c4a27f36d7cd22bb4599aee6bb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/agents/openai.yaml",
+      "source_sha256": "9527de0110541c45712319025155aeab8dc7d77c6ed6e5e83271bab1851ab939"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/domain.md",
+      "source_sha256": "25be404b58798b3cb2d51c93dba2ab052fc3a425632185726ac3f5fcff193b99"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-github.md",
+      "source_sha256": "ec8332bb69e7e79e349989e940be481a0c79b552be3acc613e718278bcc5e03d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-gitlab.md",
+      "source_sha256": "16ea4a727803876cbc763e1f6b00992b3b393ba5e0cd394382dccc0f8d83c564"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-local.md",
+      "source_sha256": "6f38f66f9ffce2fdc26c43608d06b527f60e45c6f43003d0ea77d4e2641c9de3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/triage-labels.md",
+      "source_sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/to-tickets/SKILL.md",
+      "source_sha256": "5ecdf1d4df8a360ed39df21a2347f97ba177afd449a577da4f6b6ea8e1ebb808"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/to-tickets/agents/openai.yaml",
+      "source_sha256": "21bc6215fffcd7614e9f772bb1760e87cc5fc7dcc707e7d282bc9414267a6090"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/tdd/SKILL.md",
+      "source_sha256": "5e6b9c16b547113e90afbb946489d1c1384be5c2128f0159bd0bee57251ecf08"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/tdd/agents/openai.yaml",
+      "source_sha256": "ea6f01cf1b8c06a4b0f5b649d74b1b8ce8685e72af1b38d70d877693e092af0b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/tdd/mocking.md",
+      "source_sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/tdd/tests.md",
+      "source_sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/code-review/SKILL.md",
+      "source_sha256": "9cf46653dd9c710ea1e6c22423caf31a794c88773bc94bdaa23140277f470442"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/code-review/agents/openai.yaml",
+      "source_sha256": "8229ca854e11dc8e6aef2131ee03f31fb1561cf905fab9ccc325180cf3331352"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/implement/SKILL.md",
+      "source_sha256": "6d3fd9e83b8f36e5213854779db49b256a457a7ebb4a503e53fa7dcff696adc3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/implement/agents/openai.yaml",
+      "source_sha256": "8970a8596ade0c28ab427f41a4ea242d6bdf6186c59ebf55e1238dbecaab79dc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/wayfinder/SKILL.md",
+      "source_sha256": "d33e2141f7c8bbfd137fef0213cbec465820e4680e67da5d0f0815d6742d26c2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/wayfinder/agents/openai.yaml",
+      "source_sha256": "88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073"
     }
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
