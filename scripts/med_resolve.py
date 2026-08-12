@@ -260,8 +260,24 @@ def resolve(fragment: str, slot: str = None, time_24h: str = None) -> dict:
 
     result = matches[0]
     ret = {"ok": True, "drug_id": result["drug_id"], "slot": result["slot"], "drug": result["drug"]}
-    if result.get("dosage"):
-        ret["dosage"] = result["dosage"]
+
+    # ── Dexa dosage: ALWAYS override with taper engine (root-cause fix) ──
+    # med-schedule.json dexa dosage is a STATIC snapshot that drifts every
+    # 2-week taper phase. The authoritative mg comes from dexa_taper.json.
+    from dexa_taper_lookup import get_dexa_dose, is_dexa_drug
+    if is_dexa_drug(result["drug_id"]):
+        taper_mg = get_dexa_dose(result["slot"], date_str=None)
+        if taper_mg is not None:
+            ret["dosage"] = f"{taper_mg}mg"
+            ret["dosage_source"] = "dexa_taper.json"
+        else:
+            # Fallback to schedule if taper unavailable
+            if result.get("dosage"):
+                ret["dosage"] = result["dosage"]
+                ret["dosage_source"] = "med-schedule.json (fallback)"
+    else:
+        if result.get("dosage"):
+            ret["dosage"] = result["dosage"]
 
     # Flag ambiguity if time didn't resolve
     if len(matches) > 1:

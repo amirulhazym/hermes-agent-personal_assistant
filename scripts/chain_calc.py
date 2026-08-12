@@ -253,28 +253,12 @@ def get_dexa_dose_for_slot(slot: str, phase: dict = None) -> int | None:
     """
     Get the current dexamethasone dose in mg for a specific slot.
     Slot B = dose_morning, C = dose_midday, D = dose_afternoon/evening.
-    Returns None if phase not found or slot doesn't apply.
+    Delegates to dexa_taper_lookup (single source of truth) so taper logic
+    is never implemented in two places that can drift.
     """
-    if phase is None:
-        phase = get_current_phase()
-    if not phase:
-        return None
-
-    freq = phase.get('freq', 'TDS')
-    active_slots = load_taper().get('active_slots_by_freq', {}).get(freq, [])
-
-    if slot not in active_slots:
-        return 0  # Slot deactivated for this frequency
-
-    mapping = {
-        'B': 'dose_morning',
-        'C': 'dose_2pm' if freq == 'BD' else 'dose_midday',
-        'D': 'dose_afternoon',
-    }
-    dose_key = mapping.get(slot)
-    if not dose_key:
-        return None
-    return phase.get(dose_key, 0)
+    from dexa_taper_lookup import get_dexa_dose
+    # phase arg retained for API compat; lookup uses date internally
+    return get_dexa_dose(slot)
 
 
 def get_dexa_total_mg(phase: dict = None) -> int:
@@ -396,7 +380,22 @@ def get_pending_required_drugs(slot: str) -> list[dict]:
 
     pending_ids = set(required) - accounted_ids
     drugs = get_drugs_for_slot(slot, schedule)
-    return [d for d in drugs if d.get('drug_id') in pending_ids]
+    pending = [d for d in drugs if d.get('drug_id') in pending_ids]
+
+    # Date-aware Dexa dosage: schedule JSON holds a static snapshot (e.g. 5/5/4).
+    # The taper engine is the single dosage authority. Override B/C/D Dexa
+    # entries with the current phase dose so reminders never render stale
+    # static dosages (dataflow gap, 2026-08-12). Non-Dexa drugs untouched.
+    if slot in ('B', 'C', 'D') and any(
+        d.get('drug_id', '').startswith('dexamethasone_') for d in pending
+    ):
+        phase = get_current_phase()
+        dose_mg = get_dexa_dose_for_slot(slot, phase)
+        if dose_mg:
+            for d in pending:
+                if d.get('drug_id', '').startswith('dexamethasone_'):
+                    d['dosage'] = f"{dose_mg}mg"
+    return pending
 
 
 def is_confirmed(slot: str) -> bool:
