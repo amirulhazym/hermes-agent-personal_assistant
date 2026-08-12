@@ -108,15 +108,24 @@ DRUG_MAP = [
     (r"\bb[- ]?complex\b|\bswisse\b", "C", "b_complex"),
 ]
 
-# Time patterns: leading word (pukul/jam/at/@/pada) accepts optional am/pm;
-# WITHOUT a leading word, an explicit am/pm suffix is required (so a bare
-# "20:00" in discussion is NOT captured — G-2 hardening). Compact typos
-# ("432pm" = 4:32pm) are accepted. (Tolerant parse, 2026-08-12.)
+# Time patterns — tolerant (2026-08-12/13 owner directive): in a med
+# confirmation context any plausible time shape is accepted. am/pm is
+# OPTIONAL: resolution falls back to context words (pagi/petang/malam/
+# siang) or nearest-to-now (12h ambiguity). Bare digits without separator
+# or suffix ("4", "20") are NOT accepted — too easy to confuse with tablet
+# counts. Leading word still optional.
 TIME_RE = re.compile(
     r"(?:(?:\bpukul\b|\bjam\b|\bat\b|@|\bpada\b)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?"
-    r"|(\d{1,2})[:.](\d{2})\s*(am|pm)"
-    r"|(\d{1,2})(\d{2})\s*(am|pm)"
+    r"|(\d{1,2})[:.](\d{2})\s*(am|pm)?"
+    r"|(\d{1,2})(\d{2})\s*(am|pm)?"
     r"|(\d{1,2})\s*(am|pm))",
+    re.IGNORECASE,
+)
+
+# Context words that disambiguate 12h times.
+_AM_HINT = re.compile(r"\b(pagi|subuh)\b", re.IGNORECASE)
+_PM_HINT = re.compile(
+    r"\b(petang|tengah\s*hari|siang|malam|lepas\s*(?:zuhur|asar)|pm)\b",
     re.IGNORECASE,
 )
 
@@ -134,10 +143,16 @@ def _audit(msg: str) -> None:
 def _parse_time(message: str, now: datetime):
     """Extract HH:MM from message. Returns None if no time found.
 
-    Supports three shapes (2026-08-12 tolerant parse):
-      1. leading word:  "jam 1.49pm" / "pukul 8.12pm" / "at 20:00"
-      2. am/pm suffix:  "4.32pm tadi" / "4:32pm" (no leading word)
-      3. compact typo:  "432pm" -> 4:32pm, "815pm" -> 8:15pm
+    Tolerant, context-aware (2026-08-13 owner directive):
+      1. leading word:  "jam 1.49pm" / "pukul 8.12" / "at 20:00"
+      2. separator:     "4.32pm tadi" / "4:32" / "16.32" (am/pm optional)
+      3. compact typo:  "432pm" -> 4:32pm, "815" -> 8:15
+      4. bare + am/pm:  "4pm" / "6am"
+
+    Without am/pm the 12h ambiguity is resolved by:
+      - context words (pagi -> AM; petang/malam/siang -> PM);
+      - hour > 12 is already 24h;
+      - otherwise nearest-to-now (within ±12h) wins.
     """
     m = TIME_RE.search(message)
     if not m:
@@ -158,12 +173,32 @@ def _parse_time(message: str, now: datetime):
         hour = int(m.group(10))
         minute = 0
         ap = (m.group(11) or "").lower()
-    if ap == "pm" and hour < 12:
-        hour += 12
-    elif ap == "am" and hour == 12:
-        hour = 0
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         return None
+    if ap:
+        if ap == "pm" and hour < 12:
+            hour += 12
+        elif ap == "am" and hour == 12:
+            hour = 0
+    elif hour <= 12:
+        # 12h without suffix: resolve from context words or nearest-to-now.
+        if _AM_HINT.search(message) and not _PM_HINT.search(message):
+            if hour == 12:
+                hour = 0
+        elif _PM_HINT.search(message) and not _AM_HINT.search(message):
+            if hour < 12:
+                hour += 12
+        else:
+            # No context hint: prefer the most recent PAST candidate (med
+            # reports describe intake that already happened); if both are
+            # in the future, pick the nearest one.
+            cands = [hour, hour + 12 if hour < 12 else hour - 12]
+            now_h = now.hour + now.minute / 60
+            past = [c for c in cands if c <= now_h]
+            if past:
+                hour = max(past)
+            else:
+                hour = min(cands, key=lambda c: abs(c - now_h))
     return datetime(now.year, now.month, now.day, hour, minute)
 
 

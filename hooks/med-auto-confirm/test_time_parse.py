@@ -1,12 +1,12 @@
 """Hermetic tests for tolerant med-intake time parsing in the auto-confirm hook.
 
-Covers the 2026-08-12 regression: user messages like
-"Dah makan dexa petang, 4.32pm tadi" and typos like "432pm" were rejected
-as `missing-intake-time` because TIME_RE required a leading word
-(pukul/jam/at/@/pada). Requirement (owner, 2026-08-12): parse common
-variants intelligently; keep the G-2 hardening (bare "20:00" in
-discussion without am/pm must NOT become a med time); when no time can be
-resolved, the hook must record CLARIFY, never silently REJECT.
+Owner directive (2026-08-12/13): in a med confirmation context (reminder
+reply containing a completion word + drug), ANY plausible time shape must be
+understood — "4.32pm tadi", "432pm", "4.32", "20:00", "jam 1.49pm".
+12h ambiguity is resolved from context words (pagi/petang/malam/siang) or
+nearest-to-now. Only truly absent/unparseable times fall through to CLARIFY
+(agent asks). Bare digits without separator/suffix ("4", "20") are NOT times
+— they are tablet counts.
 """
 import importlib.util
 import os
@@ -47,20 +47,18 @@ class TestTimeParse(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def _parse(self, msg: str):
-        dt = self.handler._parse_time(msg, self.now)
+    def _parse(self, msg: str, now=None):
+        dt = self.handler._parse_time(msg, now or self.now)
         return f"{dt.hour:02d}:{dt.minute:02d}" if dt else None
 
-    # --- New tolerant formats (2026-08-12) ---
+    # --- New tolerant formats (2026-08-12/13) ---
     def test_pm_dot_without_leading_word(self):
-        # "Dah makan dexa petang, 4.32pm tadi" -> 16:32
         self.assertEqual(self._parse("Dah makan dexa petang, 4.32pm tadi"), "16:32")
 
     def test_pm_colon_without_leading_word(self):
         self.assertEqual(self._parse("Dah makan dexa petang, 4:32pm tadi"), "16:32")
 
     def test_compact_typo_432pm(self):
-        # Typo "432pm" = 4:32pm
         self.assertEqual(self._parse("Dah makan dexa petang, 432pm tadi"), "16:32")
 
     def test_compact_typo_815pm(self):
@@ -70,12 +68,47 @@ class TestTimeParse(unittest.TestCase):
         self.assertEqual(self._parse("dah makan akurit 645am tadi"), "06:45")
 
     def test_pm_without_minutes(self):
-        # "4pm" with no minutes -> 16:00
         self.assertEqual(self._parse("dah makan dexa 4pm tadi"), "16:00")
 
-    def test_bare_dot_12h_no_suffix_in_completion(self):
-        # "4.32" alone (no am/pm) is NOT accepted without leading word (G-2)
-        self.assertIsNone(self._parse("dah makan dexa petang, 4.32 tadi"))
+    # --- No am/pm: context-word resolution ---
+    def test_dot_with_petang_hint_resolves_pm(self):
+        self.assertEqual(self._parse("Dah makan dexa petang, 4.32 tadi"), "16:32")
+
+    def test_dot_with_pagi_hint_resolves_am(self):
+        self.assertEqual(self._parse("dah makan akurit 6.45 pagi"), "06:45")
+
+    def test_dot_with_malam_hint_resolves_pm(self):
+        self.assertEqual(self._parse("dah makan letram malam 8.12"), "20:12")
+
+    def test_dot_with_siang_hint_resolves_pm(self):
+        self.assertEqual(self._parse("dah makan dexa siang 12.15"), "12:15")
+
+    # --- No am/pm: nearest-to-now resolution ---
+    def test_dot_no_hint_nearest_now_evening(self):
+        # now 23:00 -> 4.32 nearest is 16:32
+        self.assertEqual(self._parse("dah makan dexa 4.32"), "16:32")
+
+    def test_dot_no_hint_nearest_now_morning(self):
+        # now 07:00 -> 6.45 nearest is 06:45
+        morning = datetime(2026, 8, 12, 7, 0)
+        self.assertEqual(self._parse("dah makan akurit 6.45", morning), "06:45")
+
+    def test_dot_no_hint_24h_direct(self):
+        self.assertEqual(self._parse("dah makan dexa 16.32"), "16:32")
+
+    # --- Bare 24h times ARE accepted in confirmation context (G-2 relaxed) ---
+    def test_bare_24h_accepted_in_completion_context(self):
+        self.assertEqual(self._parse("dah makan ubat 20:00"), "20:00")
+
+    def test_bare_24h_accepted_with_makan(self):
+        self.assertEqual(self._parse("makan lepas 20:00"), "20:00")
+
+    # --- Bare digits are NOT times (tablet counts) ---
+    def test_bare_digit_rejected(self):
+        self.assertIsNone(self._parse("dah makan dexa 4"))
+
+    def test_bare_digits_rejected(self):
+        self.assertIsNone(self._parse("dah makan dexa 20"))
 
     # --- Regression: leading-word formats keep working ---
     def test_leading_jam_am_pm(self):
@@ -88,15 +121,13 @@ class TestTimeParse(unittest.TestCase):
         self.assertEqual(self._parse("dah makan dexa pukul 12.15pm"), "12:15")
 
     def test_leading_jam_no_suffix(self):
-        # 24h with leading word remains accepted
         self.assertEqual(self._parse("dah makan dexa jam 16:32"), "16:32")
 
-    # --- G-2 hardening: bare times in discussion must NOT match ---
-    def test_bare_24h_no_leading_word_not_accepted(self):
-        self.assertIsNone(self._parse("makan lepas 20:00"))
-
-    def test_bare_24h_no_suffix_not_accepted(self):
-        self.assertIsNone(self._parse("dah makan ubat 20:00"))
+    def test_leading_jam_bare_hour(self):
+        # "jam 4" -> 04:00 when now is morning (leading word makes a bare
+        # hour a time; past-preference resolves 4 -> 04:00 at 07:00)
+        morning = datetime(2026, 8, 12, 7, 0)
+        self.assertEqual(self._parse("dah makan dexa jam 4", morning), "04:00")
 
     # --- No time at all -> None (hook records CLARIFY, agent asks) ---
     def test_no_time_returns_none(self):
@@ -127,8 +158,6 @@ class TestClarifyLabel(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_audit_label_is_clarify_when_time_missing(self):
-        # Isolate audit: point AUDIT_LOG at the temp home and call handle()
-        # with a completion message that has no time.
         from unittest import mock
 
         with mock.patch.object(self.handler, "_audit") as audit:
