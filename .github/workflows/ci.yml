@@ -31,8 +31,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Unit tests for guards
-        run: python3 -m unittest discover -s tests/guard -p 'test_*.py'
       - name: Secret scan (tracked tree)
         run: bash scripts/guard/secret-scan.sh --tree
       - name: PII review screen

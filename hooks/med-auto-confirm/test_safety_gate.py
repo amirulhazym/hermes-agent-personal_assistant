@@ -13,6 +13,10 @@ BASE = Path(__file__).resolve().parents[2]
 SCRIPTS = BASE / "scripts"
 LIVE = Path("/home/ubuntu/.hermes")
 
+# Operational-artifact gate: tests copy LIVE runtime fixtures; CI runners
+# have no /home/ubuntu/.hermes so they skip, the VPS host runs them.
+_LIVE_SCHEDULE = LIVE / "med-schedule.json"
+
 
 class _FrozenNow(datetime):
     """datetime subclass whose now() returns a fixed midday reference.
@@ -58,6 +62,7 @@ def load_handler(home: Path):
     return module
 
 
+@unittest.skipUnless(_LIVE_SCHEDULE.exists(), "live runtime fixtures not present (CI skips)")
 class TestSafetyGate(unittest.TestCase):
     """Hermetic Phase 1 contract tests. No production state is read or written."""
 

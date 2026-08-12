@@ -20,6 +20,10 @@ from unittest import mock
 HERE = Path(__file__).resolve().parent
 LIVE = Path("/home/ubuntu/.hermes")  # explicit — Path.home() is dynamic and breaks if another test mutates HOME
 
+# Operational-artifact gate: tests copy LIVE runtime fixtures; CI runners
+# have no /home/ubuntu/.hermes so they skip, the VPS host runs them.
+_LIVE_SCHEDULE = LIVE / "med-schedule.json"
+
 
 def _make_home() -> Path:
     tmp = Path(tempfile.mkdtemp(prefix="dexa-dataflow-"))
@@ -29,6 +33,7 @@ def _make_home() -> Path:
     return tmp
 
 
+@unittest.skipUnless(_LIVE_SCHEDULE.exists(), "live runtime fixtures not present (CI skips)")
 class DexaDoseDataflowTest(unittest.TestCase):
     maxDiff = None
 
