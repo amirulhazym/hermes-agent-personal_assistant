@@ -17,6 +17,7 @@ Slot → phase key mapping:
 """
 
 from datetime import datetime, date
+import os
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -34,6 +35,11 @@ _DEXA_DRUG_PREFIX = "dexamethasone"
 
 
 def _today_str() -> str:
+    # Honour CHAIN_CALC_NOW_MYT (chain_calc freeze pattern) so date-aware
+    # lookups stay consistent under frozen-time tests/probes.
+    frozen = os.environ.get("CHAIN_CALC_NOW_MYT")
+    if frozen:
+        return str(frozen)[:10]
     return datetime.now(MYT).strftime("%Y-%m-%d")
 
 

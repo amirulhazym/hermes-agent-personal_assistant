@@ -14,6 +14,27 @@ SCRIPTS = BASE / "scripts"
 LIVE = Path("/home/ubuntu/.hermes")
 
 
+class _FrozenNow(datetime):
+    """datetime subclass whose now() returns a fixed midday reference.
+
+    Handler tests must not depend on the real wall clock: past midnight,
+    messages like "jam 6.08am" parse as *future* times and are rejected by
+    G-2 before any assertion runs (timing flake, 2026-08-13).
+    """
+
+    FROZEN = datetime(2026, 8, 12, 18, 0)
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.FROZEN
+
+
+def freeze_handler_now(handler):
+    from unittest import mock
+
+    return mock.patch.object(handler, "datetime", _FrozenNow)
+
+
 def load_gate(home: Path):
     os.environ["HERMES_HOME"] = str(home)
     sys.path.insert(0, str(SCRIPTS))
@@ -119,7 +140,8 @@ class TestSafetyGate(unittest.TestCase):
         from unittest.mock import patch
         calls = []
         message = "dah makan dexa pagi dan pyridoxine jam 6.08am"
-        with patch.object(handler.subprocess, "run", side_effect=lambda *a, **kw: calls.append((a, kw))):
+        with freeze_handler_now(handler), \
+             patch.object(handler.subprocess, "run", side_effect=lambda *a, **kw: calls.append((a, kw))):
             handler.handle("agent:start", {"message": message})
         self.assertEqual(calls, [])
         self.assertFalse((self.home / "med-status.json").exists())
@@ -156,7 +178,8 @@ class TestSafetyGate(unittest.TestCase):
             returncode = 0
             stdout = '{"ok": true, "compound": "cc"}'
             stderr = ''
-        with patch.object(handler, "evaluate_safety", return_value=decision), \
+        with freeze_handler_now(handler), \
+             patch.object(handler, "evaluate_safety", return_value=decision), \
              patch.object(handler, "_already_logged", return_value=False), \
              patch.object(handler, "_check_chain_consistency"), \
              patch.object(handler, "CONFIRM_SCRIPT", BASE / "scripts" / "med_confirm.py"), \
@@ -182,7 +205,8 @@ class TestSafetyGate(unittest.TestCase):
             returncode = 0
             stdout = '{"ok": true, "compound": "cc"}'
             stderr = ''
-        with patch.object(handler, "evaluate_safety", return_value=decision), \
+        with freeze_handler_now(handler), \
+             patch.object(handler, "evaluate_safety", return_value=decision), \
              patch.object(handler, "_already_logged", return_value=False), \
              patch.object(handler, "_check_chain_consistency"), \
              patch.object(handler, "CONFIRM_SCRIPT", BASE / "scripts" / "med_confirm.py"), \
@@ -198,7 +222,8 @@ class TestSafetyGate(unittest.TestCase):
     def test_handler_change_report_holds_without_completion_word(self):
         handler = load_handler(self.home)
         message = "Hospital suruh tukar dexa pagi jadi 4mg mulai hari ini"
-        handler.handle("agent:start", {"message": message})
+        with freeze_handler_now(handler):
+            handler.handle("agent:start", {"message": message})
         holds = json.loads((self.home / "med-holds.json").read_text())["holds"]
         hold = holds[-1]
         self.assertIn("REGIMEN_CHANGE_REPORTED", {f["rule_id"] for f in hold["decision"]["findings"]})

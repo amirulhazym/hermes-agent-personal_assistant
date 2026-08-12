@@ -13,16 +13,30 @@ LIVE = Path('/home/ubuntu/.hermes')
 
 
 def load_confirm(home: Path):
+    # Set env ONLY for the import; restore after so no global HOME leak
+    # breaks other test modules (lazy imports read HOME at call time).
+    orig_home = os.environ.get('HOME')
+    orig_hermes = os.environ.get('HERMES_HOME')
     os.environ['HOME'] = str(home.parent)
     os.environ['HERMES_HOME'] = str(home)
-    sys.modules.pop('med_resolve', None)
-    sys.modules.pop('med_confirm_isolated', None)
-    sys.path.insert(0, str(BASE))
-    spec = importlib.util.spec_from_file_location('med_confirm_isolated', BASE / 'med_confirm.py')
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    try:
+        sys.modules.pop('med_resolve', None)
+        sys.modules.pop('med_confirm_isolated', None)
+        sys.path.insert(0, str(BASE))
+        spec = importlib.util.spec_from_file_location('med_confirm_isolated', BASE / 'med_confirm.py')
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if orig_home is None:
+            os.environ.pop('HOME', None)
+        else:
+            os.environ['HOME'] = orig_home
+        if orig_hermes is None:
+            os.environ.pop('HERMES_HOME', None)
+        else:
+            os.environ['HERMES_HOME'] = orig_hermes
 
 
 class TestCCAtomicConfirmation(unittest.TestCase):

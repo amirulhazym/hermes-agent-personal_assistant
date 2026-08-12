@@ -18,7 +18,7 @@ from pathlib import Path
 from unittest import mock
 
 HERE = Path(__file__).resolve().parent
-LIVE = Path.home() / ".hermes"
+LIVE = Path("/home/ubuntu/.hermes")  # explicit — Path.home() is dynamic and breaks if another test mutates HOME
 
 
 def _make_home() -> Path:
@@ -40,6 +40,10 @@ class DexaDoseDataflowTest(unittest.TestCase):
                     del sys.modules[mod]
             if str(HERE) not in sys.path:
                 sys.path.insert(0, str(HERE))
+            # Import dexa_taper_lookup NOW under the correct HOME: chain_calc's
+            # delegation imports it lazily at call time, when this HOME context
+            # is gone — a cached module with the right TAPER_FILE is required.
+            import dexa_taper_lookup  # noqa: F401
             import chain_calc
 
             self.cc = chain_calc
