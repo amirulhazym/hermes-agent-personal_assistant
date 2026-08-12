@@ -108,10 +108,15 @@ DRUG_MAP = [
     (r"\bb[- ]?complex\b|\bswisse\b", "C", "b_complex"),
 ]
 
-# Time patterns REQUIRE a leading word (pukul/jam/at/@/pada) so a bare "20:00"
-# in discussion is NOT captured as a med time (G-2 hardening).
+# Time patterns: leading word (pukul/jam/at/@/pada) accepts optional am/pm;
+# WITHOUT a leading word, an explicit am/pm suffix is required (so a bare
+# "20:00" in discussion is NOT captured — G-2 hardening). Compact typos
+# ("432pm" = 4:32pm) are accepted. (Tolerant parse, 2026-08-12.)
 TIME_RE = re.compile(
-    r"(?:pukul|jam|at|@|pada)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?",
+    r"(?:(?:\bpukul\b|\bjam\b|\bat\b|@|\bpada\b)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?"
+    r"|(\d{1,2})[:.](\d{2})\s*(am|pm)"
+    r"|(\d{1,2})(\d{2})\s*(am|pm)"
+    r"|(\d{1,2})\s*(am|pm))",
     re.IGNORECASE,
 )
 
@@ -127,13 +132,32 @@ def _audit(msg: str) -> None:
 
 
 def _parse_time(message: str, now: datetime):
-    """Extract HH:MM from message. Returns None if no time found."""
+    """Extract HH:MM from message. Returns None if no time found.
+
+    Supports three shapes (2026-08-12 tolerant parse):
+      1. leading word:  "jam 1.49pm" / "pukul 8.12pm" / "at 20:00"
+      2. am/pm suffix:  "4.32pm tadi" / "4:32pm" (no leading word)
+      3. compact typo:  "432pm" -> 4:32pm, "815pm" -> 8:15pm
+    """
     m = TIME_RE.search(message)
     if not m:
         return None
-    hour = int(m.group(1))
-    minute = int(m.group(2)) if m.group(2) else 0
-    ap = (m.group(3) or "").lower()
+    if m.group(1) is not None:
+        hour = int(m.group(1))
+        minute = int(m.group(2)) if m.group(2) else 0
+        ap = (m.group(3) or "").lower()
+    elif m.group(4) is not None:
+        hour = int(m.group(4))
+        minute = int(m.group(5))
+        ap = (m.group(6) or "").lower()
+    elif m.group(7) is not None:
+        hour = int(m.group(7))
+        minute = int(m.group(8))
+        ap = (m.group(9) or "").lower()
+    else:
+        hour = int(m.group(10))
+        minute = 0
+        ap = (m.group(11) or "").lower()
     if ap == "pm" and hour < 12:
         hour += 12
     elif ap == "am" and hour == 12:
@@ -338,7 +362,10 @@ def handle(event_type: str, context: dict) -> None:
     # G-2: reject future time (>2h ahead) before evaluating any intake write.
     time_dt = _parse_time(message, now)
     if time_dt is None:
-        _audit(f"REJECT missing-intake-time msg={message!r}")
+        # No parseable time. This is a CLARIFY case, not a silent rejection:
+        # the agent sees the message and must ask the user for the actual
+        # intake time (owner requirement 2026-08-12). No state is written.
+        _audit(f"CLARIFY missing-intake-time msg={message!r}")
         return
     time_str = f"{time_dt.hour:02d}:{time_dt.minute:02d}"
     if not _validate_timestamp(time_dt, now):
