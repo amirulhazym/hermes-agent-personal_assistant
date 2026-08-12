@@ -4,7 +4,12 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 
+# Fixtures (med-schedule.json / dexa_taper.json) are gitignored operational
+# files present only on the host; CI runners skip, the VPS runs them.
+_LIVE_FIXTURES = (ROOT / "med-schedule.json").exists()
 
+
+@unittest.skipUnless(_LIVE_FIXTURES, "live runtime fixtures not present (CI skips)")
 class TestEffectiveDone(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="eff-done-"))

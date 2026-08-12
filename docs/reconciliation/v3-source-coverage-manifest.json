@@ -12,7 +12,7 @@
       "destination": null,
       "kind": "source-only",
       "source": ".github/workflows/ci.yml",
-      "source_sha256": "c395ce1fb8382440e83b945e22bd5b67fc878d799aa944749238cd5ce88b2698"
+      "source_sha256": "4ee4d52cc82a6f4e39d40c28f921214b6fe60ca0eba8df9d303b1949542017ff"
     },
     {
       "destination": null,
@@ -306,7 +306,7 @@
       "destination": "/home/ubuntu/.hermes/hooks/med-auto-confirm/test_hook_chain.py",
       "kind": "runtime-deploy",
       "source": "hooks/med-auto-confirm/test_hook_chain.py",
-      "source_sha256": "3f291c180ae8179d8c1e8ec178d21c9b815c67dd51893ec720f56a9cd17bb4cd"
+      "source_sha256": "8b01e6fd3ec16bc6c3e727017b2e9d4076e3b6cf2ce35404c67fc5c1e00d1f36"
     },
     {
       "destination": "/home/ubuntu/.hermes/hooks/med-auto-confirm/test_med_auto_confirm.py",
@@ -336,7 +336,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "operations/README.md",
-      "source_sha256": "0b61a110cdb8a7969e7d90a8e0ed00921b63696878b4cfb3df5a56382c83a91d"
+      "source_sha256": "4924b80ad45c1d63d096935e7844d16f9b295480b7c01bc6aacdc82978837c32"
     },
     {
       "destination": null,
@@ -606,19 +606,19 @@
       "destination": "/home/ubuntu/.hermes/scripts/med_confirm.py",
       "kind": "runtime-deploy",
       "source": "scripts/med_confirm.py",
-      "source_sha256": "0683173fde243973d80ac776ab379ffd9a943ad0851999fc6f02286d5807a7d0"
+      "source_sha256": "6c403b814f9425f18d33d4aed922c87c703f989ee10e1602d8cea9c55eed850d"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/med_resolve.py",
       "kind": "runtime-deploy",
       "source": "scripts/med_resolve.py",
-      "source_sha256": "81b86a527e29839cc3c37e6ab9ffa17a69a553f58cd8db26de0849835c19a6d2"
+      "source_sha256": "f495185138b877380303de940807bc18522945f7d8ee92ccc085672f9902933c"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/med_supply.py",
       "kind": "runtime-deploy",
       "source": "scripts/med_supply.py",
-      "source_sha256": "c068ba6e4afdeffe1850dc9811efe6ee89f53fc039700b8b11ed875a32776874"
+      "source_sha256": "bfcdb669b32d0d066138fca3da266cb0cee314104398aefd79a875e9803cc7b7"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/restart-gateway.sh",
