@@ -1,0 +1,623 @@
+diff --git a/gateway/session.py b/gateway/session.py
+index d03348acb60b..987756b794e5 100644
+--- a/gateway/session.py
++++ b/gateway/session.py
+@@ -2756,6 +2756,11 @@ def _get_or_create_session_impl(
+                     "origin_json": _origin_json,
+                     "display_name": source.chat_name,
+                     "parent_session_id": prev_session_id,
++                    "model_config": (
++                        {"_reset_from": prev_session_id}
++                        if prev_session_id
++                        else None
++                    ),
+                 }
+ 
+         if _needs_save:
+@@ -3251,6 +3256,7 @@ def reset_session(self, session_key: str, display_name: Optional[str] = None) ->
+                 "origin_json": _reset_origin_json,
+                 "display_name": old_entry.display_name,
+                 "parent_session_id": db_end_session_id,
++                "model_config": {"_reset_from": db_end_session_id},
+             }
+ 
+         if self._db and db_end_session_id:
+diff --git a/hermes_cli/cli_agent_setup_mixin.py b/hermes_cli/cli_agent_setup_mixin.py
+index d037cf997aa8..f1b4060b5338 100644
+--- a/hermes_cli/cli_agent_setup_mixin.py
++++ b/hermes_cli/cli_agent_setup_mixin.py
+@@ -463,11 +463,7 @@ def _init_agent(self, *, model_override: str = None, runtime_override: dict = No
+                     )
+             # Re-open the session (clear ended_at so it's active again)
+             try:
+-                self._session_db._conn.execute(
+-                    "UPDATE sessions SET ended_at = NULL, end_reason = NULL WHERE id = ?",
+-                    (self.session_id,),
+-                )
+-                self._session_db._conn.commit()
++                self._session_db.reopen_session(self.session_id)
+             except Exception:
+                 pass
+         
+@@ -731,12 +727,7 @@ def _preload_resumed_session(self) -> bool:
+ 
+         # Re-open the session (clear ended_at so it's active again)
+         try:
+-            self._session_db._conn.execute(
+-                "UPDATE sessions SET ended_at = NULL, end_reason = NULL "
+-                "WHERE id = ?",
+-                (self.session_id,),
+-            )
+-            self._session_db._conn.commit()
++            self._session_db.reopen_session(self.session_id)
+         except Exception:
+             pass
+ 
+diff --git a/hermes_state.py b/hermes_state.py
+index 8df355275887..800a7828e186 100644
+--- a/hermes_state.py
++++ b/hermes_state.py
+@@ -54,7 +54,10 @@
+     _FTS_TRIGGERS,
+     _LISTABLE_CHILD_SQL,
+     _PREVIEW_RAW_SELECT,
++    _RESET_END_REASONS,
++    _RESET_END_REASONS_SQL,
+     _ephemeral_child_sql,
++    _legacy_reset_child_sql,
+     _shape_preview,
+     _sql_session_last_active,
+     _sql_session_last_active_by_id,
+@@ -4096,7 +4099,25 @@ def _do(conn):
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        model = COALESCE(sessions.model, excluded.model),
+-                       model_config = COALESCE(sessions.model_config, excluded.model_config),
++                       model_config = CASE
++                           WHEN excluded.model_config IS NOT NULL
++                                AND json_type(
++                                    sessions.model_config, '$._reset_from'
++                                ) IS NOT NULL
++                                AND json_remove(
++                                    sessions.model_config, '$._reset_from'
++                                ) = '{}'
++                           THEN json_set(
++                               excluded.model_config,
++                               '$._reset_from',
++                               json_extract(
++                                   sessions.model_config, '$._reset_from'
++                               )
++                           )
++                           ELSE COALESCE(
++                               sessions.model_config, excluded.model_config
++                           )
++                       END,
+                        system_prompt_hash = COALESCE(
+                            sessions.system_prompt_hash,
+                            excluded.system_prompt_hash
+@@ -4568,7 +4589,7 @@ def find_latest_gateway_session_for_peer(
+             return None
+         with self._lock:
+             row = self._conn.execute(
+-                """
++                f"""
+                 SELECT s.*,
+                        COALESCE(sp.prompt, s.system_prompt)
+                            AS _system_prompt_resolved,
+@@ -4585,9 +4606,7 @@ def find_latest_gateway_session_for_peer(
+                       WHERE b.session_key = s.session_key
+                         AND b.source = s.source
+                         AND b.ended_at IS NOT NULL
+-                        AND b.end_reason IN ('session_reset', 'session_switch',
+-                                             'idle', 'daily', 'suspended',
+-                                             'resume_pending_expired')
++                        AND b.end_reason IN ({_RESET_END_REASONS_SQL})
+                         AND b.ended_at
+                             > COALESCE(s.last_activity_at, s.started_at)
+                   )
+@@ -4606,7 +4625,7 @@ def find_latest_gateway_session_for_peer(
+             if chat_id is None or chat_type is None:
+                 return None
+             row = self._conn.execute(
+-                """
++                f"""
+                 SELECT s.*,
+                        COALESCE(sp.prompt, s.system_prompt)
+                            AS _system_prompt_resolved,
+@@ -4632,9 +4651,7 @@ def find_latest_gateway_session_for_peer(
+                         AND COALESCE(b.chat_type, '') = COALESCE(s.chat_type, '')
+                         AND COALESCE(b.thread_id, '') = COALESCE(s.thread_id, '')
+                         AND b.ended_at IS NOT NULL
+-                        AND b.end_reason IN ('session_reset', 'session_switch',
+-                                             'idle', 'daily', 'suspended',
+-                                             'resume_pending_expired')
++                        AND b.end_reason IN ({_RESET_END_REASONS_SQL})
+                         AND b.ended_at
+                             > COALESCE(s.last_activity_at, s.started_at)
+                   )
+@@ -5137,8 +5154,26 @@ def _do(conn):
+         self._execute_write(_do)
+ 
+     def reopen_session(self, session_id: str) -> None:
+-        """Clear ended_at/end_reason so a session can be resumed."""
++        """Clear ended_at/end_reason so a session can be resumed.
++
++        Before clearing a reset boundary, stabilize markerless legacy reset
++        children that still depend on the parent's mutable end_reason.
++        """
+         def _do(conn):
++            placeholders = ",".join("?" for _ in _RESET_END_REASONS)
++            # WHERE shape shared with _RESET_CHILD_SQL's fallback arm via
++            # _legacy_reset_child_sql so the stamping and the listing
++            # predicate cannot drift.
++            conn.execute(
++                "UPDATE sessions AS child SET model_config = json_set("
++                "COALESCE(child.model_config, '{}'), '$._reset_from', "
++                "child.parent_session_id) "
++                "WHERE child.parent_session_id = ? "
++                "AND json_extract(COALESCE(child.model_config, '{}'), "
++                "                 '$._reset_from') IS NULL "
++                f"AND {_legacy_reset_child_sql('child', placeholders)}",
++                (session_id, *_RESET_END_REASONS),
++            )
+             conn.execute(
+                 "UPDATE sessions SET ended_at = NULL, end_reason = NULL WHERE id = ?",
+                 (session_id,),
+@@ -7478,8 +7513,10 @@ def list_sessions_rich(
+ 
+         Uses a single query with correlated subqueries instead of N+2 queries.
+ 
+-        By default, child sessions (subagent runs, compression continuations)
+-        are excluded.  Pass ``include_children=True`` to include them.
++        By default, child sessions that represent implementation details
++        (subagent runs, compression continuations) are excluded. User-visible
++        branch and reset children remain listable. Pass ``include_children=True``
++        to include every child.
+ 
+         With ``project_compression_tips=True`` (default), sessions that are
+         roots of compression chains are projected forward to their latest
+@@ -7528,10 +7565,10 @@ def list_sessions_rich(
+         params = []
+ 
+         if not include_children:
+-            # Show root sessions and branch sessions, while still hiding
+-            # sub-agent runs and compression continuations (which also carry a
+-            # parent_session_id but were spawned while the parent was still
+-            # live — i.e., started_at < parent.ended_at).
++            # Show roots and user-visible branch/reset sessions, while still
++            # hiding sub-agent runs and compression continuations. All four
++            # carry parent_session_id, so the shared predicate classifies the
++            # edge from stable markers plus legacy-compatible parent metadata.
+             #
+             # Branch sessions are identified two ways, OR'd for robustness:
+             #   1. A stable ``_branched_from`` marker in model_config, written
+@@ -7599,8 +7636,8 @@ def list_sessions_rich(
+             # level instead of fetching every row and sorting in Python, while
+             # still surfacing old compression roots whose live tip is fresh.
+             #
+-            # The CTE seeds from rows the outer WHERE admits (roots + branch
+-            # children), then recursively joins forward through robust
++            # The CTE seeds from rows the outer WHERE admits (roots +
++            # user-visible branch/reset children), then recursively joins through
+             # compression-continuation edges. Do NOT require
+             # child.started_at >= parent.ended_at here: real desktop/gateway
+             # races can insert the continuation row before the parent's
+@@ -8976,18 +9013,23 @@ def resolve_resume_session_id(self, session_id: str) -> str:
+ 
+                 # Walk to the most-recently-started child — but skip explicit
+                 # branch (`_branched_from`), delegate/subagent (`_delegate_from`),
+-                # and tool children. They also carry a ``parent_session_id`` yet
++                # reset-continuation (`_reset_from` or the legacy same-key
++                # heuristic — a post-reset conversation must never be reached
++                # by resuming the parent the user reset away), and tool
++                # children. They also carry a ``parent_session_id`` yet
+                 # are NOT compression continuations; following them would hijack
+                 # the resume target to an unrelated session (e.g. a subagent
+                 # run). This mirrors the child-exclusion in ``get_compression_tip``.
+                 try:
+                     child_row = self._conn.execute(
+-                        "SELECT id FROM sessions "
+-                        "WHERE parent_session_id = ? "
+-                        "  AND json_extract(COALESCE(model_config, '{}'), '$._branched_from') IS NULL "
+-                        "  AND json_extract(COALESCE(model_config, '{}'), '$._delegate_from') IS NULL "
+-                        "  AND COALESCE(source, '') != 'tool' "
+-                        "ORDER BY started_at DESC, id DESC LIMIT 1",
++                        "SELECT id FROM sessions AS child "
++                        "WHERE child.parent_session_id = ? "
++                        "  AND json_extract(COALESCE(child.model_config, '{}'), '$._branched_from') IS NULL "
++                        "  AND json_extract(COALESCE(child.model_config, '{}'), '$._delegate_from') IS NULL "
++                        "  AND json_extract(COALESCE(child.model_config, '{}'), '$._reset_from') IS NULL "
++                        f"  AND NOT {_legacy_reset_child_sql('child', _RESET_END_REASONS_SQL)} "
++                        "  AND COALESCE(child.source, '') != 'tool' "
++                        "ORDER BY child.started_at DESC, child.id DESC LIMIT 1",
+                         (current,),
+                     ).fetchone()
+                 except Exception:
+@@ -9609,7 +9651,7 @@ def session_count(
+         """Count sessions, optionally filtered by source.
+ 
+         Pass ``exclude_children=True`` to count only the conversations that
+-        ``list_sessions_rich`` surfaces (root + branch sessions), hiding
++        ``list_sessions_rich`` surfaces (root + branch/reset sessions), hiding
+         sub-agent runs and compression continuations. Use it whenever the count
+         is paired with a ``list_sessions_rich`` page (e.g. sidebar "load more"
+         totals) so the total matches the number of listable rows — otherwise the
+@@ -9625,8 +9667,8 @@ def session_count(
+ 
+         if exclude_children:
+             # Mirror list_sessions_rich's child-exclusion clause exactly so the
+-            # count lines up with the rows: roots (no parent) plus branch
+-            # children (parent ended with end_reason='branched').
++            # count lines up with the rows: roots plus user-visible branch/reset
++            # children.
+             where_clauses.append(_LISTABLE_CHILD_SQL)
+             where_clauses.append(f"{_delegate_from_json('s.model_config')} IS NULL")
+         include_sources = [source] if source else list(sources or [])
+@@ -9688,8 +9730,8 @@ def session_count_by_source(
+         ``list_sessions_rich``).
+ 
+         ``exclude_children=True`` mirrors ``list_sessions_rich`` visibility
+-        (roots + branch sessions, excluding sub-agent runs, delegates, and
+-        compression continuations) so the source counts match what the
++        (roots + branch/reset sessions, excluding sub-agent runs, delegates,
++        and compression continuations) so the source counts match what the
+         Sessions page actually lists.
+         """
+         where_clauses = []
+diff --git a/hermes_state_common.py b/hermes_state_common.py
+index e386c1260b3f..a6f29dbe75a5 100644
+--- a/hermes_state_common.py
++++ b/hermes_state_common.py
+@@ -98,19 +98,71 @@ def _shape_preview(raw: Any) -> str:
+ )
+ 
+ 
+-# Rows that surface in pickers: roots + branch children (subagent runs and
+-# compression continuations stay hidden).
+-_LISTABLE_CHILD_SQL = f"(s.parent_session_id IS NULL OR {_BRANCH_CHILD_SQL.format(a='s')})"
++_RESET_END_REASONS = (
++    "session_reset",
++    # switch_session() never creates a child row, but pre-marker DBs can hold
++    # legacy reset children whose parent later ended with 'session_switch'
++    # (resumed then switched away before reopen-time stamping existed). Also
++    # keeps this set identical to the recovery fence in
++    # find_latest_gateway_session_for_peer, which interpolates
++    # _RESET_END_REASONS_SQL so the two cannot drift.
++    "session_switch",
++    "idle",
++    "daily",
++    "suspended",
++    "resume_pending_expired",
++)
++_RESET_END_REASONS_SQL = ", ".join(f"'{reason}'" for reason in _RESET_END_REASONS)
++
++
++def _legacy_reset_child_sql(alias: str, reasons_sql: str) -> str:
++    """Pre-marker reset-continuation heuristic.
++
++    A child is a legacy reset continuation when it rides its parent's exact
++    non-empty routing key and the parent ended at a reset boundary. Shared by
++    the listing predicate (``_RESET_CHILD_SQL``) and ``reopen_session()``'s
++    marker-stamping UPDATE so the two sites cannot drift; ``reasons_sql`` is
++    either the literal ``_RESET_END_REASONS_SQL`` or a bound-placeholder list.
++    """
++    return (
++        f"EXISTS (SELECT 1 FROM sessions p"
++        f"            WHERE p.id = {alias}.parent_session_id"
++        f"            AND p.end_reason IN ({reasons_sql})"
++        f"            AND {alias}.session_key IS NOT NULL"
++        f"            AND {alias}.session_key != ''"
++        f"            AND {alias}.session_key = p.session_key)"
++    )
++
++
++# A reset starts a separate user-visible conversation even though gateway rows
++# retain parent_session_id for durable lineage. New rows carry the stable
++# marker; the same-key fallback recovers rows written before the marker existed.
++# Requiring the exact non-empty routing key keeps ordinary child/subagent rows
++# out even when their parent is later reset.
++_RESET_CHILD_SQL = (
++    "json_extract(COALESCE({a}.model_config, '{{}}'), '$._reset_from') IS NOT NULL"
++    " OR " + _legacy_reset_child_sql("{a}", _RESET_END_REASONS_SQL)
++)
++
++
++# Rows that surface in pickers: roots + branch/reset children. Subagent runs
++# and compression continuations stay hidden.
++_LISTABLE_CHILD_SQL = (
++    f"(s.parent_session_id IS NULL OR {_BRANCH_CHILD_SQL.format(a='s')}"
++    f" OR {_RESET_CHILD_SQL.format(a='s')})"
++)
+ 
+ 
+ def _ephemeral_child_sql(alias: str = "s") -> str:
+-    """Subagent runs (cascade-delete targets), not branches or compression tips."""
++    """Subagent runs, not branch, reset, or compression children."""
+     branch = _BRANCH_CHILD_SQL.format(a=alias)
+     compression = _COMPRESSION_CHILD_SQL.format(a=alias)
++    reset = _RESET_CHILD_SQL.format(a=alias)
+     return (
+         f"({alias}.parent_session_id IS NOT NULL"
+         f" AND NOT ({branch})"
+-        f" AND NOT ({compression}))"
++        f" AND NOT ({compression})"
++        f" AND NOT ({reset}))"
+     )
+ 
+ 
+diff --git a/hermes_state_schema.py b/hermes_state_schema.py
+index 294664fc6439..77d6db87b557 100644
+--- a/hermes_state_schema.py
++++ b/hermes_state_schema.py
+@@ -911,6 +911,7 @@ def _init_schema(self):
+             if current_version < 16:
+                 # v16: tag delegate subagent rows so pickers stay clean after
+                 # parent deletes that used to orphan them (parent_session_id → NULL).
++                # The shared predicate excludes user-visible reset children.
+                 try:
+                     cursor.execute(
+                         "UPDATE sessions SET model_config = json_set("
+diff --git a/tests/cli/test_resume_display.py b/tests/cli/test_resume_display.py
+index 4c15008d8648..d3090c75a6f1 100644
+--- a/tests/cli/test_resume_display.py
++++ b/tests/cli/test_resume_display.py
+@@ -260,19 +260,14 @@ def test_reopens_session_in_db(self):
+         mock_db = MagicMock()
+         mock_db.get_session.return_value = {"id": "reopen_session", "title": None}
+         mock_db.get_resume_conversations.return_value = (messages, messages)
+-        mock_conn = MagicMock()
+-        mock_db._conn = mock_conn
++        mock_db.resolve_resume_session_id.return_value = "reopen_session"
+         cli._session_db = mock_db
+ 
+         buf = StringIO()
+         cli.console.file = buf
+         cli._preload_resumed_session()
+ 
+-        # Should have executed UPDATE to clear ended_at
+-        mock_conn.execute.assert_called_once()
+-        call_args = mock_conn.execute.call_args
+-        assert "ended_at = NULL" in call_args[0][0]
+-        mock_conn.commit.assert_called_once()
++        mock_db.reopen_session.assert_called_once_with("reopen_session")
+ 
+     def test_rejects_runaway_transcript_before_history_load(self):
+         from hermes_state import SessionResumeTooLargeError
+diff --git a/tests/gateway/test_resume_command.py b/tests/gateway/test_resume_command.py
+index 629ee7e37855..4a69a3163755 100644
+--- a/tests/gateway/test_resume_command.py
++++ b/tests/gateway/test_resume_command.py
+@@ -375,6 +375,123 @@ async def test_bare_resume_normalizes_telegram_lobby_source_to_bound_topic(
+ class TestHandleSessionsCommand:
+     """Tests for GatewayRunner._handle_sessions_command."""
+ 
++    @pytest.mark.asyncio
++    async def test_sessions_full_keeps_legacy_reset_child_after_parent_resume(
++        self, tmp_path
++    ):
++        import json
++
++        from gateway.config import GatewayConfig
++        from gateway.session import AsyncSessionStore, SessionStore
++        from hermes_state import AsyncSessionDB
++
++        event = _make_event(text="/sessions full")
++        store = SessionStore(
++            sessions_dir=tmp_path / "sessions",
++            config=GatewayConfig(),
++        )
++        db = store._db
++        assert db is not None
++
++        root = store.get_or_create_session(event.source)
++        root_id = root.session_id
++        db.set_session_title(root_id, "Legacy reset parent")
++        child = store.reset_session(root.session_key)
++        assert child is not None
++        child_id = child.session_id
++        db.set_session_title(child_id, "Legacy reset child")
++        # Reproduce the on-disk shape from before _reset_from existed.
++        db._conn.execute(
++            "UPDATE sessions SET model_config = NULL WHERE id = ?",
++            (child_id,),
++        )
++        db._conn.commit()
++
++        runner = _make_runner(session_db=None, event=event)
++        runner.session_store = store
++        runner._async_session_store = AsyncSessionStore(store)
++        runner._session_db = AsyncSessionDB(db)
++
++        before_resume = await runner._handle_sessions_command(event)
++        assert "Legacy reset parent" in before_resume
++
++        switched = store.switch_session(root.session_key, root_id)
++        assert switched is not None
++        after_resume = await runner._handle_sessions_command(event)
++
++        assert "Legacy reset child" in after_resume
++        assert "Legacy reset parent" not in after_resume
++        child_row = db.get_session(child_id)
++        assert child_row is not None
++        assert json.loads(child_row["model_config"])["_reset_from"] == root_id
++        db.close()
++
++    @pytest.mark.asyncio
++    async def test_sessions_full_lists_conversations_created_by_gateway_resets(
++        self, tmp_path
++    ):
++        import json
++
++        from gateway.config import GatewayConfig
++        from gateway.session import AsyncSessionStore, SessionStore
++        from hermes_state import AsyncSessionDB
++
++        event = _make_event(text="/sessions full")
++        store = SessionStore(
++            sessions_dir=tmp_path / "sessions",
++            config=GatewayConfig(),
++        )
++        db = store._db
++        assert db is not None
++
++        entry = store.get_or_create_session(event.source)
++        db.set_session_title(entry.session_id, "Greeting via Telegram")
++        for title in (
++            "Store memories with priority",
++            "Extract AI news to Telegram",
++            "Current Telegram work",
++        ):
++            previous_id = entry.session_id
++            entry = store.reset_session(entry.session_key)
++            assert entry is not None
++            db.set_session_title(entry.session_id, title)
++            reset_row = db.get_session(entry.session_id)
++            assert reset_row is not None
++            assert json.loads(reset_row["model_config"])["_reset_from"] == previous_id
++
++        # The gateway creates the identity row before the agent exists. Its
++        # first-turn create_session upsert must enrich the marker-only config,
++        # while later bare/retry upserts must not replace the established data.
++        db.create_session(
++            entry.session_id,
++            "telegram",
++            model_config={"max_iterations": 60},
++        )
++        enriched = json.loads(db.get_session(entry.session_id)["model_config"])
++        assert enriched == {
++            "max_iterations": 60,
++            "_reset_from": previous_id,
++        }
++        db.create_session(
++            entry.session_id,
++            "telegram",
++            model_config={"max_iterations": 999},
++        )
++        assert json.loads(db.get_session(entry.session_id)["model_config"]) == enriched
++
++        runner = _make_runner(session_db=None, event=event)
++        runner.session_store = store
++        runner._async_session_store = AsyncSessionStore(store)
++        runner._session_db = AsyncSessionDB(db)
++
++        result = await runner._handle_sessions_command(event)
++
++        assert "Greeting via Telegram" in result
++        assert "Store memories with priority" in result
++        assert "Extract AI news to Telegram" in result
++        assert "Current Telegram work" not in result
++        db.close()
++
+     @pytest.mark.asyncio
+     async def test_sessions_busy_platform_lists_exact_lane_and_excludes_current_tip(
+         self, tmp_path
+@@ -766,5 +883,3 @@ def test_cross_thread_same_room_blocked(self):
+         caller = self._msrc(thread_id="thread-a")
+         victim_origin = self._msrc(thread_id="thread-b")
+         assert runner._same_matrix_room(caller, victim_origin) is False
+-
+-
+diff --git a/tests/test_hermes_state.py b/tests/test_hermes_state.py
+index 2e40ea4cf68e..892756049386 100644
+--- a/tests/test_hermes_state.py
++++ b/tests/test_hermes_state.py
+@@ -1850,6 +1850,99 @@ def test_rich_list_session_key_scopes_search_and_projects_compression(self, db):
+         assert [session["id"] for session in sessions] == ["lane_tip"]
+         assert sessions[0]["_lineage_root_id"] == "lane_root"
+ 
++    @pytest.mark.parametrize(
++        "end_reason",
++        [
++            "session_reset",
++            "session_switch",
++            "idle",
++            "daily",
++            "suspended",
++            "resume_pending_expired",
++        ],
++    )
++    def test_rich_list_keeps_legacy_reset_children_visible(self, db, end_reason):
++        from hermes_state_common import _ephemeral_child_sql
++
++        lane_key = "agent:main:telegram:dm:lane"
++        parent_id = f"parent_{end_reason}"
++        child_id = f"child_{end_reason}"
++        db.create_session(parent_id, "telegram", session_key=lane_key)
++        db.end_session(parent_id, end_reason)
++        # No _reset_from marker: this is the on-disk shape written before the
++        # marker existed. The unchanged routing key proves a reset boundary.
++        db.create_session(
++            child_id,
++            "telegram",
++            session_key=lane_key,
++            parent_session_id=parent_id,
++        )
++
++        listed = [row["id"] for row in db.list_sessions_rich(source="telegram")]
++        assert {parent_id, child_id}.issubset(listed)
++        assert db.session_count(source="telegram", exclude_children=True) == 2
++        assert db.session_count_by_source(exclude_children=True)["telegram"] == 2
++        ephemeral = db._conn.execute(
++            f"SELECT s.id FROM sessions s WHERE {_ephemeral_child_sql('s')}"
++        ).fetchall()
++        assert child_id not in {row["id"] for row in ephemeral}
++
++    def test_reset_parent_does_not_surface_unrelated_child(self, db):
++        db.create_session(
++            "reset_parent",
++            "telegram",
++            session_key="agent:main:telegram:dm:lane",
++        )
++        db.end_session("reset_parent", "session_reset")
++        db.create_session(
++            "unrelated_child",
++            "tool",
++            session_key="delegate:other",
++            parent_session_id="reset_parent",
++        )
++
++        listed = [row["id"] for row in db.list_sessions_rich()]
++        assert "unrelated_child" not in listed
++        assert db.session_count(exclude_children=True) == 1
++
++    def test_resume_walker_does_not_cross_reset_boundary(self, db):
++        """resolve_resume_session_id must not redirect a reset parent's resume
++        into the post-reset conversation — that would restore the exact
++        context the user reset away. Covers both the durable marker and the
++        legacy markerless shape."""
++        lane_key = "agent:main:telegram:dm:lane"
++        # Marker shape (rows written by current gateway code).
++        db.create_session("walk_parent", "telegram", session_key=lane_key)
++        db.append_message("walk_parent", "user", "before reset")
++        db.end_session("walk_parent", "session_reset")
++        db.create_session(
++            "walk_child",
++            "telegram",
++            session_key=lane_key,
++            parent_session_id="walk_parent",
++            model_config={"_reset_from": "walk_parent"},
++        )
++        db.append_message("walk_child", "user", "after reset")
++        assert db.resolve_resume_session_id("walk_parent") == "walk_parent"
++
++        # Legacy markerless shape (pre-marker on-disk rows).
++        lane2 = "agent:main:telegram:dm:lane2"
++        db.create_session("legacy_parent", "telegram", session_key=lane2)
++        db.append_message("legacy_parent", "user", "before reset")
++        db.end_session("legacy_parent", "session_reset")
++        db.create_session(
++            "legacy_child",
++            "telegram",
++            session_key=lane2,
++            parent_session_id="legacy_parent",
++        )
++        db.append_message("legacy_child", "user", "after reset")
++        assert db.resolve_resume_session_id("legacy_parent") == "legacy_parent"
++
++    # Compression-tip following (the walker's original purpose) is pinned by
++    # tests/hermes_state/test_resolve_resume_session_id.py
++    # ::test_follows_compression_tip_when_parent_retains_messages.
++
+     def test_session_key_predicate_can_use_session_key_index(self, db):
+         plan = db._conn.execute(
+             "EXPLAIN QUERY PLAN "

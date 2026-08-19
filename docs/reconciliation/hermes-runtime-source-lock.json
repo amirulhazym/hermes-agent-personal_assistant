@@ -4,7 +4,15 @@
   "authority_rule": "Only the official base commit plus this ordered patch series may produce the Hermes runtime source. Root-level Hermes copies in non_authoritative_tracked_paths are reference-only and are never deployment inputs.",
   "official_repository": "https://github.com/NousResearch/hermes-agent.git",
   "official_base_sha": "a31be48030f60383bf4c1d96ba46bd4b48430218",
-  "patch_series": [],
+  "patch_series": [
+    {
+      "order": 1,
+      "id": "official-pr-85505-reset-boundary",
+      "path": "patches/upstream-hermes/2026-08-19_pr85505-reset-boundary.patch",
+      "sha256": "734a183f5a046d84046bee12d00eed60fb04720187b35dc894473cf74a7c2082",
+      "description": "Official NousResearch/Hermes-Agent PR #85505: durable reset markers, legacy reset-child stabilization, reset-aware listing, and resume-boundary fencing."
+    }
+  ],
   "runtime_tree_manifest": "docs/reconciliation/hermes-runtime-tree-manifest.json",
   "runtime_destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "forbidden_runtime_paths": [

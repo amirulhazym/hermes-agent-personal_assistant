@@ -47,7 +47,10 @@ def test_runtime_lock_has_one_authoritative_reconstruction_path():
     assert lock["authority"] == "hermes-runtime-reconstruction"
     assert lock["official_repository"] == "https://github.com/NousResearch/hermes-agent.git"
     assert lock["official_base_sha"] == LIVE_BASE
-    assert lock["patch_series"] == []
+    assert isinstance(lock["patch_series"], list)
+    assert [entry["order"] for entry in lock["patch_series"]] == sorted(
+        entry["order"] for entry in lock["patch_series"]
+    )
     assert lock["runtime_tree_manifest"] == "docs/reconciliation/hermes-runtime-tree-manifest.json"
 
     reference_paths = {item["path"] for item in lock["non_authoritative_tracked_paths"]}
@@ -87,3 +90,16 @@ def test_tree_manifest_is_explicit_and_matches_lock():
         entry["destination"].startswith("/home/ubuntu/.hermes/hermes-agent/")
         for entry in tree["entries"]
     )
+
+
+def test_c2_uses_the_pinned_official_reset_boundary_patch():
+    lock = json.loads(LOCK.read_text(encoding="utf-8"))
+    assert lock["patch_series"] == [
+        {
+            "order": 1,
+            "id": "official-pr-85505-reset-boundary",
+            "path": "patches/upstream-hermes/2026-08-19_pr85505-reset-boundary.patch",
+            "sha256": "734a183f5a046d84046bee12d00eed60fb04720187b35dc894473cf74a7c2082",
+            "description": "Official NousResearch/Hermes-Agent PR #85505: durable reset markers, legacy reset-child stabilization, reset-aware listing, and resume-boundary fencing.",
+        }
+    ]
