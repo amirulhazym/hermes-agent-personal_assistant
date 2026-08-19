@@ -1,0 +1,142 @@
+diff --git a/hermes_state.py b/hermes_state.py
+--- a/hermes_state.py
++++ b/hermes_state.py
+@@ -91,6 +91,26 @@
+ 
+ MAX_SAFE_RESUME_MESSAGES = 20_000
+ MAX_SAFE_EXPORT_MESSAGES = 20_000
++
++
++def _walk_session_ids(
++    start: Optional[str],
++    next_id: Callable[[str], Optional[str]],
++) -> List[str]:
++    """Follow a session-ID edge until the chain ends or repeats.
++
++    Compression depth is data-dependent and has no safe magic ceiling. The
++    visited-set is the safety boundary: malformed/cyclic data stops the walk
++    without silently selecting an arbitrary fixed-depth predecessor.
++    """
++    chain: List[str] = []
++    seen: set[str] = set()
++    current = start
++    while current and current not in seen:
++        seen.add(current)
++        chain.append(current)
++        current = next_id(current)
++    return chain
+ 
+ 
+ def _configured_transcript_limit(key: str, fallback: int) -> int:
+@@ -7058,10 +7078,7 @@
+         continuation exists.
+         """
+         current = session_id
+-        seen = {current} if current else set()
+-        # Bound the walk defensively — compression chains this deep are
+-        # pathological and shouldn't happen in practice. 100 = plenty.
+-        for _ in range(100):
++        def _next_compression_child(parent_id: str) -> Optional[str]:
+             with self._lock:
+                 cursor = self._conn.execute(
+                     f"""
+@@ -7084,17 +7101,13 @@
+                       child.id DESC
+                     LIMIT 1
+                     """,
+-                    (current,),
++                    (parent_id,),
+                 )
+                 row = cursor.fetchone()
+-            if row is None:
+-                return current
+-            child_id = row["id"]
+-            if not child_id or child_id in seen:
+-                return current
+-            seen.add(child_id)
+-            current = child_id
+-        return current
++            return row["id"] if row is not None else None
++
++        chain = _walk_session_ids(current, _next_compression_child)
++        return chain[-1] if chain else current
+ 
+     # Columns excluded from compact_rows projections: only the payload-heavy
+     # blob no list consumer renders. Everything else — including gateway
+@@ -9087,22 +9100,17 @@
+         if not session_id:
+             return [session_id]
+ 
+-        chain = []
+-        current = session_id
+-        seen = set()
+         with self._read_ctx() as conn:
+-            for _ in range(100):
+-                if not current or current in seen:
+-                    break
+-                seen.add(current)
+-                chain.append(current)
++            def _next_parent(current: str) -> Optional[str]:
+                 row = conn.execute(
+                     "SELECT parent_session_id FROM sessions WHERE id = ?",
+                     (current,),
+                 ).fetchone()
+                 if row is None:
+-                    break
+-                current = row["parent_session_id"] if hasattr(row, "keys") else row[0]
++                    return None
++                return row["parent_session_id"] if hasattr(row, "keys") else row[0]
++
++            chain = _walk_session_ids(session_id, _next_parent)
+         return list(reversed(chain)) or [session_id]
+ 
+     @staticmethod
+diff --git a/tests/test_hermes_state.py b/tests/test_hermes_state.py
+--- a/tests/test_hermes_state.py
++++ b/tests/test_hermes_state.py
+@@ -1930,6 +1930,45 @@
+         )
+         db.append_message("legacy_child", "user", "after reset")
+         assert db.resolve_resume_session_id("legacy_parent") == "legacy_parent"
++
++    def _make_long_compression_chain(self, db, length=218, prefix="long"):
++        ids = [f"{prefix}_0"]
++        db.create_session(ids[0], "cli")
++        current = ids[0]
++        for index in range(1, length + 1):
++            db.end_session(current, "compression")
++            child = f"{prefix}_{index}"
++            db.create_session(child, "cli", parent_session_id=current)
++            ids.append(child)
++            current = child
++        return ids
++
++    def test_compression_tip_follows_more_than_100_continuations(self, db):
++        ids = self._make_long_compression_chain(db)
++
++        assert db.get_compression_tip(ids[0]) == ids[-1]
++
++    def test_lineage_root_to_tip_follows_more_than_100_parents(self, db):
++        ids = self._make_long_compression_chain(db, prefix="lineage")
++
++        assert db._session_lineage_root_to_tip(ids[-1]) == ids
++
++    def test_lineage_walkers_stop_on_cycles(self, db):
++        db.create_session("cycle_a", "cli")
++        db.create_session("cycle_b", "cli", parent_session_id="cycle_a")
++        db.end_session("cycle_a", "compression")
++        db.end_session("cycle_b", "compression")
++        db._conn.execute(
++            "UPDATE sessions SET parent_session_id = ? WHERE id = ?",
++            ("cycle_b", "cycle_a"),
++        )
++        db._conn.commit()
++
++        assert db.get_compression_tip("cycle_a") == "cycle_b"
++        assert set(db._session_lineage_root_to_tip("cycle_a")) == {
++            "cycle_a",
++            "cycle_b",
++        }
+ 
+     # Compression-tip following (the walker's original purpose) is pinned by
+     # tests/hermes_state/test_resolve_resume_session_id.py

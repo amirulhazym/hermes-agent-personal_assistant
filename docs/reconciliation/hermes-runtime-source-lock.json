@@ -11,6 +11,13 @@
       "path": "patches/upstream-hermes/2026-08-19_pr85505-reset-boundary.patch",
       "sha256": "734a183f5a046d84046bee12d00eed60fb04720187b35dc894473cf74a7c2082",
       "description": "Official NousResearch/Hermes-Agent PR #85505: durable reset markers, legacy reset-child stabilization, reset-aware listing, and resume-boundary fencing."
+    },
+    {
+      "order": 2,
+      "id": "custom-c3-unbounded-cycle-safe-lineage",
+      "path": "patches/upstream-hermes/2026-08-19_c3-unbounded-cycle-safe-lineage.patch",
+      "sha256": "a3ce5e3447e1bd066144fa2d2391957f701b358aaf6a948978782255b6ba3498",
+      "description": "Custom cycle-safe, data-dependent traversal shared by compression-tip and parent-lineage resolution; removes the fixed 100-hop failure and adds 218-hop/cycle regressions."
     }
   ],
   "runtime_tree_manifest": "docs/reconciliation/hermes-runtime-tree-manifest.json",

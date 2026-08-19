@@ -94,7 +94,7 @@ def test_tree_manifest_is_explicit_and_matches_lock():
 
 def test_c2_uses_the_pinned_official_reset_boundary_patch():
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
-    assert lock["patch_series"] == [
+    assert lock["patch_series"][:1] == [
         {
             "order": 1,
             "id": "official-pr-85505-reset-boundary",
@@ -103,3 +103,14 @@ def test_c2_uses_the_pinned_official_reset_boundary_patch():
             "description": "Official NousResearch/Hermes-Agent PR #85505: durable reset markers, legacy reset-child stabilization, reset-aware listing, and resume-boundary fencing.",
         }
     ]
+
+
+def test_c3_is_ordered_after_c2_and_hash_pinned():
+    lock = json.loads(LOCK.read_text(encoding="utf-8"))
+    assert lock["patch_series"][1] == {
+        "order": 2,
+        "id": "custom-c3-unbounded-cycle-safe-lineage",
+        "path": "patches/upstream-hermes/2026-08-19_c3-unbounded-cycle-safe-lineage.patch",
+        "sha256": "a3ce5e3447e1bd066144fa2d2391957f701b358aaf6a948978782255b6ba3498",
+        "description": "Custom cycle-safe, data-dependent traversal shared by compression-tip and parent-lineage resolution; removes the fixed 100-hop failure and adds 218-hop/cycle regressions.",
+    }
