@@ -114,3 +114,14 @@ def test_c3_is_ordered_after_c2_and_hash_pinned():
         "sha256": "a3ce5e3447e1bd066144fa2d2391957f701b358aaf6a948978782255b6ba3498",
         "description": "Custom cycle-safe, data-dependent traversal shared by compression-tip and parent-lineage resolution; removes the fixed 100-hop failure and adds 218-hop/cycle regressions.",
     }
+
+
+def test_c4_is_ordered_after_c3_and_hash_pinned():
+    lock = json.loads(LOCK.read_text(encoding="utf-8"))
+    assert lock["patch_series"][2] == {
+        "order": 3,
+        "id": "custom-c4-shared-session-identity",
+        "path": "patches/upstream-hermes/2026-08-19_c4-shared-session-identity.patch",
+        "sha256": "8afbfc7e1a5602a8ad0e8388b5538505963164d4c731ad4ab4978eb269a3406c",
+        "description": "Custom shared session identity projection: numeric gateway resume uses the same activity-ordered listing policy, resume follows compression continuations only, and search deduplicates only compression edges while retaining physical continuation titles.",
+    }

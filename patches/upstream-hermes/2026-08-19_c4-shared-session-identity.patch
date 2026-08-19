@@ -1,0 +1,595 @@
+diff --git a/gateway/slash_commands.py b/gateway/slash_commands.py
+--- a/gateway/slash_commands.py
++++ b/gateway/slash_commands.py
+@@ -4522,17 +4522,30 @@
+             or (name[0] == "'" and name[-1] == "'")
+         ):
+             name = name[1:-1].strip()
+ 
++        from hermes_cli.session_listing import query_session_listing
++
+         async def _list_titled_sessions() -> list[dict]:
+             user_source = source.platform.value if source.platform else None
+             widen = allow_all and self._resume_caller_is_admin(source)
+-            sessions = await self._session_db.list_sessions_rich(
++            current_entry = await self.async_session_store.get_or_create_session(source)
++            rows = await asyncio.to_thread(
++                query_session_listing,
++                getattr(self._session_db, "_db", self._session_db),
+                 source=user_source,
+                 session_key=None if widen else session_key,
++                current_session_id=current_entry.session_id,
++                include_all_sources=widen,
++                include_unnamed=False,
++                search_query=None,
+                 limit=10,
+-            )
+-            return [s for s in sessions if s.get("title")][:10]
++                exclude_sources=["tool"],
++            )
++            return [
++                s for s in rows
++                if s.get("title")
++            ][:10]
+ 
+         if not name:
+             # List recent titled sessions for this user/platform
+             try:
+diff --git a/hermes_cli/session_listing.py b/hermes_cli/session_listing.py
+--- a/hermes_cli/session_listing.py
++++ b/hermes_cli/session_listing.py
+@@ -73,9 +73,9 @@
+         session_key=session_key,
+         exclude_sources=exclude_sources,
+         limit=fetch_limit,
+         search_query=search or None,
+-        order_by_last_active=bool(search),
++        order_by_last_active=True,
+     )
+     result: list[dict[str, Any]] = []
+     for row in rows:
+         if current_session_id and row.get("id") == current_session_id:
+diff --git a/hermes_state.py b/hermes_state.py
+--- a/hermes_state.py
++++ b/hermes_state.py
+@@ -7055,8 +7055,35 @@
+                 max_num = max(max_num, int(m.group(1)))
+ 
+         return f"{base} #{max_num + 1}"
+ 
++    def get_compression_parent_id(self, session_id: str) -> Optional[str]:
++        """Return the canonical compression predecessor for a physical row.
++
++        Search identity must not treat every ``parent_session_id`` as one
++        conversation: reset, session-switch, idle, cron, branch, delegate, and
++        tool children are separate user-visible segments. Keep this predicate
++        aligned with ``get_compression_tip()`` so reverse search lineage and
++        forward resume/listing projection agree on the same edge.
++        """
++        if not session_id:
++            return None
++        with self._lock:
++            row = self._conn.execute(
++                """
++                SELECT parent.id
++                FROM sessions child
++                JOIN sessions parent ON parent.id = child.parent_session_id
++                WHERE child.id = ?
++                  AND parent.end_reason = 'compression'
++                  AND json_extract(COALESCE(child.model_config, '{}'), '$._branched_from') IS NULL
++                  AND json_extract(COALESCE(child.model_config, '{}'), '$._delegate_from') IS NULL
++                  AND COALESCE(child.source, '') != 'tool'
++                """,
++                (session_id,),
++            ).fetchone()
++        return row["id"] if row is not None else None
++
+     def get_compression_tip(self, session_id: str) -> Optional[str]:
+         """Walk the compression-continuation chain forward and return the tip.
+ 
+         A compression continuation is a child of a session whose
+@@ -8621,92 +8648,24 @@
+         child is where new messages actually land — the parent ends up with
+         ``message_count = 0`` rows unless messages had already been flushed to
+         it before compression. See #15000.
+ 
+-        This helper walks ``parent_session_id`` forward from ``session_id`` and
+-        returns the descendant in the chain that has the **most recent** messages.
+-        Unlike the original logic, it does NOT short-circuit when the starting
+-        session already has messages — a descendant that was created by
+-        compression may hold the continuation content and should be preferred
+-        by the WebUI and gateway for ``--resume`` and session loading.
+-
+-        If no descendant (including the starting session) has any messages,
+-        the original ``session_id`` is returned unchanged.
+-
+-        The chain is always walked via the child whose ``started_at`` is
+-        latest; that matches the single-chain shape that compression creates.
+-        A depth cap (32) guards against accidental loops in malformed data.
++        This helper delegates to ``get_compression_tip()`` and follows only
++        compression-ended parents with eligible continuation children. A reset,
++        new-session, idle, daily, cron, branch, delegate, or tool child may share
++        ``parent_session_id`` but is not part of the resumable conversation.
++        Cycles are stopped by the compression resolver's visited-set.
+         """
+         if not session_id:
+             return session_id
+ 
+-        # Follow the compression-continuation chain forward to the live tip
+-        # FIRST. Auto-compression ends the current session and forks a
+-        # continuation child, but a long-lived parent keeps its own flushed
+-        # message rows — so the empty-head walk below never redirects it, and
+-        # resuming the parent id reloads the pre-compression transcript while
+-        # the turns generated *after* compression (and their responses) sit in
+-        # the continuation. ``get_compression_tip`` is lineage-aware: it only
+-        # follows children whose parent ended with ``end_reason='compression'``
+-        # (created after the parent was ended), so delegation / branch children
+-        # never hijack the resume. This is the fix for the desktop "I came back
+-        # and the reply isn't there" report on large sessions.
++        # The canonical resolver is the only legal redirect path. It follows
++        # compression-ended parents through role-filtered continuation edges;
++        # ordinary parented children remain separate conversations.
+         try:
+-            tip = self.get_compression_tip(session_id)
++            return self.get_compression_tip(session_id) or session_id
+         except Exception:
+-            tip = session_id
+-        if tip and tip != session_id:
+-            session_id = tip
+-
+-        with self._lock:
+-            current = session_id
+-            seen = {current}
+-            best = None  # tracks the last (deepest) node with messages
+-
+-            for _ in range(32):
+-                # Check if the current node has messages.
+-                try:
+-                    row = self._conn.execute(
+-                        "SELECT 1 FROM messages WHERE session_id = ? LIMIT 1",
+-                        (current,),
+-                    ).fetchone()
+-                except Exception:
+-                    return session_id
+-                if row is not None:
+-                    best = current
+-
+-                # Walk to the most-recently-started child — but skip explicit
+-                # branch (`_branched_from`), delegate/subagent (`_delegate_from`),
+-                # reset-continuation (`_reset_from` or the legacy same-key
+-                # heuristic — a post-reset conversation must never be reached
+-                # by resuming the parent the user reset away), and tool
+-                # children. They also carry a ``parent_session_id`` yet
+-                # are NOT compression continuations; following them would hijack
+-                # the resume target to an unrelated session (e.g. a subagent
+-                # run). This mirrors the child-exclusion in ``get_compression_tip``.
+-                try:
+-                    child_row = self._conn.execute(
+-                        "SELECT id FROM sessions AS child "
+-                        "WHERE child.parent_session_id = ? "
+-                        "  AND json_extract(COALESCE(child.model_config, '{}'), '$._branched_from') IS NULL "
+-                        "  AND json_extract(COALESCE(child.model_config, '{}'), '$._delegate_from') IS NULL "
+-                        "  AND json_extract(COALESCE(child.model_config, '{}'), '$._reset_from') IS NULL "
+-                        f"  AND NOT {_legacy_reset_child_sql('child', _RESET_END_REASONS_SQL)} "
+-                        "  AND COALESCE(child.source, '') != 'tool' "
+-                        "ORDER BY child.started_at DESC, child.id DESC LIMIT 1",
+-                        (current,),
+-                    ).fetchone()
+-                except Exception:
+-                    return session_id
+-                if child_row is None:
+-                    break
+-                child_id = child_row["id"] if hasattr(child_row, "keys") else child_row[0]
+-                if not child_id or child_id in seen:
+-                    break
+-                seen.add(child_id)
+-                current = child_id
+-
+-            return best if best is not None else session_id
++            return session_id
+ 
+     def get_messages_as_conversation(
+         self,
+         session_id: str,
+diff --git a/tools/session_search_tool.py b/tools/session_search_tool.py
+--- a/tools/session_search_tool.py
++++ b/tools/session_search_tool.py
+@@ -111,45 +111,69 @@
+     return any(stripped.startswith(p) for p in _COMPACTION_PREFIXES)
+ 
+ 
+ def _resolve_to_parent(db, session_id: str) -> tuple[str, bool]:
+-    """Walk parent_session_id chain to the lineage root.
+-
+-    Returns ``(root_id, has_compression_hop)`` where ``has_compression_hop`` is
+-    True if any session along the chain ended with ``end_reason = 'compression'``
+-    — i.e. at least one parent/ancestor was compression-rotated into this
+-    lineage. That flag lets callers distinguish a compression-split lineage
+-    (parent content summarised away, no longer in live context) from a
+-    delegation lineage (child content still visible to the parent agent).
+-
+-    Falls back to ``(session_id, False)`` on errors.
++    """Resolve the compression-lineage identity for a physical hit.
++
++    ``parent_session_id`` is only a relationship. Search may follow it when
++    the database authorizes the exact compression-continuation edge; ordinary
++    reset/new/idle/daily/cron, branch, delegate, and tool children must remain
++    separate searchable conversations.
++
++    Returns ``(compression_root_id, has_compression_hop)``. If the DB does not
++    expose the canonical reverse resolver, fail closed at the physical row
++    rather than silently reintroducing a generic parent walk.
+     """
+     if not session_id:
+         return session_id, False
+     visited: set[str] = set()
+     cur = session_id
+     has_compression = False
++    resolver = getattr(db, "get_compression_parent_id", None)
++    if not callable(resolver):
++        return session_id, False
+     while cur and cur not in visited:
+         visited.add(cur)
+         try:
+-            s = db.get_session(cur)
+-            if not s:
+-                break
+-            if s.get("end_reason") == "compression":
+-                has_compression = True
+-            parent = s.get("parent_session_id")
+-            if not parent:
+-                break
+-            cur = parent
++            parent = resolver(cur)
+         except Exception as e:
+-            logging.debug("Error resolving parent for %s: %s", cur, e, exc_info=True)
++            logging.debug(
++                "Error resolving compression parent for %s: %s",
++                cur,
++                e,
++                exc_info=True,
++            )
+             break
++        if not parent:
++            break
++        has_compression = True
++        cur = parent
+     return cur, has_compression
+ 
+ 
+ def _resolve_lineage(db, session_id: str) -> str:
+-    """Convenience: return only the lineage root (ignores compression hop)."""
+-    return _resolve_to_parent(db, session_id)[0]
++    """Resolve the ownership fence for current-session visibility checks.
++
++    This is intentionally broader than search deduplication: a live delegate
++    child still shares context with its parent even though the child is not a
++    compression continuation. Callers must not use this fence as a
++    user-visible search identity.
++    """
++    if not session_id:
++        return session_id
++    visited: set[str] = set()
++    cur = session_id
++    while cur and cur not in visited:
++        visited.add(cur)
++        try:
++            session = db.get_session(cur)
++        except Exception as e:
++            logging.debug("Error resolving ownership parent for %s: %s", cur, e, exc_info=True)
++            break
++        if not session or not session.get("parent_session_id"):
++            break
++        cur = session["parent_session_id"]
++    return cur
+ 
+ 
+ def _is_compression_ended(db, session_id: str) -> bool:
+     """Return True if *session_id* itself ended with ``end_reason='compression'``.
+@@ -637,14 +661,18 @@
+         return None
+     if not session_id:
+         return None
+ 
+-    lineage_root = _resolve_lineage(db, session_id)
++    lineage_root, _ = _resolve_to_parent(db, session_id)
+     if current_lineage_root and lineage_root == current_lineage_root:
+         return None
+ 
+     try:
+-        session_meta = db.get_session(lineage_root) or db.get_session(session_id) or {}
++        # The title match identifies a physical session row. Keep that row's
++        # title for the user-visible result; the lineage root is relationship
++        # metadata only and may legitimately have an older title (for example,
++        # a compression continuation carrying a ``#204`` suffix).
++        session_meta = db.get_session(session_id) or db.get_session(lineage_root) or {}
+     except Exception:
+         logging.debug("get_session failed for title match %s", session_id, exc_info=True)
+         session_meta = {}
+     if session_meta.get("source") in _HIDDEN_SESSION_SOURCES:
+@@ -698,9 +726,14 @@
+ ) -> str:
+     """Discovery shape: FTS5 + anchored window + bookends per hit. Single call."""
+     role_list = role_filter if role_filter else ["user", "assistant"]
+     current_lineage_root = _resolve_lineage(db, current_session_id) if current_session_id else None
+-    title_result = _title_match_result(db, query, current_lineage_root)
++    current_search_root = (
++        _resolve_to_parent(db, current_session_id)[0]
++        if current_session_id
++        else None
++    )
++    title_result = _title_match_result(db, query, current_search_root)
+ 
+     try:
+         raw_results = db.search_messages(
+             query=query,
+@@ -796,9 +829,17 @@
+             logging.warning("get_anchored_view failed for %s/%s: %s", hit_sid, msg_id, e, exc_info=True)
+             continue
+ 
+         try:
+-            session_meta = db.get_session(lineage_root) or {}
++            # ``hit_sid`` is the physical FTS owner. The compression root is
++            # deduplication metadata only; using it for projection loses a
++            # continuation's user-visible title (for example, the ``#204``
++            # suffix on the incident session).
++            session_meta = (
++                db.get_session(hit_sid)
++                or db.get_session(lineage_root)
++                or {}
++            )
+         except Exception:
+             session_meta = {}
+ 
+         entry = {
+diff --git a/tests/gateway/test_resume_command.py b/tests/gateway/test_resume_command.py
+--- a/tests/gateway/test_resume_command.py
++++ b/tests/gateway/test_resume_command.py
+@@ -882,4 +882,52 @@
+         runner = _make_runner()
+         caller = self._msrc(thread_id="thread-a")
+         victim_origin = self._msrc(thread_id="thread-b")
+         assert runner._same_matrix_room(caller, victim_origin) is False
++
++
++class TestC4SharedSessionIdentity:
++    """C4 contracts shared by Telegram and WhatsApp gateway surfaces."""
++
++    @pytest.mark.asyncio
++    @pytest.mark.parametrize("platform", [Platform.TELEGRAM, Platform.WHATSAPP])
++    async def test_numeric_resume_uses_the_same_numbered_rows_as_sessions(
++        self, tmp_path, platform
++    ):
++        from hermes_state import SessionDB
++
++        db = SessionDB(db_path=tmp_path / f"{platform.value}.db")
++        lane_key = f"agent:main:{platform.value}:dm:67890"
++        for sid, title, started_at in (
++            ("lane_old", "Lane Older", 100.0),
++            ("lane_new", "Lane Newer", 200.0),
++            ("current_session_001", "Current", 300.0),
++        ):
++            db.create_session(
++                sid,
++                platform.value,
++                session_key=lane_key,
++                user_id="12345",
++                chat_id="67890",
++            )
++            db.set_session_title(sid, title)
++            db._conn.execute(
++                "UPDATE sessions SET started_at = ? WHERE id = ?",
++                (started_at, sid),
++            )
++        db._conn.commit()
++
++        sessions_event = _make_event(text="/sessions", platform=platform)
++        runner = _make_runner(
++            session_db=db,
++            current_session_id="current_session_001",
++            event=sessions_event,
++        )
++        listing = await runner._handle_sessions_command(sessions_event)
++        assert "1." in listing and "**Lane Newer**" in listing
++        assert "2." in listing and "**Lane Older**" in listing
++        assert "`lane_new`" in listing and "`lane_old`" in listing
++
++        resume_event = _make_event(text="/resume 2", platform=platform)
++        await runner._handle_resume_command(resume_event)
++        assert runner.session_store.switch_session.call_args[0][1] == "lane_old"
++        db.close()
+diff --git a/tests/hermes_cli/test_session_listing.py b/tests/hermes_cli/test_session_listing.py
+--- a/tests/hermes_cli/test_session_listing.py
++++ b/tests/hermes_cli/test_session_listing.py
+@@ -134,4 +134,29 @@
+             limit=10,
+         )
+ 
+         assert [row["id"] for row in rows] == ["foreign_59"]
++
++
++class TestQuerySessionListingActivity:
++    def test_plain_listing_orders_by_latest_valid_activity(self, tmp_path):
++        from hermes_state import SessionDB
++
++        db = SessionDB(db_path=tmp_path / "activity.db")
++        now = 1_800_000_000
++        db.create_session("older_active", "telegram")
++        db.set_session_title("older_active", "Older but active")
++        db.create_session("newer_idle", "telegram")
++        db.set_session_title("newer_idle", "Newer but idle")
++        db._conn.execute(
++            "UPDATE sessions SET started_at = ?, last_activity_at = ? WHERE id = ?",
++            (now - 1_000, now - 10, "older_active"),
++        )
++        db._conn.execute(
++            "UPDATE sessions SET started_at = ?, last_activity_at = ? WHERE id = ?",
++            (now - 10, now - 100, "newer_idle"),
++        )
++        db._conn.commit()
++
++        rows = query_session_listing(db, source="telegram", limit=2)
++        assert [row["id"] for row in rows] == ["older_active", "newer_idle"]
++        db.close()
+diff --git a/tests/test_hermes_state.py b/tests/test_hermes_state.py
+--- a/tests/test_hermes_state.py
++++ b/tests/test_hermes_state.py
+@@ -4752,4 +4752,31 @@
+         # The CJK LIKE fallback builds its own pattern from the sanitized
+         # text; keep % intact there (pre-existing contract).
+         sanitized = self._sanitize("完成50%")
+         assert "%" in sanitized
++
++
++class TestC4ResumeBoundaryIdentity:
++    """Only compression edges may redirect an explicit resume target."""
++
++    @pytest.mark.parametrize(
++        "end_reason",
++        ["session_reset", "new_session", "idle_timeout", "daily", "cron_complete"],
++    )
++    def test_resume_does_not_cross_non_compression_child(self, tmp_path, end_reason):
++        db = SessionDB(db_path=tmp_path / f"{end_reason}.db")
++        parent = f"boundary_parent_{end_reason}"
++        child = f"boundary_child_{end_reason}"
++        lane_key = f"agent:main:telegram:dm:{end_reason}"
++        db.create_session(parent, "telegram", session_key=lane_key)
++        db.append_message(parent, "user", "before boundary")
++        db.end_session(parent, end_reason)
++        db.create_session(
++            child,
++            "telegram",
++            session_key=lane_key,
++            parent_session_id=parent,
++        )
++        db.append_message(child, "user", "new conversation after boundary")
++
++        assert db.resolve_resume_session_id(parent) == parent
++        db.close()
+diff --git a/tests/tools/test_session_search.py b/tests/tools/test_session_search.py
+--- a/tests/tools/test_session_search.py
++++ b/tests/tools/test_session_search.py
+@@ -156,8 +156,100 @@
+         _seed_modpack_sessions(db)
+         result = json.loads(session_search(query="modpack", db=db, current_session_id="s_newest"))
+         sids = [r["session_id"] for r in result["results"]]
+         assert "s_newest" not in sids
++
++    def test_title_projection_uses_physical_matching_continuation(self, tmp_path):
++        root_title = "Hermes Integration Reconciliation Review"
++        tip_title = f"{root_title} #204"
++        db = SessionDB(db_path=tmp_path / "title-projection.db")
++        db.create_session("review_root", source="cli")
++        db.set_session_title("review_root", root_title)
++        db.end_session("review_root", "compression")
++        db.create_session(
++            "review_tip",
++            source="cli",
++            parent_session_id="review_root",
++        )
++        db.set_session_title("review_tip", tip_title)
++        db.append_message("review_tip", "user", "unique review anchor 204")
++
++        result = json.loads(session_search(query=tip_title, db=db))
++        title_hits = [
++            row for row in result["results"]
++            if row.get("matched_role") == "session_title"
++        ]
++        assert title_hits
++        assert title_hits[0]["session_id"] == "review_tip"
++        assert title_hits[0]["title"] == tip_title
++        db.close()
++
++    def test_message_match_projection_uses_physical_matching_continuation(self, tmp_path):
++        root_title = "Hermes Integration Reconciliation Review"
++        tip_title = f"{root_title} #204"
++        db = SessionDB(db_path=tmp_path / "message-projection.db")
++        db.create_session("review_root", source="telegram")
++        db.set_session_title("review_root", root_title)
++        db.end_session("review_root", "compression")
++        db.create_session(
++            "review_tip",
++            source="telegram",
++            parent_session_id="review_root",
++        )
++        db.set_session_title("review_tip", tip_title)
++        anchor_id = db.append_message(
++            "review_tip", "assistant", "med functional acceptance physical anchor"
++        )
++
++        result = json.loads(
++            session_search(query="med functional acceptance", db=db, limit=3)
++        )
++        hits = [
++            row for row in result["results"]
++            if row.get("match_message_id") == anchor_id
++        ]
++        assert hits
++        assert hits[0]["session_id"] == "review_tip"
++        assert hits[0]["title"] == tip_title
++        db.close()
++
++    def test_reset_child_is_not_deduped_into_compression_root(self, tmp_path):
++        db = SessionDB(db_path=tmp_path / "reset-search-identity.db")
++        db.create_session("lineage_root", source="telegram")
++        db.set_session_title("lineage_root", "Original Conversation")
++        db.end_session("lineage_root", "compression")
++        db.create_session(
++            "compression_tip",
++            source="telegram",
++            parent_session_id="lineage_root",
++        )
++        db.set_session_title("compression_tip", "Original Conversation #204")
++        db.append_message(
++            "compression_tip", "assistant", "shared boundary phrase in continuation"
++        )
++        db.end_session("compression_tip", "session_reset")
++        db.create_session(
++            "reset_child",
++            source="telegram",
++            parent_session_id="compression_tip",
++        )
++        db.set_session_title("reset_child", "New Conversation")
++        db.append_message(
++            "reset_child", "assistant", "shared boundary phrase in new session"
++        )
++
++        result = json.loads(
++            session_search(query="shared boundary phrase", db=db, limit=5)
++        )
++        session_ids = {row["session_id"] for row in result["results"]}
++        assert "compression_tip" in session_ids
++        assert "reset_child" in session_ids
++        reset_hit = next(
++            row for row in result["results"] if row["session_id"] == "reset_child"
++        )
++        assert reset_hit["title"] == "New Conversation"
++        assert "parent_session_id" not in reset_hit
++        db.close()
+ 
+ 
+ class TestDiscoverySort:
+     def test_sort_newest_orders_by_recency(self, db):
+@@ -531,17 +623,18 @@
+         assert has_compression is True
+ 
+ 
+     def test_chain_with_mixed_edges(self, db):
+-        """Compression grandparent → parent → child (no end_reason on parent)."""
++        """A non-compression edge terminates search identity."""
+         db.create_session("s_gp", source="cli")
+         db.end_session("s_gp", "compression")
+         db.create_session("s_p", source="cli", parent_session_id="s_gp")
+-        # s_p does NOT end with compression — but ancestor s_gp does
++        # s_p does NOT end with compression, so s_c is an ordinary child and
++        # must not be merged into the compression root.
+         db.create_session("s_c", source="cli", parent_session_id="s_p")
+         root, has_compression = _resolve_to_parent(db, "s_c")
+-        assert root == "s_gp"
+-        assert has_compression is True
++        assert root == "s_c"
++        assert has_compression is False
+ 
+ 
+ class TestIsCompactedMessage:
+     """Unit tests for the _is_compacted_message helper."""

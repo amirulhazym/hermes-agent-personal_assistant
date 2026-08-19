@@ -260,7 +260,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "gateway/slash_commands.py",
-      "source_sha256": "b02ff257de057f5772d2a60f8195c0465d690d38ec06530f970df7ef12cb90ad"
+      "source_sha256": "835365d73cfa2896925dd70e4aa503f3f3954a126b226d3207d7d918e6cbe7b6"
     },
     {
       "destination": null,
@@ -284,7 +284,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "hermes_state.py",
-      "source_sha256": "b214454b01a8fc96950b491a3935deae609f69011af613faa5b8183cee7dd0f8"
+      "source_sha256": "5884495f677ed5856bf65103d332f556254b52677023309e82227097670eb3ad"
     },
     {
       "destination": "/home/ubuntu/.hermes/hooks/hello-world/HOOK.yaml",
