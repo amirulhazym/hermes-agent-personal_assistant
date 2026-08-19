@@ -5,7 +5,7 @@ diff --git a/gateway/slash_commands.py b/gateway/slash_commands.py
              or (name[0] == "'" and name[-1] == "'")
          ):
              name = name[1:-1].strip()
- 
+
 +        from hermes_cli.session_listing import query_session_listing
 +
          async def _list_titled_sessions() -> list[dict]:
@@ -31,7 +31,7 @@ diff --git a/gateway/slash_commands.py b/gateway/slash_commands.py
 +                s for s in rows
 +                if s.get("title")
 +            ][:10]
- 
+
          if not name:
              # List recent titled sessions for this user/platform
              try:
@@ -54,9 +54,9 @@ diff --git a/hermes_state.py b/hermes_state.py
 +++ b/hermes_state.py
 @@ -7055,8 +7055,35 @@
                  max_num = max(max_num, int(m.group(1)))
- 
+
          return f"{base} #{max_num + 1}"
- 
+
 +    def get_compression_parent_id(self, session_id: str) -> Optional[str]:
 +        """Return the canonical compression predecessor for a physical row.
 +
@@ -86,13 +86,13 @@ diff --git a/hermes_state.py b/hermes_state.py
 +
      def get_compression_tip(self, session_id: str) -> Optional[str]:
          """Walk the compression-continuation chain forward and return the tip.
- 
+
          A compression continuation is a child of a session whose
 @@ -8621,92 +8648,24 @@
          child is where new messages actually land — the parent ends up with
          ``message_count = 0`` rows unless messages had already been flushed to
          it before compression. See #15000.
- 
+
 -        This helper walks ``parent_session_id`` forward from ``session_id`` and
 -        returns the descendant in the chain that has the **most recent** messages.
 -        Unlike the original logic, it does NOT short-circuit when the starting
@@ -114,7 +114,7 @@ diff --git a/hermes_state.py b/hermes_state.py
          """
          if not session_id:
              return session_id
- 
+
 -        # Follow the compression-continuation chain forward to the live tip
 -        # FIRST. Auto-compression ends the current session and forks a
 -        # continuation child, but a long-lived parent keeps its own flushed
@@ -187,7 +187,7 @@ diff --git a/hermes_state.py b/hermes_state.py
 -
 -            return best if best is not None else session_id
 +            return session_id
- 
+
      def get_messages_as_conversation(
          self,
          session_id: str,
@@ -196,8 +196,8 @@ diff --git a/tools/session_search_tool.py b/tools/session_search_tool.py
 +++ b/tools/session_search_tool.py
 @@ -111,45 +111,69 @@
      return any(stripped.startswith(p) for p in _COMPACTION_PREFIXES)
- 
- 
+
+
  def _resolve_to_parent(db, session_id: str) -> tuple[str, bool]:
 -    """Walk parent_session_id chain to the lineage root.
 -
@@ -255,8 +255,8 @@ diff --git a/tools/session_search_tool.py b/tools/session_search_tool.py
 +        has_compression = True
 +        cur = parent
      return cur, has_compression
- 
- 
+
+
  def _resolve_lineage(db, session_id: str) -> str:
 -    """Convenience: return only the lineage root (ignores compression hop)."""
 -    return _resolve_to_parent(db, session_id)[0]
@@ -282,20 +282,20 @@ diff --git a/tools/session_search_tool.py b/tools/session_search_tool.py
 +            break
 +        cur = session["parent_session_id"]
 +    return cur
- 
- 
+
+
  def _is_compression_ended(db, session_id: str) -> bool:
      """Return True if *session_id* itself ended with ``end_reason='compression'``.
 @@ -637,14 +661,18 @@
          return None
      if not session_id:
          return None
- 
+
 -    lineage_root = _resolve_lineage(db, session_id)
 +    lineage_root, _ = _resolve_to_parent(db, session_id)
      if current_lineage_root and lineage_root == current_lineage_root:
          return None
- 
+
      try:
 -        session_meta = db.get_session(lineage_root) or db.get_session(session_id) or {}
 +        # The title match identifies a physical session row. Keep that row's
@@ -319,14 +319,14 @@ diff --git a/tools/session_search_tool.py b/tools/session_search_tool.py
 +        else None
 +    )
 +    title_result = _title_match_result(db, query, current_search_root)
- 
+
      try:
          raw_results = db.search_messages(
              query=query,
 @@ -796,9 +829,17 @@
              logging.warning("get_anchored_view failed for %s/%s: %s", hit_sid, msg_id, e, exc_info=True)
              continue
- 
+
          try:
 -            session_meta = db.get_session(lineage_root) or {}
 +            # ``hit_sid`` is the physical FTS owner. The compression root is
@@ -340,7 +340,7 @@ diff --git a/tools/session_search_tool.py b/tools/session_search_tool.py
 +            )
          except Exception:
              session_meta = {}
- 
+
          entry = {
 diff --git a/tests/gateway/test_resume_command.py b/tests/gateway/test_resume_command.py
 --- a/tests/gateway/test_resume_command.py
@@ -404,7 +404,7 @@ diff --git a/tests/hermes_cli/test_session_listing.py b/tests/hermes_cli/test_se
 @@ -134,4 +134,29 @@
              limit=10,
          )
- 
+
          assert [row["id"] for row in rows] == ["foreign_59"]
 +
 +
@@ -566,14 +566,14 @@ diff --git a/tests/tools/test_session_search.py b/tests/tools/test_session_searc
 +        assert reset_hit["title"] == "New Conversation"
 +        assert "parent_session_id" not in reset_hit
 +        db.close()
- 
- 
+
+
  class TestDiscoverySort:
      def test_sort_newest_orders_by_recency(self, db):
 @@ -531,17 +623,18 @@
          assert has_compression is True
- 
- 
+
+
      def test_chain_with_mixed_edges(self, db):
 -        """Compression grandparent → parent → child (no end_reason on parent)."""
 +        """A non-compression edge terminates search identity."""
@@ -589,7 +589,167 @@ diff --git a/tests/tools/test_session_search.py b/tests/tools/test_session_searc
 -        assert has_compression is True
 +        assert root == "s_c"
 +        assert has_compression is False
- 
- 
+
+
  class TestIsCompactedMessage:
      """Unit tests for the _is_compacted_message helper."""
+diff --git a/tests/hermes_state/test_resolve_resume_session_id.py b/tests/hermes_state/test_resolve_resume_session_id.py
+--- a/tests/hermes_state/test_resolve_resume_session_id.py
++++ b/tests/hermes_state/test_resolve_resume_session_id.py
+@@ -1,14 +1,10 @@
+-"""Regression guard for #15000: --resume <id> after compression loses messages.
++"""Regression guards for compression-only ``--resume`` identity.
+
+ Context compression ends the current session and forks a new child session
+-(linked by ``parent_session_id``). The SQLite flush cursor is reset, so
+-only the latest descendant ends up with rows in the ``messages`` table —
+-the parent row has ``message_count = 0``. ``hermes --resume <parent_id>``
+-used to load zero rows and show a blank chat.
+-
+-``SessionDB.resolve_resume_session_id()`` walks the parent → child chain
+-and redirects to the first descendant that actually has messages. These
+-tests pin that behaviour.
++(linked by ``parent_session_id``). The SQLite flush cursor is reset, so the
++continuation is where post-compression messages land. Resume may follow that
++edge, but a generic ``parent_session_id`` relationship is not enough to cross
++an ordinary conversation boundary.
+ """
+ import time
+
+@@ -35,70 +31,104 @@
+
+
+ def test_returns_self_when_only_parent_has_messages(db):
+-    # When a session already has messages AND no descendant has messages,
+-    # it should still be returned.  The chain walk finds no better candidate.
++    # An ordinary parented child is not a resumable continuation.
+     _make_chain(db, [("root", None), ("child", "root")])
+     db.append_message("root", role="user", content="hi")
+     assert db.resolve_resume_session_id("root") == "root"
+
+
++def test_walks_from_middle_of_compression_chain(db):
++    # Every parent edge in this chain is explicitly a compression boundary.
++    _make_chain(db, [("a", None), ("b", "a"), ("c", "b"), ("d", "c")])
++    for session_id in ("a", "b", "c"):
++        db.end_session(session_id, "compression")
++    db.append_message("d", role="user", content="x")
++
++    # An intermediate physical segment still resolves to the real tip.
++    assert db.resolve_resume_session_id("b") == "d"
++    assert db.resolve_resume_session_id("c") == "d"
+
+
+-
+-
+-
+-
+-
+-
+-def test_walks_from_middle_of_chain(db):
+-    # If the user happens to know an intermediate ID, we still find the msg-bearing descendant.
++def test_generic_parent_chain_does_not_redirect(db):
++    # Parent ancestry alone is not compression identity.
+     _make_chain(db, [("a", None), ("b", "a"), ("c", "b"), ("d", "c")])
+     db.append_message("d", role="user", content="x")
+-    assert db.resolve_resume_session_id("b") == "d"
+-    assert db.resolve_resume_session_id("c") == "d"
++
++    assert db.resolve_resume_session_id("a") == "a"
++    assert db.resolve_resume_session_id("b") == "b"
++    assert db.resolve_resume_session_id("c") == "c"
+
+
+ def test_follows_compression_tip_when_parent_retains_messages(db):
+     # The bug behind the desktop "I came back and the reply isn't there" report
+     # on large sessions: auto-compression ends the live session and forks a
+     # continuation child, but a long parent keeps its own flushed message rows.
+-    # The empty-head walk below never redirects a non-empty head, so resuming
+-    # the parent id reloaded the pre-compression transcript and the response
+-    # generated *after* compression (which lives in the continuation) was
+-    # missing. resolve_resume_session_id must follow the compression-tip chain
+-    # forward even when the parent still has messages.
+     base = int(time.time()) - 10_000
+     db.create_session("root", source="cli")
+     db.append_message("root", role="user", content="pre-compression turn")
+     db.end_session("root", "compression")
+     db.create_session("cont", source="cli", parent_session_id="root")
+     db.append_message("cont", role="assistant", content="post-compression reply")
++
+     # Force deterministic ordering so the continuation's started_at is clearly
+     # at/after the parent's ended_at (the get_compression_tip discriminator).
+     conn = db._conn
+     assert conn is not None
+-    conn.execute("UPDATE sessions SET started_at = ?, ended_at = ? WHERE id = 'root'", (base, base + 50))
++    conn.execute(
++        "UPDATE sessions SET started_at = ?, ended_at = ? WHERE id = 'root'",
++        (base, base + 50),
++    )
+     conn.execute("UPDATE sessions SET started_at = ? WHERE id = 'cont'", (base + 100,))
+     conn.commit()
+
+     assert db.resolve_resume_session_id("root") == "cont"
+
+
++def test_non_compression_forks_do_not_hijack_resume(db):
++    # Two ordinary children are not compression continuations, regardless of
++    # which child is newer or has messages.
++    _make_chain(
++        db,
++        [
++            ("parent", None),
++            ("older_fork", "parent"),
++            ("newer_fork", "parent"),
++        ],
++    )
++    db.append_message("newer_fork", role="user", content="x")
++
++    assert db.resolve_resume_session_id("parent") == "parent"
+
+
+-def test_prefers_most_recent_child_when_fork_exists(db):
+-    # If a session was somehow forked (two children), pick the latest one.
+-    # In practice, compression only produces single-chain shape, but the helper
+-    # should degrade gracefully.
+-    _make_chain(db, [
+-        ("parent", None),
+-        ("older_fork", "parent"),
+-        ("newer_fork", "parent"),
+-    ])
+-    db.append_message("newer_fork", role="user", content="x")
+-    assert db.resolve_resume_session_id("parent") == "newer_fork"
++def test_multiple_compression_children_use_deterministic_activity_order(db):
++    # If malformed data exposes two compression-valid children, the resolver's
++    # explicit C3 policy applies: same eligibility class, then freshest valid
++    # activity, then started_at/id tie-breakers. It must not choose an unrelated
++    # generic child merely because that child is newest.
++    base = int(time.time()) - 10_000
++    db.create_session("parent", source="cli")
++    db.end_session("parent", "compression")
++    db.create_session("older_cont", source="cli", parent_session_id="parent")
++    db.create_session("newer_cont", source="cli", parent_session_id="parent")
++    db.append_message("older_cont", role="user", content="older")
++    db.append_message("newer_cont", role="user", content="newer")
++    db.end_session("older_cont", "compression")
++    db.end_session("newer_cont", "compression")
+
++    conn = db._conn
++    assert conn is not None
++    conn.execute(
++        "UPDATE sessions SET started_at = ?, ended_at = ?, last_activity_at = ? WHERE id = 'parent'",
++        (base, base + 10, base + 10),
++    )
++    conn.execute(
++        "UPDATE sessions SET started_at = ?, ended_at = ?, last_activity_at = ? WHERE id = 'older_cont'",
++        (base + 100, base + 200, base + 200),
++    )
++    conn.execute(
++        "UPDATE sessions SET started_at = ?, ended_at = ?, last_activity_at = ? WHERE id = 'newer_cont'",
++        (base + 300, base + 400, base + 400),
++    )
++    conn.commit()
+
+-
+-
+-
++    assert db.resolve_resume_session_id("parent") == "newer_cont"

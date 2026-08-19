@@ -23,8 +23,8 @@
       "order": 3,
       "id": "custom-c4-shared-session-identity",
       "path": "patches/upstream-hermes/2026-08-19_c4-shared-session-identity.patch",
-      "sha256": "8afbfc7e1a5602a8ad0e8388b5538505963164d4c731ad4ab4978eb269a3406c",
-      "description": "Custom shared session identity projection: numeric gateway resume uses the same activity-ordered listing policy, resume follows compression continuations only, and search deduplicates only compression edges while retaining physical continuation titles."
+      "sha256": "f7ecbb724cb4007605895d46172700b1208180355df0c55a74ea54303130099c",
+      "description": "Custom shared session identity projection: numeric gateway resume uses the same activity-ordered listing policy, resume follows compression continuations only, and search deduplicates only compression edges while retaining physical continuation titles; the C4 regression contract explicitly covers compression chains, generic parent edges, and fork ambiguity."
     }
   ],
   "runtime_tree_manifest": "docs/reconciliation/hermes-runtime-tree-manifest.json",

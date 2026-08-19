@@ -221,7 +221,12 @@ def _restore_git_modes(repo: Path, base_sha: str, output: Path) -> None:
             raise RuntimeError(f"unsupported official Git file mode {mode}: {source}")
 
 
-def _apply_series(repo_root: Path, output: Path, lock: dict[str, Any]) -> None:
+def _apply_series(
+    repo_root: Path,
+    output: Path,
+    lock: dict[str, Any],
+    official_base_repo: Path,
+) -> None:
     for entry in lock["patch_series"]:
         patch = repo_root / entry["path"]
         if not patch.is_file():
@@ -241,6 +246,12 @@ def _apply_series(repo_root: Path, output: Path, lock: dict[str, Any]) -> None:
                     f"patch {phase} failed for {entry['id']}: "
                     f"{result.stderr.strip()}"
                 )
+    # ``git apply`` can recreate modified regular files with the process
+    # umask (0664 here), even though the official Git tree records 100644.
+    # Restore the pinned base-tree modes after the complete ordered series so
+    # the deployment manifest describes reproducible Git modes, not host
+    # filesystem defaults.
+    _restore_git_modes(official_base_repo, lock["official_base_sha"], output)
 
 
 def _iter_files(root: Path) -> Iterable[Path]:
@@ -344,11 +355,11 @@ def reconstruct(
         with tempfile.TemporaryDirectory(prefix="hermes-runtime-reconstruct-") as temp:
             official = _clone_official(lock["official_repository"], lock["official_base_sha"], Path(temp))
             _extract_archive(official, lock["official_base_sha"], output)
-            _apply_series(repo_root, output, lock)
+            _apply_series(repo_root, output, lock, official)
     else:
         _verify_commit(base_repo, lock["official_base_sha"])
         _extract_archive(base_repo, lock["official_base_sha"], output)
-        _apply_series(repo_root, output, lock)
+        _apply_series(repo_root, output, lock, base_repo)
     if write_tree:
         _write_tree_manifest(expected_tree_path, output, lock)
     if validate:
