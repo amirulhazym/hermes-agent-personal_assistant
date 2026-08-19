@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "authority": "hermes-runtime-reconstruction",
+  "authority_rule": "Only the official base commit plus this ordered patch series may produce the Hermes runtime source. Root-level Hermes copies in non_authoritative_tracked_paths are reference-only and are never deployment inputs.",
+  "official_repository": "https://github.com/NousResearch/hermes-agent.git",
+  "official_base_sha": "a31be48030f60383bf4c1d96ba46bd4b48430218",
+  "patch_series": [],
+  "runtime_tree_manifest": "docs/reconciliation/hermes-runtime-tree-manifest.json",
+  "runtime_destination_root": "/home/ubuntu/.hermes/hermes-agent",
+  "forbidden_runtime_paths": [
+    ".env",
+    ".env.*",
+    "auth.json",
+    "state.db",
+    "state.db-shm",
+    "state.db-wal",
+    "sessions/",
+    "logs/",
+    "cache/",
+    "platforms/whatsapp/session/",
+    "platforms/telegram/session/"
+  ],
+  "non_authoritative_tracked_paths": [
+    {
+      "path": "hermes_state.py",
+      "disposition": "reference-only",
+      "reason": "Legacy application-repository copy retained for historical/application tests; it is not a Hermes runtime deployment input."
+    },
+    {
+      "path": "gateway/slash_commands.py",
+      "disposition": "reference-only",
+      "reason": "Legacy application-repository copy retained for historical/application tests; it is not a Hermes runtime deployment input."
+    }
+  ]
+}

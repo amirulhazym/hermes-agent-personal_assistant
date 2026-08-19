@@ -1,4 +1,6 @@
 {
+  "manifest_role": "application-source-coverage-non-authoritative-for-hermes-runtime",
+  "runtime_authority": "docs/reconciliation/hermes-runtime-source-lock.json",
   "base_main_sha": "13baa13950223c090a9fc97e31baa748874c0edf",
   "candidate_sha": "PENDING_OWNER_RELEASE",
   "entries": [

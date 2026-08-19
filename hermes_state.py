@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SOURCE ROLE: REFERENCE-ONLY. The authoritative Hermes runtime is generated
+# from docs/reconciliation/hermes-runtime-source-lock.json; this legacy copy is
+# never a runtime deployment input.
 """
 SQLite State Store for Hermes Agent.
 

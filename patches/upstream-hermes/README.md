@@ -4,6 +4,13 @@ Source: `~/.hermes/hermes-agent` (nested upstream clone of NousResearch/Hermes-A
 **Never merge upstream Git history into this repository.** These patches document
 source-worthy VPS customizations; upstream history stays in its own lane.
 
+> **Authority boundary:** The current Hermes runtime is reconstructed only by
+> `docs/reconciliation/hermes-runtime-source-lock.json` and its explicitly
+> hash-pinned `patch_series`. The overlays listed below are historical/source-only
+> evidence unless they are added to that lock with an exact order and SHA-256.
+> They are not deployment inputs merely because they exist in this directory.
+> See `docs/reconciliation/hermes-runtime-source-authority.md`.
+
 ## Recorded upstream bases
 - `2bd1977d8` — release v0.17.0 (base before local P1-C commits)
 - `f94dff11e` — local `main` HEAD (merge of feat/selected-model-contract-vps); 6 local commits on top of upstream

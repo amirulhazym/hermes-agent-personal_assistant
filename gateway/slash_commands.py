@@ -1,3 +1,6 @@
+# SOURCE ROLE: REFERENCE-ONLY. The authoritative Hermes runtime is generated
+# from docs/reconciliation/hermes-runtime-source-lock.json; this legacy copy is
+# never a runtime deployment input.
 """Gateway slash-command handlers for GatewayRunner.
 
 Extracted from ``gateway/run.py`` (god-file decomposition Phase 3b). These are
