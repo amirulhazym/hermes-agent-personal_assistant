@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 # post-push: trigger VPS post-push smoke after a successful git push.
-# Runs detached from the gateway process tree (system cron actually fires it).
-# This hook is a thin local trigger: it appends the latest local HEAD SHA to
-# the smoke marker file and lets the cron-driven script do the actual check.
-#
 # Args supplied by git: $1 = name of the remote, $2 = URL of the remote.
-set -euo pipefail
-HEAD_SHA=$(git rev-parse HEAD)
+# Writes a marker file (timestamp + SHA) so the 5-min cron can also see fresh
+# activity. Also runs the smoke script in the foreground with a 120s timeout
+# and writes its output to post-push-smoke.hook.log.
+set -uo pipefail
+LOG=/home/ubuntu/.hermes/logs/post-push-smoke.hook.log
 MARKER=/home/ubuntu/.hermes/logs/post-push-smoke.marker
-mkdir -p "$(dirname "$MARKER")"
-date -u +"%Y-%m-%dT%H:%M:%SZ" > "$MARKER"
+HEAD_SHA=$(git rev-parse HEAD 2>/dev/null || echo unknown)
+mkdir -p "$(dirname "$LOG")" "$(dirname "$MARKER")"
+{
+  echo "===== post-push trigger $(date -u +%Y-%m-%dT%H:%M:%SZ) head=$HEAD_SHA remote=${1:-?} ====="
+} >> "$MARKER"
 echo "$HEAD_SHA" >> "$MARKER"
-# Detached re-run of the smoke script so the user sees fresh result sooner
-# than the next 5-minute cron boundary.
-nohup bash /home/ubuntu/.hermes/scripts/post_push_smoke.sh \
-  >> /home/ubuntu/.hermes/logs/post-push-smoke.hook.log 2>&1 &
-disown || true
+# Synchronous invocation with timeout. The cron also runs this script, so a
+# synchronous fire here gives the user near-real-time feedback after a push.
+timeout 180 bash /home/ubuntu/.hermes/scripts/post_push_smoke.sh >> "$LOG" 2>&1
+echo "===== exit=$? =====" >> "$LOG"
 exit 0
