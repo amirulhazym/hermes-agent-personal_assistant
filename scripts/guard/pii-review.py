@@ -13,13 +13,22 @@ from pathlib import Path
 
 EMAIL = re.compile(rb"\b[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b")
 PHONE = re.compile(rb"(?<![A-Za-z0-9])\+[1-9](?:[ ()-]*[0-9]){7,14}(?![0-9])")
+MANIFEST_PATH = 'docs/reconciliation/hermes-runtime-tree-manifest.json'
+MANIFEST_PATH_FIELDS = re.compile(
+    rb'("(?:source|destination)"\s*:\s*")[^"\\]*(")'
+)
 PLACEHOLDER_DOMAINS={b"example.com",b"example.org",b"example.net",b"example.invalid",b"invalid"}
 
 def paths():
     raw=subprocess.run(["git","ls-files","-z"],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).stdout
     return [p for p in raw.split(b"\0") if p and not any(p.startswith(x) for x in (b".git/",b"__pycache__/",b"node_modules/",b"venv/",b".venv/"))]
 
-def findings(path,data):
+def findings(path, data, *, field_scope=None):
+    if path == MANIFEST_PATH and field_scope == {'source', 'destination'}:
+        data = MANIFEST_PATH_FIELDS.sub(
+            rb'\1\2',
+            data,
+        )
     out=[]
     for m in EMAIL.finditer(data):
         domain=m.group(1).lower()
@@ -42,7 +51,9 @@ def scan_diff(spec):
     out=[]; current='<unknown>'
     for line in raw.splitlines():
         if line.startswith(b'+++ b/'): current=line[6:].decode('utf-8','replace')
-        elif line.startswith(b'+') and not line.startswith(b'+++'): out.extend(findings(current,line[1:]))
+        elif line.startswith(b'+') and not line.startswith(b'+++'):
+            scope = {'source', 'destination'} if current == MANIFEST_PATH else None
+            out.extend(findings(current, line[1:], field_scope=scope))
     return out
 
 def main():

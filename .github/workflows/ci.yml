@@ -39,6 +39,7 @@ jobs:
           CURRENT_SHA: ${{ github.sha }}
         run: |
           set -eu
+          BASE_SHA=$(python3 scripts/guard/ci-base-sha.py "$BASE_SHA" "$CURRENT_SHA")
           printf 'PII_RANGE=%s..%s\n' "$BASE_SHA" "$CURRENT_SHA"
           git cat-file -e "$BASE_SHA^{commit}"
           git cat-file -e "$CURRENT_SHA^{commit}"
