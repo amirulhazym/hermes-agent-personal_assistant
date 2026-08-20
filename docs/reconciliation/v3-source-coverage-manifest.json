@@ -14,7 +14,7 @@
       "destination": null,
       "kind": "source-only",
       "source": ".github/workflows/ci.yml",
-      "source_sha256": "4ee4d52cc82a6f4e39d40c28f921214b6fe60ca0eba8df9d303b1949542017ff"
+      "source_sha256": "5e7ba202fca1ed93eb9b50a53cf17275f2e6c1c8d39648a53f3f8eeb9b13922d"
     },
     {
       "destination": null,
@@ -590,7 +590,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/guard/pii-review.py",
       "kind": "runtime-deploy",
       "source": "scripts/guard/pii-review.py",
-      "source_sha256": "39119717acc489455ed6da98d4d9c07e8be2438dcf6f6aca18c1ff7c134b1222"
+      "source_sha256": "4fcec24abbcc3c1d786f84c326485d623da9f18ca8c31fe80494b09adc081ba6"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/guard/secret-scan.sh",
@@ -1196,7 +1196,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/guard/test_guards.py",
-      "source_sha256": "88fe872594cab7821040bde70cf22a799125feaf161eb2a2b8a1e6608f6075a1"
+      "source_sha256": "2785dffd3515b21f8a383480dc613e4670cd639a1f6d98e47cb0465446fedc2c"
     },
     {
       "destination": null,
@@ -1437,6 +1437,12 @@
       "kind": "source-only",
       "source": "skills/software-development/wayfinder/agents/openai.yaml",
       "source_sha256": "88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073"
+    },
+    {
+      "source": "scripts/guard/ci-base-sha.py",
+      "source_sha256": "c1fe85b824452c64daccc611fc12cfdc37dacc0bc139e815994fad06dd8a70d9",
+      "kind": "source-only",
+      "destination": null
     }
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
