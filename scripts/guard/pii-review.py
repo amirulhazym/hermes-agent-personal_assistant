@@ -17,7 +17,7 @@ MANIFEST_PATH = 'docs/reconciliation/hermes-runtime-tree-manifest.json'
 MANIFEST_PATH_FIELDS = re.compile(
     rb'("(?:source|destination)"\s*:\s*")[^"\\]*(")'
 )
-PLACEHOLDER_DOMAINS={b"example.com",b"example.org",b"example.net",b"example.invalid",b"invalid"}
+PLACEHOLDER_DOMAINS={b"example.com",b"example.org",b"example.net",b"example.invalid",b"invalid",b"g.us"}
 
 def paths():
     raw=subprocess.run(["git","ls-files","-z"],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).stdout
