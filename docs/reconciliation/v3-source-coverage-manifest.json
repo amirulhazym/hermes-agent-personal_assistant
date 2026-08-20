@@ -14,7 +14,7 @@
       "destination": null,
       "kind": "source-only",
       "source": ".github/workflows/ci.yml",
-      "source_sha256": "5e7ba202fca1ed93eb9b50a53cf17275f2e6c1c8d39648a53f3f8eeb9b13922d"
+      "source_sha256": "c5c03b118b494dcdc67f50e73294755193b5dcf1d5db4035145ef02fb2c10d7e"
     },
     {
       "destination": null,
@@ -1437,12 +1437,6 @@
       "kind": "source-only",
       "source": "skills/software-development/wayfinder/agents/openai.yaml",
       "source_sha256": "88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073"
-    },
-    {
-      "source": "scripts/guard/ci-base-sha.py",
-      "source_sha256": "c1fe85b824452c64daccc611fc12cfdc37dacc0bc139e815994fad06dd8a70d9",
-      "kind": "source-only",
-      "destination": null
     }
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",

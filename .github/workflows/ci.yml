@@ -44,5 +44,9 @@ jobs:
           git cat-file -e "$BASE_SHA^{commit}"
           git cat-file -e "$CURRENT_SHA^{commit}"
           python3 scripts/guard/pii-review.py --diff "$BASE_SHA..$CURRENT_SHA"
+      - name: Recompute source coverage manifest (enforcement gate)
+        run: |
+          set -eu
+          python3 scripts/guard/manifest_recompute.py docs/reconciliation/v3-source-coverage-manifest.json "$GITHUB_SHA"
       - name: Validate source coverage manifest
         run: bash scripts/guard/manifest-validate.sh docs/reconciliation/v3-source-coverage-manifest.json "$GITHUB_SHA"

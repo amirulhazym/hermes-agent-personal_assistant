@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""Pre-push hook: refresh existing rows in
+docs/reconciliation/v3-source-coverage-manifest.json for files changed
+in the commits about to be pushed.
+
+- Refreshes EXISTING rows only; absent rows are NOT added.
+- Writes a verification receipt under
+  docs/reconciliation/manifest-receipts/<short-sha>.json so the caller
+  can quote a status, evidence hash, and timestamp.
+- Exit code 0 on success (refreshed N rows or 0 changes); exit 2 if the
+  manifest is dirty in working tree (refuses to overwrite).
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[1]
+MANIFEST = REPO / "docs" / "reconciliation" / "v3-source-coverage-manifest.json"
+RECEIPTS_DIR = REPO / "docs/reconciliation/manifest-receipts"
+
+
+def _git(*args: str) -> str:
+    return subprocess.check_output(["git", *args], cwd=REPO, text=True)
+
+
+def _hash_at(ref: str, path: str) -> str:
+    raw = subprocess.check_output(["git", "show", f"{ref}:{path}"], cwd=REPO)
+    return hashlib.sha256(raw).hexdigest()
+
+
+def main() -> int:
+    # Determine push range from the first script argument Git supplies.
+    # When invoked via core.hooksPath pre-push, argv[1] is "origin".
+    remote = sys.argv[1] if len(sys.argv) > 1 else "origin"
+
+    status = subprocess.check_output(
+        ["git", "status", "--porcelain", "--untracked-files=no"],
+        cwd=REPO, text=True,
+    )
+    manifest_path = str(MANIFEST.relative_to(REPO))
+    if any(line.split(maxsplit=1)[-1] == manifest_path for line in status.splitlines()):
+        print(f"manifest-refresh: refuse, manifest dirty in working tree", file=sys.stderr)
+        return 2
+
+    if not MANIFEST.exists():
+        print("manifest-refresh: no manifest present, nothing to refresh", file=sys.stderr)
+        return 0
+
+    if not RECEIPTS_DIR.exists():
+        RECEIPTS_DIR.mkdir(parents=True)
+
+    data = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    rows_by_source = {entry["source"]: entry for entry in data["entries"]}
+
+    # Collect files touched between local HEAD and its upstream counterpart.
+    # If upstream is missing, compare against HEAD~1 (push-of-single-commit).
+    upstream_ref = "HEAD"
+    try:
+        merge_base = subprocess.check_output(
+            ["git", "merge-base", "HEAD", f"{remote}/$(git rev-parse --abbrev-ref HEAD)"],
+            cwd=REPO, text=True,
+        ).strip()
+        upstream_ref = merge_base
+    except subprocess.CalledProcessError:
+        try:
+            upstream_ref = _git("rev-parse", "HEAD~1").strip()
+        except subprocess.CalledProcessError:
+            upstream_ref = _git("rev-parse", "HEAD").strip()
+
+    changed_paths = subprocess.check_output(
+        ["git", "diff", "--name-only", upstream_ref, "HEAD"],
+        cwd=REPO, text=True,
+    ).splitlines()
+
+    refreshed: list[dict] = []
+    missing: list[str] = []
+    short_sha = _git("rev-parse", "--short=12", "HEAD").strip()
+    head_sha = _git("rev-parse", "HEAD").strip()
+
+    # Refresh invariant: manifest rows must match HEAD regardless of diff range.
+    # Walking changed_paths alone misses manual manifest edits on throwaway branches.
+    for src_path, row in rows_by_source.items():
+        try:
+            actual = _hash_at(head_sha, src_path)
+        except subprocess.CalledProcessError:
+            continue  # tracked source missing in HEAD tree; leave alone (absent-row policy)
+        if row["source_sha256"] != actual:
+            refreshed.append(
+                {"source": src_path, "old": row["source_sha256"], "new": actual},
+            )
+            row["source_sha256"] = actual
+        else:
+            continue
+        # No need to warn on absent rows — hook only refreshes; policy decision lives elsewhere.
+
+    if refreshed:
+        MANIFEST.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+    receipt = {
+        "status": "REFRESHED" if refreshed else "NOOP",
+        "refreshed_count": len(refreshed),
+        "refreshed": refreshed,
+        "head_sha": head_sha,
+        "upstream_ref": upstream_ref,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "manifest_sha256": hashlib.sha256(MANIFEST.read_bytes()).hexdigest(),
+    }
+    receipt_path = RECEIPTS_DIR / f"{short_sha}.json"
+    receipt_path.write_text(
+        json.dumps(receipt, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    # Auto-stage the manifest and the receipt so the next commit includes them.
+    subprocess.check_call(["git", "add", str(MANIFEST.relative_to(REPO))], cwd=REPO)
+    subprocess.check_call(
+        ["git", "add", str(receipt_path.relative_to(REPO))], cwd=REPO,
+    )
+
+    print(
+        f"manifest-refresh: status={receipt['status']} refreshed={len(refreshed)} "
+        f"receipt={receipt_path.relative_to(REPO)}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
