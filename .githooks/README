@@ -1,1 +1,34 @@
-# verified 2026-08-20T17:37:17+08:00
+# Git hooks
+
+Configured path: `.githooks` via `core.hooksPath`.
+
+## Supported push hook
+
+`pre-push-manifest-refresh` is the supported client-side push hook. It
+refreshes existing manifest rows and auto-stages the manifest before push.
+Absent rows are not added automatically; that remains an owner policy
+decision.
+
+## Why there is no `post-push`
+
+Git's authoritative `githooks(5)` documentation defines `pre-push` as the
+client-side hook invoked by `git push` (documented in the push-hook section,
+lines 197-212 of the fetched version). It does not define a client-side
+`post-push` hook. `post-receive` and `post-update` are server-side hooks run by
+`git-receive-pack`; GitHub-hosted remotes do not provide this repository with a
+custom server hook for our smoke script.
+
+Therefore the VPS system crontab is the sole post-push smoke trigger:
+
+```text
+*/5 * * * * /home/ubuntu/.hermes/scripts/post_push_smoke.sh >> /home/ubuntu/.hermes/logs/post-push-smoke.cron.log 2>&1
+```
+
+The smoke receipt separates:
+
+- `remote_main_sha`: source publication on GitHub;
+- `deployed_runtime_sha`: the last approved live deployment reference;
+- `NOOP`: service healthy, no runtime drift, and source/live references equal;
+- `WARN`: service healthy but documented runtime drift exists;
+- `FAIL`: service/routing/bridge failure, unreadable remote/deployed reference,
+  or `/tmp` threshold breach.
