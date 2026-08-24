@@ -37,11 +37,18 @@ COPILOT_REASONING_EFFORTS_O_SERIES = ["low", "medium", "high"]
 # decision, not an implementer fix. Do not edit without explicit
 # user instruction.
 D8_OPENCODE_ZEN_FREE_MODELS: tuple[str, ...] = (
-    "deepseek-v4-flash-free",
+    # deepseek-v4-flash-free: DOWN upstream 2026-08-24 — HTTP 400 "Model is
+    # unavailable" on every request shape (plain/stream/reasoning_effort),
+    # live-probed twice. STILL listed in live /v1/models (19 entries), so this
+    # is an outage, not deprecation. Re-add when upstream recovers.
     "mimo-v2.5-free",
-    "ling-3.0-flash-free",
+    # laguna-s-2.1-free: verified 200 OK 2026-08-24.
     "laguna-s-2.1-free",
+    # big-pickle: in live catalog; probe hit FreeUsageLimitError 429 on
+    # 2026-08-24 (same class as mimo) — kept, availability is transient.
     "big-pickle",
+    # ling-3.0-flash-free REMOVED 2026-08-24: HTTP 401 "Model is not
+    # supported" AND absent from live /v1/models — dead upstream.
 )
 
 # Model IDs that are legacy aliases, deprecated upstream (removed from the

@@ -278,7 +278,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "hermes_cli/models.py",
-      "source_sha256": "e050e98aabdb11c0551e16cc4c223a2f87c0b8c69233c1f5ef3cde8c75821a4a"
+      "source_sha256": "ce40e5488b65375a6f1aaec7d195db1ed7fe020a5ef241e7ba02310e38a8f245"
     },
     {
       "destination": null,
