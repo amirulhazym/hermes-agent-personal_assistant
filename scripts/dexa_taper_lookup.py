@@ -29,6 +29,7 @@ SLOT_TO_KEY = {
     "B": "dose_morning",
     "C": "dose_midday",
     "D": "dose_afternoon",
+    "F": "dose_2pm",
 }
 
 _DEXA_DRUG_PREFIX = "dexamethasone"

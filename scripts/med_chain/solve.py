@@ -64,6 +64,29 @@ def solve(constraints, fixed_slots: dict):
         slots["E"] = anchors["E"]
         rules_fired.append("rule_005")
 
+    # Pending F (BD 2pm): doctor anchor is 14:00 default. Actual Dexa B sets
+    # a min_gap lower bound (rule_009: min 6 hours from B) so delayed morning
+    # Dexa pushes F safely without clashing.
+    b_to_f = next((c for c in constraints if c.get("id") == "rule_009"), None)
+    f_anchor = anchors.get("F")
+    if "F" in slots:
+        if "B" in slots and b_to_f:
+            earliest_f = _add(slots["B"], b_to_f["hours"])
+            if slots["F"] < earliest_f:
+                conflicts.append(
+                    f"B→F unsafe: F {slots['F'].strftime('%H:%M')} is before "
+                    f"minimum {earliest_f.strftime('%H:%M')}"
+                )
+    elif f_anchor:
+        if "B" in fixed_slots and b_to_f:
+            earliest_f = _add(fixed_slots["B"], b_to_f["hours"])
+            slots["F"] = max(f_anchor, earliest_f)
+            rules_fired.append("rule_008")
+            rules_fired.append("rule_009")
+        else:
+            slots["F"] = f_anchor
+            rules_fired.append("rule_008")
+
     # Before actual Dexa B exists, C/D retain independent planned defaults
     # 12:00/16:00. Akurit may delay B for safety but never cascades later slots.
     # Once actual B exists, its exact minute drives C/D; actual C overrides D.

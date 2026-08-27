@@ -29,10 +29,10 @@ TAPER_FILE = HOME / '.hermes' / 'dexa_taper.json'
 MYT = ZoneInfo('Asia/Kuala_Lumpur')
 
 # ── Slots in order ─────────────────────────────────────────────────────────
-SLOTS = ['A', 'B', 'C', 'D', 'E']
+SLOTS = ['A', 'B', 'C', 'D', 'E', 'F']
 
 # ── Default planned times (fallback) ──────────────────────────────────────
-DEFAULT_TIMES = {'A': '06:00', 'B': '08:00', 'C': '12:00', 'D': '16:00', 'E': '20:00'}
+DEFAULT_TIMES = {'A': '06:00', 'B': '08:00', 'C': '12:00', 'D': '16:00', 'E': '20:00', 'F': '14:00'}
 
 # ── Gap rules in hours ─────────────────────────────────────────────────────
 GAPS = {
@@ -298,7 +298,7 @@ def is_slot_active_for_dexa(slot: str, taper: dict = None) -> bool:
     if not phase:
         return True  # Default: all active
     freq = phase.get('freq', 'TDS')
-    active = taper.get('active_slots_by_freq', {}).get(freq, ['A', 'B', 'C', 'D', 'E'])
+    active = taper.get('active_slots_by_freq', {}).get(freq, SLOTS)
     return slot in active
 
 
@@ -311,8 +311,19 @@ def get_drugs_for_slot(slot: str, schedule: dict) -> list[dict]:
 
 
 def get_required_drug_ids(slot: str, schedule: dict) -> list[str]:
-    """Get drug_ids for REQUIRED drugs (excludes optional like b_complex)."""
-    return [d['drug_id'] for d in get_drugs_for_slot(slot, schedule) if d.get('required', True)]
+    """Get drug_ids for REQUIRED drugs (excludes optional and inactive dexa doses)."""
+    from dexa_taper_lookup import get_dexa_dose, is_dexa_drug
+    req = []
+    for d in get_drugs_for_slot(slot, schedule):
+        if not d.get('required', True):
+            continue
+        did = d.get('drug_id', '')
+        if is_dexa_drug(did):
+            dose = get_dexa_dose(slot)
+            if dose is None or dose <= 0:
+                continue
+        req.append(did)
+    return req
 
 
 def get_all_drug_ids(slot: str, schedule: dict) -> list[str]:
@@ -349,9 +360,23 @@ def get_drug_level_overall(slot: str, schedule: dict) -> str:
     if isinstance(entry, dict) and 'status' in entry and 'drugs' not in entry:
         return 'completed' if entry.get('status') == 'confirmed' else 'pending'
     
-    # New drug-level format
+    # New drug-level format.  ``overall`` is a denormalized write-time cache;
+    # derive the live result from the drug records and today's taper instead.
+    # This prevents an old cache value from overriding a changed active dose.
     if isinstance(entry, dict) and 'drugs' in entry:
-        return entry.get('overall', 'pending')
+        required = get_required_drug_ids(slot, schedule)
+        if not required:
+            return 'completed'
+        drugs = entry.get('drugs', {})
+        taken_count = sum(
+            1 for drug_id in required
+            if drugs.get(drug_id, {}).get('status') == 'taken'
+        )
+        if taken_count == len(required):
+            return 'completed'
+        if taken_count:
+            return 'partial'
+        return 'pending'
     
     return 'pending'
 
@@ -385,8 +410,9 @@ def get_pending_required_drugs(slot: str) -> list[dict]:
     # Date-aware Dexa dosage: schedule JSON holds a static snapshot (e.g. 5/5/4).
     # The taper engine is the single dosage authority. Override B/C/D Dexa
     # entries with the current phase dose so reminders never render stale
-    # static dosages (dataflow gap, 2026-08-12). Non-Dexa drugs untouched.
-    if slot in ('B', 'C', 'D') and any(
+    # static dosages (dataflow gap, 2026-08-12). This includes BD's F slot.
+    # Non-Dexa drugs are untouched.
+    if slot in ('B', 'C', 'D', 'F') and any(
         d.get('drug_id', '').startswith('dexamethasone_') for d in pending
     ):
         phase = get_current_phase()
@@ -460,7 +486,7 @@ def get_actual_time(slot: str, drug_id: str | None = None) -> str | None:
                     return info['time']
             return None
         # Priority: Dexa time for slots that have Dexamethasone
-        dexa_ids = ['dexamethasone_1', 'dexamethasone_2', 'dexamethasone_3']
+        dexa_ids = ['dexamethasone_1', 'dexamethasone_2', 'dexamethasone_3', 'dexamethasone_f']
         dexa_times = [
             info['time'] for did, info in entry['drugs'].items()
             if did in dexa_ids and info.get('status') == 'taken' and info.get('time')
@@ -543,6 +569,7 @@ def calculate_chain() -> dict:
         'A': 'akurit_2',
         'B': 'dexamethasone_1',
         'C': 'dexamethasone_2',
+        'F': 'dexamethasone_f',
     }
     for slot, drug_id in timing_drug.items():
         if is_confirmed(slot) or is_partial(slot):
@@ -557,17 +584,19 @@ def calculate_chain() -> dict:
         resolved_times = {}
         timing_error = str(exc)
 
-    # Step 1.5: Determine active slots based on taper phase
-    taper = load_taper()
-    current_phase = get_current_phase(taper)
-    freq = current_phase.get('freq', 'TDS') if current_phase else 'TDS'
-    active_slots_set = set(taper.get('active_slots_by_freq', {}).get(freq, SLOTS))
+    # Step 1.5: A taper can deactivate a Dexa dose, not unrelated medicines
+    # that share its slot (e.g. CC in C or Levetiracetam in B).  The date-aware
+    # required-drug resolver is the single source of slot applicability.
+    required_by_slot = {
+        slot: get_required_drug_ids(slot, schedule)
+        for slot in SLOTS
+    }
     
     # Step 2: Calculate state for each slot
     slot_states = {}
     for slot in SLOTS:
-        # Check if slot is active for current taper phase
-        slot_active = slot in active_slots_set
+        # Whole slots remain active whenever they contain any required drug.
+        slot_active = bool(required_by_slot[slot])
         
         overall = get_drug_level_overall(slot, schedule)
         confirmed = overall == 'completed'
@@ -920,7 +949,7 @@ def generate_reminder(slot: str, chain: dict) -> str:
     # ── SLOT D: Dexamethasone #3 ────────────────────────────────────────────
     if slot == 'D':
         c_info = f"C tadi {prev_time} ✅" if prev_time else "C belum confirm"
-        
+
         if count == 0:
             return (
                 f"⏰ D time — Dexamethasone #3{dexa_mg_str} (dose terakhir hari ni). "
@@ -936,6 +965,28 @@ def generate_reminder(slot: str, chain: dict) -> str:
             return (
                 f"Dah {count+1}x tanya D. {c_info}. "
                 f"Dah pukul {now}. Last dose Dexa untuk hari ni."
+            )
+
+    # ── SLOT F: Dexamethasone #2 (BD 2pm) ──────────────────────────────────
+    if slot == 'F':
+        b_info = chain['slots']['B'].get('actual_time')
+        b_info_str = f"B tadi {b_info} ✅" if b_info else "B pagi takde rekod"
+
+        if count == 0:
+            return (
+                f"⏰ F time — Dexamethasone #2{dexa_mg_str} (dose 2pm, BD). "
+                f"Total Dexa hari ni: {total_mg}mg ({freq}). "
+                f"{b_info_str}, 6 jam gap dari pagi."
+            )
+        elif count == 1:
+            return (
+                f"Boss, Dexa #2{dexa_mg_str} (2pm) belum ambil? {b_info_str}. "
+                f"Dah pukul {now}. Ingat dose BD petang."
+            )
+        else:
+            return (
+                f"Dah {count+1}x tanya F. {b_info_str}. "
+                f"Dah pukul {now}. Last BD dose Dexa untuk hari ni."
             )
     
     # ── SLOT E: Levetiracetam (malam) ───────────────────────────────────────

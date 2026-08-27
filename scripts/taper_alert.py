@@ -105,8 +105,9 @@ def format_dose_change(current: dict, next_p: dict, days: int = 0) -> str:
         lines.append(f"⚠️ Frequency change: {curr_freq} → {next_freq}")
         if next_freq == "BD":
             lines.append(f"→ Slot D will be DEACTIVATED")
+            lines.append(f"→ Slot F (14:00) will be ACTIVATED — BD 2pm dose")
         elif next_freq == "OD":
-            lines.append(f"→ Slots C,D will be DEACTIVATED")
+            lines.append(f"→ Slots C,D,F will be DEACTIVATED")
         elif next_freq == "STOP":
             lines.append(f"→ ALL dexa slots will be DEACTIVATED")
     

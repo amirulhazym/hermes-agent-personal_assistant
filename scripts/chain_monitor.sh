@@ -58,7 +58,7 @@ if state_today != today:
 import sys as _sys
 _sys.path.insert(0, '$SCRIPT_DIR')
 import chain_calc
-for slot_letter in ['A', 'B', 'C', 'D', 'E']:
+for slot_letter in ['A', 'B', 'C', 'D', 'E', 'F']:
     if chain_calc.is_effectively_done(slot_letter):
         state.setdefault('reminder_counts', {}).pop(slot_letter, None)
         state.setdefault('last_reminder_sent', {}).pop(slot_letter, None)

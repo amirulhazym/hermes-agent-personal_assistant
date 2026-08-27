@@ -267,9 +267,9 @@ def build_user_prompt(slot: str, chain: dict, slot_meta: dict) -> str:
     overall = slot_meta.get("overall", "pending")
     pending = slot_meta.get("pending_drugs", [])
 
-    # Compact summary of all 5 slots
+    # Compact summary of all configured slots.
     slot_lines = []
-    for s in ["A", "B", "C", "D", "E"]:
+    for s in ["A", "B", "C", "D", "E", "F"]:
         st = chain.get("slots", {}).get(s, {})
         if st.get("confirmed"):
             t = st.get("actual_time", "?")
@@ -385,6 +385,7 @@ TIME_LABELS = {
     "C": "Tengah Hari",
     "D": "Petang",
     "E": "Malam",
+    "F": "Petang",
 }
 
 
