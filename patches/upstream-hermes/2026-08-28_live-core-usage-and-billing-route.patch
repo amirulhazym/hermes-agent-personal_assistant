@@ -1,0 +1,194 @@
+diff --git a/agent/account_usage.py b/agent/account_usage.py
+index b7abb18017644345b74263ceac61d183462702ee..a4a77aee6cff52d07e91b6a05c91e741b34b4021 100644
+--- a/agent/account_usage.py
++++ b/agent/account_usage.py
+@@ -881,6 +881,80 @@ def _fetch_openrouter_account_usage(base_url: Optional[str], api_key: Optional[s
+     )
+ 
+ 
++def _fetch_antigravity_catalog() -> Optional[dict]:
++    try:
++        import sys
++        from pathlib import Path
++        src = Path.home() / ".hermes" / "plugins" / "antigravity-provider" / "src"
++        if src.exists() and str(src) not in sys.path:
++            sys.path.insert(0, str(src))
++        from antigravity_provider.runtime import fetch_available_models  # type: ignore[import-untyped]
++        return fetch_available_models()
++    except Exception:
++        return None
++
++
++
++def _fetch_antigravity_account_usage() -> Optional[AccountUsageSnapshot]:
++    catalog = _fetch_antigravity_catalog()
++    if not catalog or not isinstance(catalog, dict):
++        return None
++    raw_models = catalog.get("models") or {}
++    if not isinstance(raw_models, dict):
++        return None
++
++    target_pairs = [
++        ("gemini-3.7-flash", ("gemini-3.7-flash-tiered", "gemini-3.7-flash")),
++        ("gemini-3.6-flash", ("gemini-3.6-flash-tiered", "gemini-3.6-flash-high", "gemini-3.6-flash")),
++        ("gemini-3.1-pro", ("gemini-3.1-pro-high", "gemini-pro-agent", "gemini-3.1-pro")),
++        ("gemini-3.5-flash", ("gemini-3-flash-agent", "gemini-3.5-flash-low", "gemini-3.5-flash")),
++        ("claude-sonnet-4-6", ("claude-sonnet-4-6",)),
++        ("claude-opus-4-6", ("claude-opus-4-6-thinking", "claude-opus-4-6")),
++        ("gpt-oss-120b", ("openai/gpt-oss-120b-maas", "gpt-oss-120b-medium", "gpt-oss-120b")),
++    ]
++
++    windows: list[AccountUsageWindow] = []
++    seen_labels: set[str] = set()
++
++    for label, wire_keys in target_pairs:
++        found_info: dict | None = None
++        for key in wire_keys:
++            if key in raw_models and isinstance(raw_models[key], dict):
++                found_info = raw_models[key]
++                break
++        if not found_info:
++            continue
++        q = found_info.get("quotaInfo")
++        if not isinstance(q, dict):
++            continue
++        rem = q.get("remainingFraction")
++        reset = _parse_dt(q.get("resetTime"))
++        if isinstance(rem, (int, float)):
++            used_pct = round((1.0 - rem) * 100, 1)
++            detail = f"{rem * 100:.1f}% remaining"
++            windows.append(
++                AccountUsageWindow(
++                    label=label,
++                    used_percent=used_pct,
++                    reset_at=reset,
++                    detail=detail,
++                )
++            )
++            seen_labels.add(label)
++
++    if not windows:
++        return None
++
++    return AccountUsageSnapshot(
++        provider="antigravity",
++        source="cloudcode_api",
++        fetched_at=_utc_now(),
++        title="Antigravity Quota",
++        plan="Google AI Pro (Subscription)",
++        windows=tuple(windows),
++    )
++
++
+ def fetch_account_usage(
+     provider: Optional[str],
+     *,
+@@ -891,6 +965,8 @@ def fetch_account_usage(
+     if normalized in {"", "auto", "custom"}:
+         return None
+     try:
++        if normalized in {"antigravity", "google-antigravity"}:
++            return _fetch_antigravity_account_usage()
+         if normalized == "openai-codex":
+             return _fetch_codex_account_usage(base_url=base_url, api_key=api_key)
+         if normalized == "anthropic":
+diff --git a/gateway/slash_commands.py b/gateway/slash_commands.py
+index 9c54d6112b9df86201d446350ed80921c8d321fe..f7daa5e09329c7c0e56c08b87f31d9206916baf8 100644
+--- a/gateway/slash_commands.py
++++ b/gateway/slash_commands.py
+@@ -1903,6 +1903,14 @@ class GatewaySlashCommandsMixin:
+                                 await _sess_db.update_session_model(
+                                     _sess_entry.session_id, result.new_model
+                                 )
++                                if hasattr(_sess_db, "update_session_billing_route"):
++                                    await _sess_db.update_session_billing_route(
++                                        _sess_entry.session_id,
++                                        provider=result.target_provider,
++                                        base_url=result.base_url,
++                                        billing_mode=result.api_mode,
++                                    )
++
+                             except Exception as exc:
+                                 logger.debug(
+                                     "Failed to persist model switch to DB: %s", exc
+@@ -5040,12 +5048,20 @@ class GatewaySlashCommandsMixin:
+                         agent = cached[0]
+ 
+         # Resolve provider/base_url/api_key for the account-usage fetch.
+-        # Prefer the live agent; fall back to persisted billing data on the
+-        # SessionDB row so `/usage` still returns account info between turns
+-        # when no agent is resident.
++        # Prefer the live agent; fall back to session model overrides, then
++        # persisted billing data on the SessionDB row, then gateway config,
++        # so `/usage` always returns account info between turns.
+         provider = getattr(agent, "provider", None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
+         base_url = getattr(agent, "base_url", None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
+         api_key = getattr(agent, "api_key", None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
++
++        if not provider:
++            override = self._session_model_overrides.get(session_key, {})
++            if override:
++                provider = override.get("provider")
++                base_url = override.get("base_url")
++                api_key = override.get("api_key")
++
+         if not provider and getattr(self, "_session_db", None) is not None:
+             try:
+                 _entry_for_billing = await self.async_session_store.get_or_create_session(source)
+@@ -5055,6 +5071,16 @@ class GatewaySlashCommandsMixin:
+             provider = provider or persisted.get("billing_provider")
+             base_url = base_url or persisted.get("billing_base_url")
+ 
++        if not provider:
++            try:
++                _cfg_model = (_load_gateway_config() or {}).get("model", {})
++                if isinstance(_cfg_model, dict):
++                    provider = _cfg_model.get("provider")
++                    base_url = base_url or _cfg_model.get("base_url")
++            except Exception:
++                pass
++
++
+         if wants_reset:
+             normalized_provider = str(provider or "").strip().lower()
+             if normalized_provider != "openai-codex":
+diff --git a/tests/agent/test_account_usage.py b/tests/agent/test_account_usage.py
+index 4de28b88273bb28b6222ef1a206540217bf157d9..7d1c5cc5eb4032e8f69b93b3650e63dc7fe69584 100644
+--- a/tests/agent/test_account_usage.py
++++ b/tests/agent/test_account_usage.py
+@@ -227,3 +227,35 @@ def test_redeem_missing_credentials_reports_unavailable(monkeypatch):
+ 
+     assert result.status == "unavailable"
+     assert "hermes auth" in result.message
++
++
++def test_antigravity_usage_fetches_and_parses_live_quota(monkeypatch):
++    fake_catalog = {
++        "models": {
++            "gemini-3.7-flash-tiered": {
++                "quotaInfo": {
++                    "remainingFraction": 0.95,
++                    "resetTime": "2026-08-25T12:00:00Z",
++                }
++            },
++            "claude-opus-4-6-thinking": {
++                "quotaInfo": {
++                    "remainingFraction": 1.0,
++                    "resetTime": "2026-08-25T14:00:00Z",
++                }
++            }
++        }
++    }
++    monkeypatch.setattr(
++        account_usage,
++        "_fetch_antigravity_catalog",
++        lambda: fake_catalog,
++    )
++    snapshot = account_usage.fetch_account_usage("antigravity")
++    assert snapshot is not None
++    assert snapshot.provider == "antigravity"
++    assert snapshot.title == "Antigravity Quota"
++    assert len(snapshot.windows) == 2
++    assert snapshot.windows[0].label == "gemini-3.7-flash"
++    assert snapshot.windows[0].used_percent == 5.0
++    assert "95.0% remaining" in (snapshot.windows[0].detail or "")
