@@ -1,0 +1,25 @@
+diff --git a/agent/auxiliary_client.py b/agent/auxiliary_client.py
+index c8970c02f9da9eb5717a1ff79837466b148291be..b3360f798898a5ae8a57f50e5c3d84f83ee819fc 100644
+--- a/agent/auxiliary_client.py
++++ b/agent/auxiliary_client.py
+@@ -3172,13 +3172,10 @@ def _relay_sync_completion(
+ ) -> Any:
+     def _do_create(req: dict[str, Any]) -> Any:
+-        try:
+-            from hermes_cli.middleware import run_llm_execution_middleware
+-            return run_llm_execution_middleware(
+-                req,
+-                create or (lambda r: client.chat.completions.create(**r)),
+-                provider=provider,
+-            )
+-        except Exception:
+-            return (create or (lambda r: client.chat.completions.create(**r)))(req)
++        from hermes_cli.middleware import run_llm_execution_middleware
++        return run_llm_execution_middleware(
++            req,
++            create or (lambda r: client.chat.completions.create(**r)),
++            provider=provider,
++        )
+-
++
+     callback = _do_create

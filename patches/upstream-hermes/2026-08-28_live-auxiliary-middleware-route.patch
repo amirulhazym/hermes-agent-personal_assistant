@@ -1,0 +1,24 @@
+diff --git a/agent/auxiliary_client.py b/agent/auxiliary_client.py
+index 4cc501670258165f14c68c7b314a776e471a73c7..3ae5d001a89ee4ad46d44a136d3553bb92833233 100644
+--- a/agent/auxiliary_client.py
++++ b/agent/auxiliary_client.py
+@@ -3416,7 +3416,18 @@ def _relay_sync_completion(
+     api_mode: str | None = None,
+     create: Callable[[dict[str, Any]], Any] | None = None,
+ ) -> Any:
+-    callback = create or (lambda request: client.chat.completions.create(**request))
++    def _do_create(req: dict[str, Any]) -> Any:
++        try:
++            from hermes_cli.middleware import run_llm_execution_middleware
++            return run_llm_execution_middleware(
++                req,
++                create or (lambda r: client.chat.completions.create(**r)),
++                provider=provider,
++            )
++        except Exception:
++            return (create or (lambda r: client.chat.completions.create(**r)))(req)
++
++    callback = _do_create
+     route = _relay_auxiliary_metadata(provider=provider, api_mode=api_mode)
+     # Protected compression calls isolate only the provider callback and stream
+     # aggregation.  The owning thread remains free to unwind its lease/DB
