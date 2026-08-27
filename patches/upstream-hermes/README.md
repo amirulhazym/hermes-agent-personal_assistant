@@ -49,3 +49,20 @@ git apply patches/upstream-hermes/2026-08-06_vps-runtime-overlays.patch
 Recorded 2026-08-06 during Gate 4 reconciliation. Overlay 1 = 6 local commits
 (selected-model-contract P1-C); overlay 2 = working-tree modifications + untracked
 source files vs HEAD f94dff11e. Secret values never included; env-var references only.
+
+## Current source-lock closure — 2026-08-28
+
+The authoritative current series is the four-entry `patch_series` in
+`docs/reconciliation/hermes-runtime-source-lock.json`, applied to official base
+`a31be48030f60383bf4c1d96ba46bd4b48430218`. The fourth entry is:
+
+4. `2026-08-28_live-core-usage-and-billing-route.patch` — incremental delta
+   after the existing C2/C3/C4 stack. It contains the two backup-unique paths
+   (`agent/account_usage.py`, `tests/agent/test_account_usage.py`) and the one
+   auto-merged path (`gateway/slash_commands.py`).
+
+The 16-path reconciliation evidence, source hashes, test boundary, and
+historical-snapshot warning are recorded in
+`docs/reconciliation/core-live-source-closure-20260828.md`. The raw backup is
+not an active runtime input merely because it exists; only the hash-pinned lock
+series is authoritative.
