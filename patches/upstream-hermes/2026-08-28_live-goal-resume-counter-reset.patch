@@ -1,0 +1,13 @@
+diff --git a/hermes_cli/goals.py b/hermes_cli/goals.py
+index df1b86df4410e3762d337849c92298c840699385..0e3fe9abffc7a54124dc2b50a1bcd44fdc098450 100644
+--- a/hermes_cli/goals.py
++++ b/hermes_cli/goals.py
+@@ -1520,6 +1520,8 @@ class GoalManager:
+             return None
+         self._state.status = "active"
+         self._state.paused_reason = None
++        self._state.consecutive_transport_failures = 0
++        self._state.consecutive_parse_failures = 0
+         # Resuming starts fresh — clear any stale barrier.
+         self._state.waiting_on_pid = None
+         self._state.waiting_on_session = None

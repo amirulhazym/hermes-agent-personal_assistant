@@ -52,17 +52,32 @@ source files vs HEAD f94dff11e. Secret values never included; env-var references
 
 ## Current source-lock closure — 2026-08-28
 
-The authoritative current series is the four-entry `patch_series` in
+The authoritative current series is the seven-entry `patch_series` in
 `docs/reconciliation/hermes-runtime-source-lock.json`, applied to official base
-`a31be48030f60383bf4c1d96ba46bd4b48430218`. The fourth entry is:
+`a31be48030f60383bf4c1d96ba46bd4b48430218`.
 
 4. `2026-08-28_live-core-usage-and-billing-route.patch` — incremental delta
    after the existing C2/C3/C4 stack. It contains the two backup-unique paths
    (`agent/account_usage.py`, `tests/agent/test_account_usage.py`) and the one
    auto-merged path (`gateway/slash_commands.py`).
+5. `2026-08-28_live-auxiliary-middleware-route.patch` — selective capture of
+   live commit `c39995e94d78abd33e21ecb6e47051b644d26640`, routing synchronous
+   auxiliary completions through the execution middleware for in-process
+   providers.
+6. `2026-08-28_live-goal-resume-counter-reset.patch` — selective capture of
+   live commit `a1a38baea746f90d551a278e85bd885c3fa0f117`, clearing both
+   consecutive judge-failure counters on goal resume.
+7. `2026-08-28_harden-auxiliary-middleware-fail-closed.patch` — candidate
+   hardening added after independent review found that the live middleware
+   overlay could retry a failed provider or bypass middleware exceptions.
 
-The 16-path reconciliation evidence, source hashes, test boundary, and
-historical-snapshot warning are recorded in
+The overlays preserve intentional live behavior plus the reviewed hardening; they
+are not a byte-for-byte clone of the entire live upstream history. Therefore
+whole-file SHA equality with the live checkout is not an acceptance criterion.
+The materialized candidate is tested at the behavior seams instead.
+
+The 16-path reconciliation evidence, post-snapshot live-only capture, source
+hashes, test boundary, and historical-snapshot warning are recorded in
 `docs/reconciliation/core-live-source-closure-20260828.md`. The raw backup is
 not an active runtime input merely because it exists; only the hash-pinned lock
 series is authoritative.

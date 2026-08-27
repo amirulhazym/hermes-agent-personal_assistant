@@ -32,6 +32,27 @@
       "path": "patches/upstream-hermes/2026-08-28_live-core-usage-and-billing-route.patch",
       "sha256": "a14b02c6109c9faf3a33f6eb979e5229d637661425764677273e0d55b252426c",
       "description": "Sanitized incremental overlay derived from the 2026-08-27 16-path live-core backup: Antigravity quota account-usage retrieval, persisted billing-route fallback for /usage, and the focused regression test. It applies after the three existing a31be48030 overlays; two captured trailing blank lines were normalized without changing the intended code paths."
+    },
+    {
+      "order": 5,
+      "id": "custom-live-auxiliary-middleware-route",
+      "path": "patches/upstream-hermes/2026-08-28_live-auxiliary-middleware-route.patch",
+      "sha256": "e6f42cfc76ecf9b8c9c75a665ebe79b7ffc16f708056de3646cef6936b785f41",
+      "description": "Exact selective overlay of live commit c39995e94d78abd33e21ecb6e47051b644d26640: route synchronous auxiliary completions through the Hermes LLM execution middleware for in-process plugin providers."
+    },
+    {
+      "order": 6,
+      "id": "custom-live-goal-resume-counter-reset",
+      "path": "patches/upstream-hermes/2026-08-28_live-goal-resume-counter-reset.patch",
+      "sha256": "52b0827a7c04fa4e2a7e8247597465af6f2666bc61d437eab78c46bde8981e96",
+      "description": "Exact selective overlay of live commit a1a38baea746f90d551a278e85bd885c3fa0f117: reset consecutive transport and parse failure counters when resuming a paused goal."
+    },
+    {
+      "order": 7,
+      "id": "candidate-harden-auxiliary-middleware-fail-closed",
+      "path": "patches/upstream-hermes/2026-08-28_harden-auxiliary-middleware-fail-closed.patch",
+      "sha256": "afa7cfdfc0c73b179543336496097e3193d2e8b3203031dfd9a29aed9d075eb3",
+      "description": "Candidate hardening after independent review: preserve middleware exceptions and prevent duplicate/bypass provider calls; this is intentionally separate from live commit c39995e94d78abd33e21ecb6e47051b644d26640."
     }
   ],
   "runtime_tree_manifest": "docs/reconciliation/hermes-runtime-tree-manifest.json",

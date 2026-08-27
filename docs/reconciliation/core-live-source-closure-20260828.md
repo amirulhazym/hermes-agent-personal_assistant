@@ -65,15 +65,54 @@ C2/C3/C4:
 - Generated patch applies to a fresh reconstructed C2/C3/C4 tree: **PASS**.
 - Applied target hashes match the generated patch output: **3/3**.
 
+## Post-snapshot live-only core drift captured
+
+The current live checkout is not the same source boundary as the 2026-08-27
+16-path backup. Direct current-upstream graph evidence is:
+
+- Official remote `main`: `0dfba37b11ff2ca908ae2df85b55f4f4c9b7fd8b`.
+- Live core `HEAD`: `a1a38baea746f90d551a278e85bd885c3fa0f117`.
+- Common base: `a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8`.
+- Graph counts in a throwaway graph clone: official `main` is **76 commits
+  ahead** and live has **2 local-only commits**.
+- The two local-only commits are `c39995e94d78abd33e21ecb6e47051b644d26640`
+  and `a1a38baea746f90d551a278e85bd885c3fa0f117`.
+
+Those two intentional source changes were captured as ordered overlays 5 and 6:
+
+- `2026-08-28_live-auxiliary-middleware-route.patch`
+  - 1,181 bytes; SHA-256
+    `e6f42cfc76ecf9b8c9c75a665ebe79b7ffc16f708056de3646cef6936b785f41`.
+- `2026-08-28_live-goal-resume-counter-reset.patch`
+  - 610 bytes; SHA-256
+    `52b0827a7c04fa4e2a7e8247597465af6f2666bc61d437eab78c46bde8981e96`.
+
+The independent review then found a real failure in the live middleware change:
+when the middleware or provider raised, the catch-all fallback could bypass the
+middleware or invoke the provider twice. A separate order-7 candidate overlay
+preserves those exceptions and removes the duplicate/bypass path:
+
+- `2026-08-28_harden-auxiliary-middleware-fail-closed.patch`
+  - 1,022 bytes; SHA-256
+    `afa7cfdfc0c73b179543336496097e3193d2e8b3203031dfd9a29aed9d075eb3`.
+
+The three overlays apply cleanly after the existing four-entry series. The
+candidate is a selective source index, not a byte-for-byte clone of the entire
+live upstream history; the materialized whole-file SHA therefore may differ
+where official upstream history between the pinned base and live checkout is
+absent.
+
 ## Lock and manifest update
 
-The candidate source lock now has 4 ordered entries. The new entry is
-`custom-live-core-usage-and-billing-route` at order `4`.
+The candidate source lock now has 7 ordered entries; the new entries are
+`custom-live-auxiliary-middleware-route` at order `5`,
+`custom-live-goal-resume-counter-reset` at order `6`, and
+`candidate-harden-auxiliary-middleware-fail-closed` at order `7`.
 
 - New patch-series digest:
-  `6f6741592510f3394f0a11defbe98aa417603ad6ff9ed972a72395721705a37c`
+  `a4dcdf42db9274148ede372925492a23c59e3bf6f72240ba9cf1634a19ed825f`
 - Updated tree manifest digest:
-  `6c594aae2f0175f34ac631c1933a7ade1bc488315c0ad16d6db289a9815847ff`
+  `dca85c4a06dd1a5cb84efe39eeab537c8183e5e5d8b7f8288d970cd41660ab42`
 - Updated manifest target hashes:
   - `agent/account_usage.py`:
     `646a5bdfa9a83bac22dce9132bf4e4b269025410d482bffda5e1f470d3463797`
@@ -81,6 +120,10 @@ The candidate source lock now has 4 ordered entries. The new entry is
     `038f2dd352331dda278252751cef60b081e3783262c511310c418d78d8e05b32`
   - `tests/agent/test_account_usage.py`:
     `f8745145f0e63d330020f3af2692e349a3df77693ca21487658648dafcf87f63`
+  - `agent/auxiliary_client.py` (materialized candidate):
+    `f92926e0eb64424cee28afb80bbbb62da6b5b75744a134a4190d086b2656f179`
+  - `hermes_cli/goals.py` (materialized candidate):
+    `97973f093df92b022d23bb2def2d80f5ed7c38b2adfff02ba3699c9b68537a70`
 
 ## Out-of-tree provider boundary
 
@@ -94,15 +137,25 @@ separate integration gates and are not claimed here.
 
 ## Tests and current gate status
 
-- `tests/reconciliation/test_hermes_runtime_reconstruction.py`:
-  **6 passed in 7.36s**.
-- Disposable affected-suite comparison:
-  - clean donor base: **312 passed, 1 failed**;
-  - C2/C3/C4 + generated overlay: **339 passed, 1 failed**;
-  - same failure in both runs:
-    `tests/test_hermes_state.py::TestFTS5Search::test_search_projection_skips_context_enrichment_queries`;
-    expected one context-enrichment query, observed zero.
-  - Classification: **BASELINE-REPRODUCED**, not fixed or silently ignored.
-- The pre-commit evidence in this record is not a release authorization; the
-  current candidate SHA, cleanliness, remote ref, deployment state, and process
+- `tests/reconciliation/test_hermes_runtime_reconstruction.py` plus
+  `tests/reconciliation/test_live_core_drift_regressions.py`:
+  **10 passed in 13.91s** after the fail-closed correction.
+- TDD evidence for the middleware correction:
+  - before order 7: **2 failed, 2 passed**; the two failures were the expected
+    duplicate-provider and middleware-bypass cases;
+  - after order 7: **4 passed** in the affected regression file.
+- `scripts/run_contract_tests.sh`: **18 collected, 18 passed**. Its final
+  informational line still says “14 tests expected”; that text is stale, not a
+  test failure.
+- Staged secret scan: **PASS**.
+- Staged added-line PII scan: **PASS**.
+- Full staged whitespace check: **PASS**.
+- The earlier four-overlay focused comparison remains historical evidence only:
+  clean donor base **312 passed, 1 failed** and four-overlay candidate **339
+  passed, 1 failed**, with the identical baseline-reproduced FTS5 failure.
+  It was run before overlays 5–7 and is not being reused as current full-suite
+  evidence.
+- The current candidate has not been pushed, merged, deployed, or reloaded into
+  the running process. `SOUL.md` remains untracked and excluded.
+- The candidate SHA, cleanliness, remote ref, deployment state, and process
   reload must be checked separately at each later gate.
