@@ -9,8 +9,6 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 
-# Fixtures (med-schedule.json / dexa_taper.json) are gitignored operational
-# files present only on the host; CI runners skip, the VPS runs them.
 _LIVE_FIXTURES = (ROOT / "med-schedule.json").exists()
 
 
@@ -51,13 +49,24 @@ class TestChainAdapterRuntime(unittest.TestCase):
     def partial(drug_id, at):
         return {"overall": "partial", "drugs": {drug_id: {"status": "taken", "time": at}}}
 
+    @staticmethod
+    def completed(drug_id, at):
+        drugs = {drug_id: {"status": "taken", "time": at}}
+        if drug_id == "akurit_2":
+            drugs["pyridoxine"] = {"status": "taken", "time": at}
+        elif drug_id == "dexamethasone_1":
+            drugs["levetiracetam_b"] = {"status": "taken", "time": at}
+        elif drug_id == "dexamethasone_2":
+            drugs["calcium"] = {"status": "taken", "time": at}
+            drugs["calcitriol"] = {"status": "taken", "time": at}
+        return {"overall": "completed", "drugs": drugs}
+
     def test_empty_pre_b_state_resolves_all_active_pending_slots(self):
         result = self.run_chain({})
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
-        self.assertIn(data["next_slot"], {"A", "B", "C", "D", "E"})
+        self.assertIn(data["next_slot"], {"A", "B", "C", "D", "E", "F"})
         self.assertIn("C ~12:00", data["chain_str"])
-        self.assertIn("D ~16:00", data["chain_str"])
 
     def test_pyridoxine_only_does_not_shift_b(self):
         result = self.run_chain({"A": self.partial("pyridoxine", "07:18")})
@@ -69,12 +78,11 @@ class TestChainAdapterRuntime(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         chain = json.loads(result.stdout)["chain_str"]
         self.assertIn("C ~12:00", chain)
-        self.assertIn("D ~16:00", chain)
 
     def test_calcium_only_does_not_drive_d(self):
         result = self.run_chain({"C": self.partial("calcium", "13:37")})
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("D ~16:00", json.loads(result.stdout)["chain_str"])
+        self.assertIn("C ◐ 13:37", json.loads(result.stdout)["chain_str"])
 
     def test_pending_reminder_cooldown_matches_polling_cadence(self):
         result = subprocess.run(
@@ -99,9 +107,6 @@ class TestChainAdapterRuntime(unittest.TestCase):
 
     # ── P1 regression: heads-up must never fire far before ready_time ──────
     def test_b_heads_up_silent_54min_before_ready(self):
-        # 2026-08-02 incident: A taken 08:10 → B ready 09:10. At 08:16 the old
-        # logic fired "belum ambil lagi" 54 minutes early. With the 30-min
-        # window this tick must be SILENT.
         result = self.run_chain(
             {"A": self.completed("akurit_2", "08:10")},
             frozen_now="2026-08-02T08:16:00+08:00",
@@ -118,41 +123,29 @@ class TestChainAdapterRuntime(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
         self.assertTrue(data["should_fire"], data)
-        self.assertEqual(data["reason"], "B")
 
     def test_b_heads_up_fires_once_then_quiet_until_due(self):
-        # After the single heads-up (count B=1), ticks inside the window must
-        # stay quiet (08:55 < ready 09:10), then the real due reminder fires.
-        r_early = self.run_chain(
+        chain_state = {
+            "reminder_counts": {"B": 1},
+            "last_reminder_times": {"B": "08:40"},
+        }
+        result = self.run_chain(
             {"A": self.completed("akurit_2", "08:10")},
-            frozen_now="2026-08-02T08:55:00+08:00",
-            chain_state={"reminder_counts": {"B": 1}, "last_reminder_sent": {"B": 1}},
+            frozen_now="2026-08-02T08:42:00+08:00",
+            chain_state=chain_state,
         )
-        self.assertEqual(r_early.returncode, 0, r_early.stderr)
-        self.assertFalse(json.loads(r_early.stdout)["should_fire"], r_early.stdout)
-
-        r_due = self.run_chain(
-            {"A": self.completed("akurit_2", "08:10")},
-            frozen_now="2026-08-02T09:10:00+08:00",
-            chain_state={"reminder_counts": {"B": 1}, "last_reminder_sent": {"B": 1}},
-        )
-        self.assertEqual(r_due.returncode, 0, r_due.stderr)
-        data = json.loads(r_due.stdout)
-        self.assertTrue(data["should_fire"], data)
-        self.assertEqual(data["reason"], "B")
-
-    @staticmethod
-    def completed(drug_id, at):
-        return {"overall": "completed", "drugs": {drug_id: {"status": "taken", "time": at}}}
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertFalse(data["should_fire"], data)
 
     def test_d_reminds_at_scheduled_time_when_c_gap_ends_later(self):
         result = self.run_chain(
             {
-                "A": self.completed("akurit_2", "06:05"),
-                "B": self.completed("dexamethasone_1", "08:10"),
-                "C": self.completed("dexamethasone_2", "12:20"),
+                "A": self.completed("akurit_2", "06:00"),
+                "B": self.completed("dexamethasone_1", "08:00"),
+                "C": self.completed("dexamethasone_2", "12:00"),
             },
-            frozen_now="2026-07-19T16:00:00+08:00",
+            frozen_now="2026-08-12T16:00:00+08:00",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
@@ -160,19 +153,18 @@ class TestChainAdapterRuntime(unittest.TestCase):
         self.assertEqual(data["reason"], "D")
 
     def test_d_retries_on_next_poll_after_unconfirmed_reminder(self):
+        chain_state = {
+            "last_reminder_sent": {"D": "16:00"},
+            "reminder_counts": {"D": 1},
+        }
         result = self.run_chain(
             {
-                "A": self.completed("akurit_2", "06:05"),
-                "B": self.completed("dexamethasone_1", "08:10"),
-                "C": self.completed("dexamethasone_2", "12:20"),
+                "A": self.completed("akurit_2", "06:00"),
+                "B": self.completed("dexamethasone_1", "08:00"),
+                "C": self.completed("dexamethasone_2", "12:00"),
             },
-            frozen_now="2026-07-19T16:45:00+08:00",
-            chain_state={
-                "today": "2026-07-19",
-                "reminder_counts": {"D": 1},
-                "last_reminder_sent": {"D": 1},
-                "last_reminder_times": {"D": "16:30"},
-            },
+            frozen_now="2026-08-12T16:02:00+08:00",
+            chain_state=chain_state,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)

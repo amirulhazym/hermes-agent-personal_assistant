@@ -1,12 +1,9 @@
 """Tests for the date-aware Dexa dosage fix in chain_calc.get_pending_required_drugs.
 
-Bug: get_pending_required_drugs() returned static schedule dosage (5/5/4) instead
-of the date-aware taper dose (e.g. 4/4/3 for phase 8), so reminders rendered
-stale dosages. This suite freezes CHAIN_CALC_NOW_MYT and asserts the exact
-dosage string emitted for B/C/D across phase boundaries.
-
-Fixture HOME points to a temporary HERMES_HOME with only schedule/taper copies;
-no live medical state is touched.
+Taper v2.1 (rebased 2026-08-25):
+- Phase 7 (until 2026-08-11): TDS 4/4/4 (12mg)
+- Phase 8 (2026-08-12 to 2026-08-25): TDS 4/4/3 (11mg)
+- Phase 9 (2026-08-26 to 2026-09-08): BD 6mg (Slot B) + 4mg (Slot F @ 14:00) (10mg)
 """
 import json
 import os
@@ -18,10 +15,8 @@ from pathlib import Path
 from unittest import mock
 
 HERE = Path(__file__).resolve().parent
-LIVE = Path("/home/ubuntu/.hermes")  # explicit — Path.home() is dynamic and breaks if another test mutates HOME
+LIVE = Path("/home/ubuntu/.hermes")
 
-# Operational-artifact gate: tests copy LIVE runtime fixtures; CI runners
-# have no /home/ubuntu/.hermes so they skip, the VPS host runs them.
 _LIVE_SCHEDULE = LIVE / "med-schedule.json"
 
 
@@ -45,9 +40,6 @@ class DexaDoseDataflowTest(unittest.TestCase):
                     del sys.modules[mod]
             if str(HERE) not in sys.path:
                 sys.path.insert(0, str(HERE))
-            # Import dexa_taper_lookup NOW under the correct HOME: chain_calc's
-            # delegation imports it lazily at call time, when this HOME context
-            # is gone — a cached module with the right TAPER_FILE is required.
             import dexa_taper_lookup  # noqa: F401
             import chain_calc
 
@@ -69,11 +61,14 @@ class DexaDoseDataflowTest(unittest.TestCase):
                 return d
         self.fail(f"no dexamethasone pending drug in slot {slot}")
 
-    def test_phase8_aug12_c_is_4mg(self):
-        self.assertEqual(self._dexa_pending("C", "2026-08-12")["dosage"], "4mg")
-
     def test_phase7_aug11_c_is_4mg(self):
         self.assertEqual(self._dexa_pending("C", "2026-08-11")["dosage"], "4mg")
+
+    def test_phase8_aug12_b_is_4mg(self):
+        self.assertEqual(self._dexa_pending("B", "2026-08-12")["dosage"], "4mg")
+
+    def test_phase8_aug12_c_is_4mg(self):
+        self.assertEqual(self._dexa_pending("C", "2026-08-12")["dosage"], "4mg")
 
     def test_phase8_aug12_d_is_3mg(self):
         self.assertEqual(self._dexa_pending("D", "2026-08-12")["dosage"], "3mg")
@@ -81,14 +76,11 @@ class DexaDoseDataflowTest(unittest.TestCase):
     def test_phase8_aug25_d_is_3mg(self):
         self.assertEqual(self._dexa_pending("D", "2026-08-25")["dosage"], "3mg")
 
-    def test_phase9_aug26_c_is_3mg(self):
-        self.assertEqual(self._dexa_pending("C", "2026-08-26")["dosage"], "3mg")
+    def test_phase9_aug26_b_is_6mg(self):
+        self.assertEqual(self._dexa_pending("B", "2026-08-26")["dosage"], "6mg")
 
-    def test_phase9_aug26_d_is_3mg(self):
-        self.assertEqual(self._dexa_pending("D", "2026-08-26")["dosage"], "3mg")
-
-    def test_phase8_aug12_b_is_4mg(self):
-        self.assertEqual(self._dexa_pending("B", "2026-08-12")["dosage"], "4mg")
+    def test_phase9_aug26_f_is_4mg(self):
+        self.assertEqual(self._dexa_pending("F", "2026-08-26")["dosage"], "4mg")
 
 
 if __name__ == "__main__":

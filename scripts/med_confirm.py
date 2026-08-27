@@ -51,7 +51,7 @@ TXN_FILE = HERMES_HOME / ".med-confirm-transaction.json"
 COMPOUNDS = {"cc": {"slot": "C", "drug_ids": ["calcium", "calcitriol"]}}
 COMPLETION_RE = re.compile(r"\b(dah\s*makan|sudah\s*makan|dah\s*ambil|dah\s*telan|done|took|ate|confirm)\b", re.IGNORECASE)
 
-ALL_SLOTS = ['A', 'B', 'C', 'D', 'E']
+ALL_SLOTS = ['A', 'B', 'C', 'D', 'E', 'F']
 
 # ── Safety: DRY_RUN prevents all writes ────────────────────────────────────
 DRY_RUN = False
@@ -124,7 +124,19 @@ def get_drugs_for_slot(slot: str, schedule: dict) -> list[dict]:
 
 
 def get_required_drug_ids(slot: str, schedule: dict) -> list[str]:
-    return [d['drug_id'] for d in get_drugs_for_slot(slot, schedule) if d.get('required', True)]
+    """Get drug_ids for REQUIRED drugs (excludes optional and inactive dexa doses)."""
+    from dexa_taper_lookup import get_dexa_dose, is_dexa_drug
+    req = []
+    for d in get_drugs_for_slot(slot, schedule):
+        if not d.get('required', True):
+            continue
+        did = d.get('drug_id', '')
+        if is_dexa_drug(did):
+            dose = get_dexa_dose(slot)
+            if dose is None or dose <= 0:
+                continue
+        req.append(did)
+    return req
 
 
 def get_all_drug_ids(slot: str, schedule: dict) -> list[str]:
@@ -775,7 +787,7 @@ def main() -> int:
     else:
         slot = arg.upper()
         if slot not in ALL_SLOTS:
-            print(f"Invalid slot: {slot}. Use A/B/C/D/E")
+            print(f"Invalid slot: {slot}. Use A/B/C/D/E/F")
             return 1
 
         drug_id = None

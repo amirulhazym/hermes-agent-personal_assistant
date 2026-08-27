@@ -63,6 +63,8 @@ ALIASES = {
     "dexamethasone petang": "dexamethasone",    # → D (after 4pm)
     "steroid petang": "dexamethasone",          # → D
     "dexa petang": "dexamethasone",             # → D
+    "dexa 2pm": "dexamethasone",                # → F (BD only, 14:00)
+    "dexamethasone 2pm": "dexamethasone",      # → F (BD only)
     # Slot C
     "calcium": "calcium",
     "kalsium": "calcium",
@@ -93,7 +95,8 @@ TIME_RULES = {
     },
     "dexamethasone": {
         "B": (None, 10.5),  # Before 10:30 → B
-        "C": (10.5, 16),    # 10:30-16:00 → C
+        "C": (10.5, 14),    # 10:30-14:00 → C
+        "F": (14, 16),      # 14:00-16:00 → F (BD 2pm)
         "D": (16, None),    # After 16:00 → D
     },
 }
@@ -221,15 +224,18 @@ def resolve(fragment: str, slot: str = None, time_24h: str = None) -> dict:
     
     # Step 1.5: Word-based slot inference
     # If the fragment contains time words, use them to infer slot BEFORE matching
-    WORD_TO_SLOT = {"pagi": "B", "tengahari": "C", "tengah": "C", "petang": "D", "mlm": "E", "malam": "E"}
+    WORD_TO_SLOT = {"pagi": "B", "tengahari": "C", "tengah": "C", "petang": "D", "mlm": "E", "malam": "E", "2pm": "F"}
     slot_hint = None
     words = f.split()
     for w in words:
         if w in WORD_TO_SLOT:
             slot_hint = WORD_TO_SLOT[w]
             break
-    if slot_hint and not slot:
-        slot = slot_hint  # Filter to hinted slot
+    if slot_hint and not slot and not time_24h:
+        # A stated clock time is more precise than a colloquial time-of-day
+        # label (e.g. "petang 2:55pm" during the BD 2pm dose).  Let the
+        # deterministic time rules select the actual slot below.
+        slot = slot_hint
 
     # Step 2: Search all (or specified) slots
     candidates = all_drugs_flat(schedule)

@@ -55,6 +55,18 @@ class TestTimingContract(unittest.TestCase):
         result = solve(self.rules, {})
         self.assertEqual(result["slots"]["B"], time(8, 0), result)
 
+    def test_late_b_pushes_f_min_gap_safe(self):
+        # B taken at 10:35 -> F (anchor 14:00) must push to at least 16:35 (6h gap)
+        result = solve(self.rules, {"B": time(10, 35)})
+        self.assertEqual(result["slots"]["F"], time(16, 35), result)
+        self.assertIn("rule_009", result["rules_fired"])
+
+    def test_early_b_keeps_f_at_anchor(self):
+        # B taken at 08:00 -> F remains at 14:00 anchor (6h gap satisfied)
+        result = solve(self.rules, {"B": time(8, 0)})
+        self.assertEqual(result["slots"]["F"], time(14, 0), result)
+        self.assertIn("rule_008", result["rules_fired"])
+
 
 if __name__ == "__main__":
     unittest.main()
