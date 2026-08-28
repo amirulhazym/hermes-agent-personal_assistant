@@ -61,6 +61,10 @@ TRIGGER_MAP: list[tuple[str, str]] = [
     (r"\bcompare\s+(?:options|vendors|tools|approaches)\b", "research-expert"),
     (r"\bdue\s+diligence\b",       "research-expert"),
 
+    # Vision policy domain — every vision_analyze injects semantic-only policy
+    (r"vision_analyze",               "vision-semantic-only"),
+    (r"\bvision\b",                 "vision-semantic-only"),
+
     # Explanation domain — confusion activates medium mode only.
     (r"\baku\s+tak\s+faham\b",      "non-tech"),
     (r"\bapa\s+benda\s+ni\b",       "non-tech"),

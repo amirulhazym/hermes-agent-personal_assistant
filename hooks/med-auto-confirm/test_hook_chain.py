@@ -10,10 +10,6 @@ import pathlib
 import tempfile
 
 SPEC = "/home/ubuntu/.hermes/hooks/med-auto-confirm/handler.py"
-# Operational-artifact gate: live handler is absent on CI runners.
-if not pathlib.Path(SPEC).exists():
-    print("SKIP: live handler not present (CI)")
-    raise SystemExit(0)
 spec = importlib.util.spec_from_file_location("mah_chain", SPEC)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
