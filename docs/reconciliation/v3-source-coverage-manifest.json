@@ -776,7 +776,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "c4bdc72d5ba3fcd53ed054719289ac466a2dbdadbd1bcec5170c796fcbc9c166"
+      "source_sha256": "0473742e0b661d393f7c3dd4247d3a3d5c84bee5389e09937cb580fb85a809a4"
     },
     {
       "destination": null,
@@ -3968,7 +3968,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_git_hygiene.py",
-      "source_sha256": "3f18cbc58690fa3af287483863ed22104c9fcf4c0cdac2181c5b9b4f5d4b4729"
+      "source_sha256": "28b0d2af855aaa77c3ab551a244c490f4d7ee4625e2613fe0ba54f5d1caab08b"
     },
     {
       "destination": null,
@@ -3991,6 +3991,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "28c1178051b4e03f2de68aa660803558935fb905d019603c1b7717e847e3fff5",
+  "payload_sha256": "d1e419e3cedc70d82b624262997a7d18eb644aaa455518aa8a6436821884b067",
   "schema_version": 1
 }
