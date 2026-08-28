@@ -12,7 +12,7 @@ LOCK = REPO / "docs/reconciliation/hermes-runtime-source-lock.json"
 TREE = REPO / "docs/reconciliation/hermes-runtime-tree-manifest.json"
 RECONSTRUCT = REPO / "scripts/reconstruct_hermes_runtime.py"
 LIVE_UPSTREAM = Path("/home/ubuntu/.hermes/hermes-agent")
-LIVE_BASE = "a31be48030f60383bf4c1d96ba46bd4b48430218"
+LIVE_BASE = "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8"
 
 
 def run_reconstruct(output: Path) -> subprocess.CompletedProcess[str]:
@@ -92,36 +92,39 @@ def test_tree_manifest_is_explicit_and_matches_lock():
     )
 
 
-def test_c2_uses_the_pinned_official_reset_boundary_patch():
+def test_active_runtime_overlays_are_ordered_and_hash_pinned():
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
-    assert lock["patch_series"][:1] == [
+    assert lock["patch_series"] == [
         {
             "order": 1,
-            "id": "official-pr-85505-reset-boundary",
-            "path": "patches/upstream-hermes/2026-08-19_pr85505-reset-boundary.patch",
-            "sha256": "734a183f5a046d84046bee12d00eed60fb04720187b35dc894473cf74a7c2082",
-            "description": "Official NousResearch/Hermes-Agent PR #85505: durable reset markers, legacy reset-child stabilization, reset-aware listing, and resume-boundary fencing.",
-        }
+            "id": "live-runtime-auxiliary-middleware-route",
+            "path": "patches/upstream-hermes/2026-08-28_live-auxiliary-middleware-route.patch",
+            "sha256": "e6f42cfc76ecf9b8c9c75a665ebe79b7ffc16f708056de3646cef6936b785f41",
+            "description": "Current live runtime overlay: route auxiliary sync completions through llm_execution middleware.",
+        },
+        {
+            "order": 2,
+            "id": "live-runtime-goal-resume-counter-reset",
+            "path": "patches/upstream-hermes/2026-08-28_live-goal-resume-counter-reset.patch",
+            "sha256": "52b0827a7c04fa4e2a7e8247597465af6f2666bc61d437eab78c46bde8981e96",
+            "description": "Current live runtime overlay: reset goal transport/parse failure counters on resume.",
+        },
+        {
+            "order": 3,
+            "id": "candidate-runtime-harden-auxiliary-middleware-fail-closed",
+            "path": "patches/upstream-hermes/2026-08-28_harden-auxiliary-middleware-fail-closed.patch",
+            "sha256": "afa7cfdfc0c73b179543336496097e3193d2e8b3203031dfd9a29aed9d075eb3",
+            "description": "Candidate hardening overlay: fail closed when auxiliary execution middleware raises; not live-applied.",
+        },
     ]
 
 
-def test_c3_is_ordered_after_c2_and_hash_pinned():
+def test_historical_overlays_are_retained_as_source_only():
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
-    assert lock["patch_series"][1] == {
-        "order": 2,
-        "id": "custom-c3-unbounded-cycle-safe-lineage",
-        "path": "patches/upstream-hermes/2026-08-19_c3-unbounded-cycle-safe-lineage.patch",
-        "sha256": "a3ce5e3447e1bd066144fa2d2391957f701b358aaf6a948978782255b6ba3498",
-        "description": "Custom cycle-safe, data-dependent traversal shared by compression-tip and parent-lineage resolution; removes the fixed 100-hop failure and adds 218-hop/cycle regressions.",
-    }
-
-
-def test_c4_is_ordered_after_c3_and_hash_pinned():
-    lock = json.loads(LOCK.read_text(encoding="utf-8"))
-    assert lock["patch_series"][2] == {
-        "order": 3,
-        "id": "custom-c4-shared-session-identity",
-        "path": "patches/upstream-hermes/2026-08-19_c4-shared-session-identity.patch",
-        "sha256": "f7ecbb724cb4007605895d46172700b1208180355df0c55a74ea54303130099c",
-        "description": "Custom shared session identity projection: numeric gateway resume uses the same activity-ordered listing policy, resume follows compression continuations only, and search deduplicates only compression edges while retaining physical continuation titles; the C4 regression contract explicitly covers compression chains, generic parent edges, and fork ambiguity.",
+    historical = {item["path"] for item in lock["historical_source_only_overlays"]}
+    assert historical == {
+        "patches/upstream-hermes/2026-08-19_pr85505-reset-boundary.patch",
+        "patches/upstream-hermes/2026-08-19_c3-unbounded-cycle-safe-lineage.patch",
+        "patches/upstream-hermes/2026-08-19_c4-shared-session-identity.patch",
+        "patches/upstream-hermes/2026-08-28_live-core-usage-and-billing-route.patch",
     }

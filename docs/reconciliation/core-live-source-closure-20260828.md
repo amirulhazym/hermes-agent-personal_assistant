@@ -159,3 +159,41 @@ separate integration gates and are not claimed here.
   the running process. `SOUL.md` remains untracked and excluded.
 - The candidate SHA, cleanliness, remote ref, deployment state, and process
   reload must be checked separately at each later gate.
+
+## Live-aligned runtime reconstruction (G1.5)
+
+The original `a31... + 7 patches` reconstruction was not a safe live
+promotion input: it produced 1,964 live destination hash mismatches. The
+current live checkout is aligned to official common base `a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8`
+plus the two live local overlays represented by live commits `c39995e...` and
+`a1a38b...`.
+
+The live-aligned candidate therefore uses:
+
+- official common base: `a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8`;
+- active overlay 1: auxiliary middleware route;
+- active overlay 2: goal resume counter reset;
+- active overlay 3: candidate auxiliary middleware fail-closed hardening;
+- historical overlays 1-4 from the earlier lock remain source-only provenance
+  and are not deployment inputs for this live-aligned candidate;
+- official upstream `main` at the capture boundary is tracked separately and
+  is not silently upgraded as part of this source-consolidation task.
+
+`reconstruct_hermes_runtime.py` now reads raw Git blobs with `git ls-tree` plus
+`git cat-file blob`, preserving source bytes instead of applying working-tree
+EOL filters during source materialization. The deployment planner separately
+recognizes a live file whose Git-normalized blob is byte-equivalent to the
+candidate source; this is an explicit EOL equivalence check, not a wildcard
+or validation bypass.
+
+Pre-release evidence for candidate `a158dbe6e12276ee2023373d2f859aafbeef1bb5`:
+
+- reconstruction: `PASS`, `base=a961...`, `patches=3`, `files=10487`;
+- deployment dry-run: `PASS`, `current_hash_mismatches=1`,
+  `normalized_equivalent=4`, `writes=0`, `deletes=0`, `restart=0`;
+- isolated rollback test: injected failure restored the exact pre-state on the
+  pre-live-aligned `8745`-entry manifest;
+- the live-aligned `10487`-entry rollback/apply proof is a separate gate and is
+  not claimed by the earlier `8745`-entry evidence;
+- no live apply or process reload has occurred. The exact-SHA release gate
+  remains separate from this candidate evidence.
