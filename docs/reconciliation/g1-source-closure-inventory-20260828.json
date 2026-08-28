@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "artifact": "g1-source-closure-inventory",
-  "captured_at": "2026-08-28T13:29:17.854055+08:00",
+  "captured_at": "2026-08-28T14:29:59.735504+08:00",
   "personal_ssot": "/home/ubuntu/hermes-agent-personal_assistant-work/.worktrees/corrective-closure-20260828",
   "live_home": "/home/ubuntu/.hermes",
   "live_core": "/home/ubuntu/.hermes/hermes-agent",
@@ -15200,5 +15200,39 @@
     "/tmp/corrective-closure-g1.4-rescan-20260828.json",
     "/tmp/corrective-closure-g1.4-postformat-gates-20260828.json",
     "/tmp/corrective-closure-g1.4-gates-after-all-fixes-20260828.json"
-  ]
+  ],
+  "runtime_reconstruction": {
+    "base_sha": "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8",
+    "live_runtime_head_sha": "a1a38baea746f90d551a278e85bd885c3fa0f117",
+    "official_upstream_head_at_capture": "4e7eb39947f132f961923f9e3f600bc8e63066dd",
+    "active_patch_series": [
+      {
+        "order": 1,
+        "id": "live-runtime-auxiliary-middleware-route",
+        "path": "patches/upstream-hermes/2026-08-28_live-auxiliary-middleware-route.patch",
+        "sha256": "e6f42cfc76ecf9b8c9c75a665ebe79b7ffc16f708056de3646cef6936b785f41",
+        "description": "Current live runtime overlay: route auxiliary sync completions through llm_execution middleware."
+      },
+      {
+        "order": 2,
+        "id": "live-runtime-goal-resume-counter-reset",
+        "path": "patches/upstream-hermes/2026-08-28_live-goal-resume-counter-reset.patch",
+        "sha256": "52b0827a7c04fa4e2a7e8247597465af6f2666bc61d437eab78c46bde8981e96",
+        "description": "Current live runtime overlay: reset goal transport/parse failure counters on resume."
+      },
+      {
+        "order": 3,
+        "id": "candidate-runtime-harden-auxiliary-middleware-fail-closed",
+        "path": "patches/upstream-hermes/2026-08-28_harden-auxiliary-middleware-fail-closed.patch",
+        "sha256": "afa7cfdfc0c73b179543336496097e3193d2e8b3203031dfd9a29aed9d075eb3",
+        "description": "Candidate hardening overlay: fail closed when auxiliary execution middleware raises; not live-applied."
+      }
+    ],
+    "tree_manifest_entries": 10487,
+    "tree_sha256": "22779f183fac36ccc2caaf56699267ecb986e3ab6a754cf26a601ccfe057f746",
+    "patch_series_digest": "be74187b7fe800c9add0bf86658a4fdd3d1390edfb68d862588a8bc11a0e22f0",
+    "materialization": "raw Git blobs via git ls-tree + git cat-file blob",
+    "live_dry_run": "reconstruction PASS; deploy plan PASS; current_hash_mismatches=1; normalized_equivalent=4; writes=0; deletes=0; restart=0",
+    "live_apply": "not performed; exact release approval required"
+  }
 }

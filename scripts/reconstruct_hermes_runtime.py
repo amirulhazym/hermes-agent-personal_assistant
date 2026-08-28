@@ -14,7 +14,6 @@ import os
 import re
 import shutil
 import subprocess
-import tarfile
 import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
@@ -162,43 +161,45 @@ def _clone_official(repo_url: str, base_sha: str, parent: Path) -> Path:
 
 
 def _extract_archive(repo: Path, base_sha: str, output: Path) -> None:
+    """Materialize the exact Git tree without applying working-tree filters."""
     output.mkdir(parents=True, exist_ok=False)
-    process = subprocess.Popen(
-        ["git", "-C", str(repo), "archive", base_sha],
+    result = subprocess.run(
+        ["git", "-C", str(repo), "ls-tree", "-r", "-z", base_sha],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        check=False,
     )
-    assert process.stdout is not None
-    try:
-        with tarfile.open(fileobj=process.stdout, mode="r|*") as archive:
-            for member in archive:
-                name = member.name
-                if not _safe_relative(name):
-                    raise RuntimeError(f"official archive contains unsafe path: {name}")
-                target = output / name
-                if member.isdir():
-                    target.mkdir(parents=True, exist_ok=True)
-                    continue
-                if not member.isfile():
-                    raise RuntimeError(f"official archive contains unsupported member: {name}")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                source = archive.extractfile(member)
-                if source is None:
-                    raise RuntimeError(f"cannot extract archive member: {name}")
-                with target.open("wb") as handle:
-                    shutil.copyfileobj(source, handle)
-                # GNU tar/git archive can apply the host umask to regular-file
-                # members (for example 0664 for a Git 100644 blob). Restore
-                # the Git tree mode below instead of treating archive mode as
-                # source authority.
-                os.chmod(target, 0o755 if member.mode & 0o111 else 0o644)
-    finally:
-        process.stdout.close()
-    stderr = process.stderr.read().decode("utf-8", errors="replace") if process.stderr else ""
-    return_code = process.wait()
-    if return_code:
-        raise RuntimeError(f"official source extraction failed: {stderr.strip()}")
-    _restore_git_modes(repo, base_sha, output)
+    if result.returncode:
+        raise RuntimeError(
+            f"cannot read Git tree for extraction: "
+            f"{result.stderr.decode('utf-8', errors='replace').strip()}"
+        )
+
+    for record in result.stdout.split(b"\0"):
+        if not record:
+            continue
+        metadata, raw_source = record.split(b"\t", 1)
+        mode, object_type, object_id = metadata.split(b" ", 2)
+        source = raw_source.decode("utf-8", errors="surrogateescape")
+        if object_type != b"blob" or mode not in {b"100644", b"100755"}:
+            raise RuntimeError(f"unsupported Git tree member: {source}")
+        if not _safe_relative(source):
+            raise RuntimeError(f"official tree contains unsafe path: {source}")
+        target = output / source
+        target.parent.mkdir(parents=True, exist_ok=True)
+        blob = subprocess.run(
+            ["git", "-C", str(repo), "cat-file", "blob", object_id.decode("ascii")],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if blob.returncode:
+            raise RuntimeError(
+                f"cannot read Git blob for {source}: "
+                f"{blob.stderr.decode('utf-8', errors='replace').strip()}"
+            )
+        target.write_bytes(blob.stdout)
+        os.chmod(target, 0o755 if mode == b"100755" else 0o644)
 
 
 def _restore_git_modes(repo: Path, base_sha: str, output: Path) -> None:

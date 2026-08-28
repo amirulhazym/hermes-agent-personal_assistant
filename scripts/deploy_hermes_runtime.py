@@ -8,8 +8,10 @@ It never deletes undeclared files, touches state, or restarts the gateway.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -48,19 +50,64 @@ def _safe_destination(destination: Path, root: Path) -> None:
         raise RuntimeError(f"destination escapes Hermes root: {destination}")
 
 
+def _destination_matches(
+    destination: Path,
+    root: Path,
+    relative_source: str,
+    expected_sha256: str,
+) -> bool:
+    """Match raw bytes or the Git-normalized worktree representation."""
+    if not destination.is_file():
+        return False
+    if _sha256_file(destination) == expected_sha256:
+        return True
+    normalized = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "hash-object",
+            "--path=" + relative_source,
+            str(destination),
+        ],
+        capture_output=True,
+        check=False,
+    )
+    if normalized.returncode:
+        return False
+    object_id = normalized.stdout.decode("ascii", errors="replace").strip()
+    if not object_id:
+        return False
+    blob = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "blob", object_id],
+        capture_output=True,
+        check=False,
+    )
+    return blob.returncode == 0 and hashlib.sha256(blob.stdout).hexdigest() == expected_sha256
+
+
 def _plan(source_tree: Path, tree: dict) -> None:
     mismatches = 0
+    normalized_equivalent = 0
     for entry in tree["entries"]:
         source = source_tree / entry["source"]
         destination = Path(entry["destination"])
         if destination.exists() and not destination.is_file():
             mismatches += 1
         elif destination.is_file() and _sha256_file(destination) != entry["sha256"]:
-            mismatches += 1
+            if _destination_matches(
+                destination,
+                RUNTIME_ROOT,
+                entry["source"],
+                entry["sha256"],
+            ):
+                normalized_equivalent += 1
+            else:
+                mismatches += 1
     print(
         "DEPLOY PLAN PASS: "
         f"entries={len(tree['entries'])} current_hash_mismatches={mismatches} "
-        "writes=0 deletes=0 restart=0"
+        f"normalized_equivalent={normalized_equivalent} writes=0 deletes=0 restart=0"
     )
 
 
