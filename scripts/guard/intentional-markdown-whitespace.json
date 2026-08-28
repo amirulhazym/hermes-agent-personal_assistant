@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "policy": "Exact path + line + trailing-whitespace count + body SHA-256 allowlist. Any changed/new diagnostic fails.",
+  "entries": [
+    {
+      "path": "skills/agent-methodology/evidence-first-feasibility-assessment/references/cloudflare-escalation-ladder.md",
+      "line": 2,
+      "trailing_ws": 2,
+      "body_sha256": "6d9a2dcb5b2e2647a56862a189e7d2150a96ced7bcf7e219971604953d08fac3",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/agent-methodology/evidence-first-feasibility-assessment/references/cloudflare-escalation-ladder.md",
+      "line": 3,
+      "trailing_ws": 2,
+      "body_sha256": "afc8eb4007a23f745270fcc23300d0f119b0cf94029e5eb9e824aa491b8dbc43",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/agent-methodology/evidence-first-feasibility-assessment/references/openai-codex-auth-flow.md",
+      "line": 3,
+      "trailing_ws": 2,
+      "body_sha256": "e28a7aedabf729bf7e51ce09f6ed0e04d92c46cb714d38f415ddf2c7623ab709",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/agent-methodology/evidence-first-feasibility-assessment/references/openai-codex-auth-flow.md",
+      "line": 46,
+      "trailing_ws": 2,
+      "body_sha256": "df2ac570192cf8ae55f710f5d7a9a539f020bee5f8ccf1e14838fdda7d2059aa",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/agent-methodology/evidence-first-feasibility-assessment/references/openai-codex-known-bugs.md",
+      "line": 3,
+      "trailing_ws": 2,
+      "body_sha256": "2d22fce031363844058c95248d2a7422d9ca5d8cad34d4c2d4402e89999d4fc8",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/agent-methodology/evidence-first-feasibility-assessment/references/openai-codex-known-bugs.md",
+      "line": 4,
+      "trailing_ws": 2,
+      "body_sha256": "c01b2c219f6b84a7ff554f84c56923a4bf52583378dfb4797a69d84711ff227c",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/agent-methodology/writing-plans/references/hermes-current-runtime-architecture.md",
+      "line": 15,
+      "trailing_ws": 2,
+      "body_sha256": "1d4dc93cd1bef76834543d4be753d2f56002f8fda37c8aaf7b29ff20927093f8",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/autonomous-ai-agents/hermes-custom-provider/references/catgpt-gateway-setup.md",
+      "line": 3,
+      "trailing_ws": 2,
+      "body_sha256": "ec1a486242ee604a0c9859415cabfad08199bf69615c0bb80ce51f504e242852",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/autonomous-ai-agents/hermes-custom-provider/references/catgpt-gateway-setup.md",
+      "line": 4,
+      "trailing_ws": 2,
+      "body_sha256": "627b1ae382750b83f691fe852e3b40b591e463f2beeba6345ab1bb3ea3f2be3b",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/experts/research-expert/pipeline.md",
+      "line": 45,
+      "trailing_ws": 2,
+      "body_sha256": "ddde187ea42d58ac37a2a66e95ea54fb28a8ba2c4d2669919a1ba840f583ad2b",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/experts/research-expert/pipeline.md",
+      "line": 46,
+      "trailing_ws": 2,
+      "body_sha256": "4b47051455f1fb20e2b97a8ff9eedf11c0435a451dfb7e855a5a462318c63afe",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/experts/research-expert/pipeline.md",
+      "line": 47,
+      "trailing_ws": 2,
+      "body_sha256": "9bc1fc5b79b935905e1eb15a3d77605a4197ddc5348008c0dec2c27d7e4fef0b",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/experts/research-expert/pipeline.md",
+      "line": 48,
+      "trailing_ws": 2,
+      "body_sha256": "f1050ee9098b3e927f046d3b7e15160f62f1662d7badfce711048f0f8529906d",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/experts/research-expert/pipeline.md",
+      "line": 69,
+      "trailing_ws": 2,
+      "body_sha256": "38eba5d7aec9735ca50a7d06e89eb9c878cc738a86a50e468c6fc2df73efe35b",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/experts/research-expert/pipeline.md",
+      "line": 70,
+      "trailing_ws": 2,
+      "body_sha256": "f2cc22f5e599cc12613341c5d9dfc3f06eb4408e082fc6713b2cb851f7984009",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/experts/research-expert/pipeline.md",
+      "line": 71,
+      "trailing_ws": 2,
+      "body_sha256": "1a299435492c54ce83b211e8fe24af0407956ce5db62927f366bdec23f3f3c0a",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/SKILL.md",
+      "line": 56,
+      "trailing_ws": 2,
+      "body_sha256": "d1d301bd61074f6f69f4e4c8aa8ba65c411964637c2ef59daa78491be6e35f51",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/SKILL.md",
+      "line": 75,
+      "trailing_ws": 2,
+      "body_sha256": "7e17154c86ae27327110146b4a676e293791cf3d1cda7fba261506861e9fbea7",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/SKILL.md",
+      "line": 1009,
+      "trailing_ws": 2,
+      "body_sha256": "0aa92a8b85084990bc6d44f02585bc4127df302d35e1e6a4e99771bc8a67c1f0",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/SKILL.md",
+      "line": 1010,
+      "trailing_ws": 2,
+      "body_sha256": "c25361f87dcc248e68872caba145d3060264db1797d4d5964b7c08a8548761f4",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/kb-incident-documentation.md",
+      "line": 15,
+      "trailing_ws": 2,
+      "body_sha256": "209e01d2ae05899f5b21580621e76e34c1228ac7a8177fc763177bc7ab19be70",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/kb-incident-documentation.md",
+      "line": 16,
+      "trailing_ws": 2,
+      "body_sha256": "08f241ed881825d8d5bd7d4e00dc6e258081e2f04cdd900659a0bad211776459",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/kb-incident-documentation.md",
+      "line": 26,
+      "trailing_ws": 2,
+      "body_sha256": "149feafa75c397d15cd3396ceb01b604256d56b2fc31148830d7c35a44369959",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/kb-incident-documentation.md",
+      "line": 36,
+      "trailing_ws": 2,
+      "body_sha256": "7001ec2c683d6da13e88ff452db9538030a2ea9db599f8936974530590b1855b",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/kb-incident-documentation.md",
+      "line": 52,
+      "trailing_ws": 2,
+      "body_sha256": "dd7f49c61065ea635090e67854d1a0227cf2742e1f169f0e0b2befb796730bdc",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/opencode-zen-audit-findings-2026-07-01.md",
+      "line": 5,
+      "trailing_ws": 2,
+      "body_sha256": "94f583ecacf412f9220fdb8abea817b847f37981f57d5e57fa7127c22332b3b5",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/opencode-zen-audit-findings-2026-07-01.md",
+      "line": 6,
+      "trailing_ws": 2,
+      "body_sha256": "cd99a251c37d50fb0b76d17cfa0dea0f5f27aeee8e8fa4d7bd2ffc9c3d83bc15",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/opencode-zen-audit-findings-2026-07-01.md",
+      "line": 7,
+      "trailing_ws": 2,
+      "body_sha256": "96956bccd6f8e5fce7eb169d448e4f8ce988e464a08390447995c0d532980451",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/opencode-zen-audit-findings-2026-07-01.md",
+      "line": 8,
+      "trailing_ws": 2,
+      "body_sha256": "44bae48bc3cb916da3ede13c4b97fd94e572cf57bca00e5f41193d0cb9c9abeb",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/reasoning-effort-code-path.md",
+      "line": 113,
+      "trailing_ws": 2,
+      "body_sha256": "d6e614cb50d6a8acbf5dac53b985cec46d6d65a9f1d53e578d579778ecb2f8a6",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    },
+    {
+      "path": "skills/software-development/system-verification-qa/references/reasoning-effort-code-path.md",
+      "line": 114,
+      "trailing_ws": 2,
+      "body_sha256": "ff2399480facae5da8969d9141b3cd5dbe66250926a9fb6c1abbbbedb061c08a",
+      "kind": "markdown-hard-break",
+      "reason": "two trailing spaces form an intentional Markdown hard break before following content"
+    }
+  ]
+}

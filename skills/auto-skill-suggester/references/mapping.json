@@ -1,0 +1,233 @@
+{
+  "debugging": {
+    "triggers": [
+      "debug", "bug", "error", "fail", "traceback", "exception",
+      "crash", "broken", "rror", "tidak jalan", "tak jadi", "rosak",
+      "why this", "kenapa", "tak guna", "error message", "null pointer",
+      "segfault", "timeout", "unexpected"
+    ],
+    "skills": [
+      "diagnosing-bugs",
+      "systematic-debugging",
+      "python-debugpy",
+      "node-inspect-debugger"
+    ],
+    "reason": "Debugging toolkit — from root-cause analysis to live debugger attachment"
+  },
+  "code-review": {
+    "triggers": [
+      "review", "pr", "pull request", "code review", "check my code",
+      "tengok code", "peer review", "approved", "changes requested"
+    ],
+    "skills": [
+      "requesting-code-review",
+      "github-code-review"
+    ],
+    "reason": "Pre-commit security scan, quality gates, and inline review workflow"
+  },
+  "planning": {
+    "triggers": [
+      "plan", "feature", "implement", "bina", "buat", "nak buat",
+      "cadangan", "propose", "design", "architecture", "idea",
+      "roadmap", "sprint"
+    ],
+    "skills": [
+      "plan",
+      "planning-and-task-breakdown",
+      "writing-plans",
+      "to-issues",
+      "to-prd"
+    ],
+    "reason": "Plan mode, task breakdown, PRD authoring, and issue generation"
+  },
+  "testing": {
+    "triggers": [
+      "test", "unit test", "pytest", "tdd", "coverage",
+      "integration test", "regression", "test case"
+    ],
+    "skills": [
+      "test-driven-development"
+    ],
+    "reason": "TDD workflow with RED-GREEN-REFACTOR discipline"
+  },
+  "ui-design": {
+    "triggers": [
+      "design", "ui", "ux", "frontend", "tampilan", "sketch",
+      "prototype", "landing page", "dashboard", "mockup", "figma",
+      "component", "layout"
+    ],
+    "skills": [
+      "sketch",
+      "ui-ux-pro-max",
+      "claude-design",
+      "excalidraw",
+      "architecture-diagram",
+      "popular-web-designs"
+    ],
+    "reason": "From hand-drawn diagrams to production-grade UI mockups"
+  },
+  "data-science": {
+    "triggers": [
+      "data", "analisis", "analyst", "jupyter", "notebook", "pandas",
+      "analytics", "statistics", "visualization", "chart", "plot",
+      "csv", "dataset", "dataframe"
+    ],
+    "skills": [
+      "jupyter-live-kernel"
+    ],
+    "reason": "Interactive Python data analysis via live Jupyter kernel"
+  },
+  "ml-ai": {
+    "triggers": [
+      "model", "train", "fine-tune", "llm", "inference", "vllm",
+      "gguf", "quantization", "huggingface", "hf", "ml", "ai",
+      "deep learning", "transformer", "dataset", "openai",
+      "embedding", "rag", "agent", "tool calling"
+    ],
+    "skills": [
+      "llama-cpp",
+      "serving-llms-vllm",
+      "huggingface-hub",
+      "evaluating-llms-harness",
+      "weights-and-biases",
+      "segment-anything-model",
+      "audiocraft-audio-generation"
+    ],
+    "reason": "Local inference, model serving, hub search, evaluation, and experiment tracking"
+  },
+  "research": {
+    "triggers": [
+      "cari", "search", "research", "paper", "arxiv", "journal",
+      "tulis", "article", "literature", "survey", "cite", "citation",
+      "reference", "rss", "news", "trending"
+    ],
+    "skills": [
+      "arxiv",
+      "blogwatcher",
+      "youtube-content",
+      "llm-wiki"
+    ],
+    "reason": "Academic paper search, blog/RSS monitoring, YouTube transcript analysis, personal wiki"
+  },
+  "content-writing": {
+    "triggers": [
+      "tulis", "content", "blog", "post", "thread", "tweet",
+      "copywriting", "caption", "article", "writing", "draft",
+      "humanize", "rewrite"
+    ],
+    "skills": [
+      "humanizer",
+      "youtube-content",
+      "songwriting-and-ai-music"
+    ],
+    "reason": "Humanize AI text, repurpose YouTube content, and craft song lyrics"
+  },
+  "github": {
+    "triggers": [
+      "github", "git", "commit", "push", "repo", "repository",
+      "clone", "fork", "branch", "merge", "rebase", "workflow",
+      "ci/cd", "action", "release"
+    ],
+    "skills": [
+      "github-auth",
+      "github-pr-workflow",
+      "github-issues",
+      "github-repo-management",
+      "codebase-inspection"
+    ],
+    "reason": "Full GitHub lifecycle — auth, PRs, issues, repos, and codebase analysis"
+  },
+  "productivity": {
+    "triggers": [
+      "note", "obsidian", "notion", "calendar", "email", "pdf",
+      "slide", "powerpoint", "docs", "spreadsheet", "sheet",
+      "appointment", "meeting", "schedule", "reminder",
+      "invoice", "document"
+    ],
+    "skills": [
+      "obsidian",
+      "notion",
+      "google-workspace",
+      "nano-pdf",
+      "powerpoint",
+      "ocr-and-documents",
+      "maps"
+    ],
+    "reason": "Notes, documents, email, calendar, PDF editing, and presentations"
+  },
+  "creative-media": {
+    "triggers": [
+      "video", "animasi", "animation", "gif", "ascii", "art",
+      "gambar", "image", "music", "song", "audio", "visual",
+      "meme", "poster", "infographic"
+    ],
+    "skills": [
+      "ascii-art",
+      "ascii-video",
+      "gif-search",
+      "heartmula",
+      "manim-video",
+      "p5js",
+      "comfyui",
+      "songsee",
+      "baoyu-infographic"
+    ],
+    "reason": "ASCII/ANSI art, GIFs, music generation, math animations, and generative art"
+  },
+  "deployment-infra": {
+    "triggers": [
+      "deploy", "host", "server", "vps", "docker", "container",
+      "infra", "setup", "install", "config", "nginx", "ssl",
+      "domain", "dns", "production", "staging"
+    ],
+    "skills": [
+      "hermes-agent"
+    ],
+    "reason": "Hermes deployment, gateway, cron, MCP, and profile management"
+  },
+  "hermes-config": {
+    "triggers": [
+      "hermes", "profile", "gateway", "cron", "mcp",
+      "skill setup", "model", "provider", "opencode",
+      "deepseek", "billing", "tool", "plugin"
+    ],
+    "skills": [
+      "hermes-agent",
+      "system-verification-qa"
+    ],
+    "reason": "Hermes CLI, config, profiles, skills management, and system diagnostics"
+  },
+  "computer-use": {
+    "triggers": [
+      "click", "screenshot", "screen", "desktop", "mouse",
+      "keyboard", "automation", "macro", "ui automation",
+      "cua", "computer use"
+    ],
+    "skills": [
+      "computer-use",
+      "screenshot-verification"
+    ],
+    "reason": "Desktop automation — click, type, screenshot, and verify"
+  },
+  "smart-home": {
+    "triggers": [
+      "lampu", "light", "hue", "philips", "smart home",
+      "suis", "switch", "room", "scene", "dim"
+    ],
+    "skills": [
+      "openhue"
+    ],
+    "reason": "Philips Hue light control — scenes, rooms, and individual lights"
+  },
+  "meta-skill-loading": {
+    "triggers": [
+      "load skill", "suggest skill", "which skill", "what skill",
+      "need a skill", "ada skill", "skills mana", "/skill",
+      "recommend skill", "skill for this", "skill apa"
+    ],
+    "skills": [
+      "auto-skill-suggester"
+    ],
+    "reason": "If you don't know which skill to load, load this one to get auto-suggestions"
+  }
+}

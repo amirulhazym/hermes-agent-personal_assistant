@@ -70,6 +70,21 @@ For each drug in the combination, check its interaction profile from authoritati
 
 ## Phase 3: Cross-Check Known Pharmacology
 
+### 3.0 Food-effect PK fact-check gate — separate Cmax, Tmax, and AUC
+
+When a user challenges an answer that cites food, fat, gastric emptying, or a pharmacokinetic study, do not convert a controlled meal result into an individual certainty or a new fixed waiting-time rule.
+
+1. **Verify the citation identity first.** Check PMID/DOI/title against a second index (e.g., Europe PMC). A one-digit PMID error can point to a completely different paper; report the mismatch plainly.
+2. **Separate the PK endpoints.** `Cmax` is the peak concentration, `Tmax` is time to peak, and `AUC` is the exposure/amount-absorbed proxy. Never report a Cmax reduction as an equivalent percentage reduction in bioavailability unless the source actually reports that AUC/bioavailability result.
+3. **Match the experiment to the user's exposure.** Record dose, meal composition, subject population, sample size, and whether the drug was taken *with* the meal or after a fasting interval. A controlled FDA high-fat meal does not establish the effect of a small quantity of oil/milk taken hours before the drug.
+4. **Treat mechanism as mechanism, not a timer.** CCK release and fat-related gastric-emptying delay can support a cautious interpretation, but a claimed gram threshold or “the stomach is definitely still full after N hours” needs direct human evidence. If studies disagree by population/context, surface the contradiction and downgrade confidence.
+5. **Use the product/regimen rule as the operational anchor.** For rifampicin/isoniazid, quote the current official rule (commonly at least 1 hour before or 2 hours after a meal) and distinguish it from an optional conservative buffer. Do not invent a 3-hour rule from physiology alone.
+6. **Do not make unsupported PPI timing claims.** Pantoprazole changes gastric acid secretion over time; “acid is stable after 3 hours” is not a standard pharmacokinetic rule. Check the PPI label and the TB-product label separately. If the exact PPI–TB pair lacks primary evidence, mark that gap instead of claiming zero interaction.
+7. **Integrate the live regimen window.** If the formal food interval is met, choose the smallest practical buffer that remains inside the prescribed window and preserves the next-slot gap. Do not push a dose outside its window or collide it with the next slot solely because of an unsupported mechanism.
+8. **State the evidence boundary.** The defensible claim is usually “this timing follows the labelled fasting rule and is expected to be preferable to taking it with food,” not “your personal serum levels will be exactly the same.”
+
+Full source excerpts and the rifampin/isoniazid example are in `references/food-effect-pk-factcheck.md`.
+
 For each pairwise combination that doesn't appear in interaction lists:
 - Check if one drug affects the OTHER's metabolism pathway (CYP450, transport proteins, etc.)
 - Check if they compete for absorption (chelation, pH effects)
@@ -133,10 +148,10 @@ When the user says a medication has run out before their next appointment:
    - Does the gap bridge safely to the appointment date?
    - Can they get a same-day refill at the appointment?
 
-5. **Log the supply gap in medication status**
-   - Note the unavailable drug in med-status as pending (not "taken")
-   - If user opts for OTC substitute: log the substitute intake separately if needed
-   - If user skips: mark as pending with note "out of stock — awaiting refill"
+5. **Log the supply gap / skip in medication tracking immediately**
+   - When the user asks a safety question about running out of a dose (e.g. "short sebiji, harini takde dose tu"), they are doing TWO things: asking for clinical assessment AND reporting a dose skip.
+   - Do NOT just answer the medical question and leave the slot unhandled.
+   - Record `status: "skipped"` (with backup and appropriate note) in `med-status.json` during the same turn so tracking stays in sync and reminders don't nag for a known-skipped dose.
 
 **Example output structure:**
 ```
@@ -160,6 +175,13 @@ Recommendation: [clear practical advice]
 ## Phase 5b: Dose Timing Decision — "Take Now vs Wait"
 
 Trigger: user asks whether to take a dose now (at an irregular hour) or wait, typically due to disrupted sleep/wake schedule (insomnia, late nights, unpredictable wake times).
+
+### User-facing rule for explicit one-off late intake
+
+If the user has already taken the named medication(s), states the exact time, and gives a normal one-off reason such as waking late, do not turn the answer into a static-window or internal-state lecture. Treat the reported time as the actual intake time and the explanation as a one-off exception, not a regimen change. Calculate the next dose from that actual time plus the verified clinical gap/food rule, then answer that timing question directly. Keep internal terms such as `HOLD`, `SCHEDULE_TIME_WINDOW`, `state_mutated`, parser versions, and raw gate metadata out of the user-facing reply unless the user explicitly asks for an audit.
+
+This does not permit guessing: still resolve the drug identity, preserve the exact stated time, and stop for genuine ambiguity or a concrete interaction/safety conflict. If an internal safety hold was created solely because the one-off intake fell outside a static window, the user's explicit clarification is the approval needed to record the exact intake as a one-off and close the duplicate hold; do not alter the standing routine.
+
 
 ### 5b.1 Establish the drug's administration rules
 
@@ -215,6 +237,28 @@ Structure:
 **Key principle:** The risk from a few hours' shift in a single dose is almost always lower than the risk of skipping the dose entirely. Default to recommending the dose be taken when the user can do it correctly (empty stomach, awake, able to track it) rather than waiting for an ideal schedule that may not materialize.
 
 **Data Gap:** If the official source doesn't explicitly address dosing at irregular hours, state the gap rather than inferring. The "take as soon as you remember" rule from missed-dose protocols is the closest applicable guideline for most cases.
+
+## Phase 5c: "Dah Makan Ke Belum?" — Missed-Dose Uncertainty / Confabulated Confirmation
+
+Trigger: user is UNSURE whether they already took a dose ("aku tak ingat dah makan ke
+belum"), or a chat confirmation may be false (ADHD confabulation — user types "dah makan"
+to stop the nag, or believes they did but didn't).
+
+**Ground-truth hierarchy (verified 2026-08-12): physical tablet/sachet count > chat log >
+user memory.** For levetiracetam: 1 sachet = 2 tabs (pagi + malam). 2 remaining = morning
+NOT taken regardless of what the chat log says. This user's chat confirmations can be
+confabulated; never let a stated time override the count.
+
+**Decision when unsure: TAKE the dose.** Worst case of an extra 500mg (~1h apart) =
+transient drowsiness; worst case of skipping = 24-35h washout = breakthrough seizure risk.
+Asymmetry favors taking. This overrides generic "never double up" advice, which assumes
+you KNOW you took it.
+
+Correction workflow (logged intake later found false): backup .bak → fix `time` + `note` →
+med-safety-audit.jsonl entry (previous/corrected/basis) → `chain_calc.py --next` verify →
+write only after user's explicit confirmation of real intake time.
+
+Full framework + sources: `references/missed-dose-uncertainty-confabulation.md`.
 
 ## Phase 6: Complex Side Effect / Iatrogenic Condition Analysis
 
@@ -309,4 +353,5 @@ When the user is in distress (use of 😭, "berat untuk terima", self-blame):
 - `references/supply-gap-pyridoxine-inh.md` — case study: Pyridoxine supply gap bridging.
 - `references/ppi-tb-steroid-interactions.md` — Pantoprazole interactions with TB regimen (Akurit-4) + Dexamethasone + Levetiracetam. Covers ideal timing, rifampin CYP induction vs PPI local action, and research method used when major medical sites were blocked.
 - `references/akurit4-timing-empty-stomach.md` — Akurit-4 (rifampicin/isoniazid) timing and empty stomach guidelines from Singapore HealthHub. Decision framework for "take now vs wait" scenarios when user is awake at irregular hours.
-- `references/dexamethasone-interaction-profile.md` — Complete interaction profile from FDA label: what IS and is NOT listed (calcium/antacid absent). Verified 2026-07-12. Use when researching dexamethasone interactions.
+- `references/dexamethasone-interaction-profile.md` — Complete interaction profile from FDA label: what IS and IS NOT listed (calcium/antacid absent). Verified 2026-07-12. Use when researching dexamethasone interactions.
+- `references/missed-dose-uncertainty-confabulation.md` — "Dah makan ke belum?" framework: physical count as ground truth, take-dose decision asymmetry, state-correction workflow for confabulated confirmations (Phase 5c).

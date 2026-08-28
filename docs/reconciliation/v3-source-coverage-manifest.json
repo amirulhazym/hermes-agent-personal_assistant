@@ -7,12 +7,6 @@
     {
       "destination": null,
       "kind": "source-only",
-      "source": "patches/upstream-hermes/2026-08-11_a4-model-purge-and-test-stability.patch",
-      "source_sha256": "c79ab7b83790182fc997726a650868a5c3238a87bf407d485a4bcd64b96e8177"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
       "source": ".github/workflows/ci.yml",
       "source_sha256": "c5c03b118b494dcdc67f50e73294755193b5dcf1d5db4035145ef02fb2c10d7e"
     },
@@ -20,7 +14,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "AGENTS.md",
-      "source_sha256": "cca5afbe18d8e21be20397f5626fd099970d28ac3821f01f5f1f29e1664185f0"
+      "source_sha256": "e1a6631473bc0d87f707319df091b0fd4b0ae2bec55d2301f7301196fe6c202a"
     },
     {
       "destination": null,
@@ -235,6 +229,12 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "docs/reconciliation/g1-source-closure-inventory-20260828.json",
+      "source_sha256": "644563727fcdaf154326a5f184b60ac3c33b2f8247b07d5567b974a61fa11dac"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "docs/reconciliation/v3-config-schema-delta.md",
       "source_sha256": "129e687aabf14bb45bd8c6692db8d9e4031c9b6b4889a6be95e14859d599771c"
     },
@@ -305,10 +305,16 @@
       "source_sha256": "774eb63c70ab5cade2db56108d41ff6f129bee3b350e0ce5aa9fc607b20865c9"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "hooks/med-auto-confirm/handler.py",
+      "source_sha256": "47a8eb2780832da9c6efc2fd5d8af2376a0468a6a3cac982518b41d49e84479f"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/hooks/med-auto-confirm/test_hook_chain.py",
       "kind": "runtime-deploy",
       "source": "hooks/med-auto-confirm/test_hook_chain.py",
-      "source_sha256": "8b01e6fd3ec16bc6c3e727017b2e9d4076e3b6cf2ce35404c67fc5c1e00d1f36"
+      "source_sha256": "3f291c180ae8179d8c1e8ec178d21c9b815c67dd51893ec720f56a9cd17bb4cd"
     },
     {
       "destination": "/home/ubuntu/.hermes/hooks/med-auto-confirm/test_med_auto_confirm.py",
@@ -326,7 +332,7 @@
       "destination": "/home/ubuntu/.hermes/hooks/skill-trigger/handler.py",
       "kind": "runtime-deploy",
       "source": "hooks/skill-trigger/handler.py",
-      "source_sha256": "62ea667f1b0d22d8390c3cdd8ae47e9c2bf7fe8dca0f16eb6c201283c269ba7c"
+      "source_sha256": "c84e93196af7afd5fc5bf8124f80a45b8d83bc55ffdc07d4125c9ccfd38b474c"
     },
     {
       "destination": null,
@@ -357,6 +363,12 @@
       "kind": "source-only",
       "source": "optional-skills/security/godmode/scripts/godmode_race.py",
       "source_sha256": "10175249db38314f9d56b0e8e0f950b36f6652f1ba17c0c23eb43cf75abbffeb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "patches/upstream-hermes/2026-08-11_a4-model-purge-and-test-stability.patch",
+      "source_sha256": "c79ab7b83790182fc997726a650868a5c3238a87bf407d485a4bcd64b96e8177"
     },
     {
       "destination": null,
@@ -551,6 +563,12 @@
       "source_sha256": "db551dcd95d9ee89260dbbfd67967bd21f99ed3b73fbe7dfc27cad4701308b9a"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/auto_after_midnight.sh",
+      "source_sha256": "1741e15d838ea644fab1091c7943725a479faaac2464f617555ccca06ae262a9"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/scripts/billing.py",
       "kind": "runtime-deploy",
       "source": "scripts/billing.py",
@@ -563,6 +581,24 @@
       "source_sha256": "b46cc92503bd59e27fab1cc1f983b0684d859be60043d5d034e846332a984752"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/cron_health_report.py",
+      "source_sha256": "edd8bd6196b187f8a935b9b93ec9207dd1284e14e186eb9ba5fca04dad2cffa2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/dexa_matrix_test.py",
+      "source_sha256": "24f5e4b77ce7d8f1e2895632a6c8ebafa5bf650db4164c05d99e4610590222a5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/drift_check.sh",
+      "source_sha256": "5cc342c03e9433aa63b4b07a9f5bd819aa2f3b8f3a0eb32a29627e9526dcfac1"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/scripts/fix-models.sh",
       "kind": "runtime-deploy",
       "source": "scripts/fix-models.sh",
@@ -573,6 +609,12 @@
       "kind": "runtime-deploy",
       "source": "scripts/fix_models.py",
       "source_sha256": "8cadfcc91c83e93be742f5ba4fc9407f28a3f3954d2d65aca3bfec272dd11da1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/guard/intentional-markdown-whitespace.json",
+      "source_sha256": "d3259056dbf70a092a9c1b4432f772863bc8b17844e611d698a4923c9c9203a8"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/guard/manifest-validate.sh",
@@ -590,7 +632,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/guard/pii-review.py",
       "kind": "runtime-deploy",
       "source": "scripts/guard/pii-review.py",
-      "source_sha256": "095df9a5cbfe68c11546bf3df84fe6d8fc44881500d6c85b8d303da1f8c751b0"
+      "source_sha256": "39119717acc489455ed6da98d4d9c07e8be2438dcf6f6aca18c1ff7c134b1222"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/guard/secret-scan.sh",
@@ -605,16 +647,82 @@
       "source_sha256": "2f5a6a5d6ba8048cb9739b1e226926c065db8212b9c1bf7844a9eed3fad9d619"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/guard/whitespace_review.py",
+      "source_sha256": "c88ea9bcde06ad64a2906a972d362fc07f739b2a8d2f977c61dc0dbbc0c8775e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/gw_restart.sh",
+      "source_sha256": "07b933e69f141e3d4f827ed148faeb315e5efe9929179c0db23dc199ee6247eb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/health_check.py",
+      "source_sha256": "8c65024ce1ca39ff944f1f4bed1f5e3fb1d60afac344deb9d0da413fb13ec55a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/hello-world.sh",
+      "source_sha256": "0958ccde9bf58438bcc33ee4f56a87cf2812d4c3977994af0a06583b22799c04"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/hello_watch.py",
+      "source_sha256": "aba0e724b5b5e08392b388dfeb041d7ffb25e0b21175423f753d824ecff3f1a3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/hermes_gateway_restart.sh",
+      "source_sha256": "4c4c0b9f0dee9a677b95f4d0e04e0711a93607b599ff6661e923223a7946d5d0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/lint_md.py",
+      "source_sha256": "d214f5e6d255ec270664546a80d43d4043f344203c11bcd60f651afaad12ed7e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/med_appointments.py",
+      "source_sha256": "dc0dfa0a319aa809e5a33241b1282d3b958fd8f01cc1a7fff5a58fe6e073c5a9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/med_appt_daybefore.sh",
+      "source_sha256": "8fab01eae1e30005d2cacea32c10383575cc1af0eda173beefcdcf9b838f8dc4"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/scripts/med_confirm.py",
       "kind": "runtime-deploy",
       "source": "scripts/med_confirm.py",
-      "source_sha256": "6c403b814f9425f18d33d4aed922c87c703f989ee10e1602d8cea9c55eed850d"
+      "source_sha256": "1a5046ec0a63b140c9df1bea4b7341300e0a93685816842e1c1ad98d0a203838"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/med_interact.py",
+      "source_sha256": "89a94ee6eb09581b293b1d13aca9d2120717cc3d5bbeb3c567e529aba1a45425"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/med_resolve.py",
       "kind": "runtime-deploy",
       "source": "scripts/med_resolve.py",
-      "source_sha256": "f495185138b877380303de940807bc18522945f7d8ee92ccc085672f9902933c"
+      "source_sha256": "ac158466be08fe35af6a60d6fb7de85d0be17d2c5f589194f5451539f630dee8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/med_substitute.py",
+      "source_sha256": "ee000a41afadc8f299c941313f5bcd5ccca4dd5497275e130f9382a0a707e29c"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/med_supply.py",
@@ -623,22 +731,88 @@
       "source_sha256": "bfcdb669b32d0d066138fca3da266cb0cee314104398aefd79a875e9803cc7b7"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/memory_watch.py",
+      "source_sha256": "6ae026cbbbb9fc617ed009058ae2e6c480cd797eba80125d0834c747bb55e06b"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/scripts/restart-gateway.sh",
       "kind": "runtime-deploy",
       "source": "scripts/restart-gateway.sh",
       "source_sha256": "39fe3d6f8f760009d443d50441d8837932c1fa6cff10f169fc54e51ccd0d5651"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/restart_gateway.sh",
+      "source_sha256": "07377853bede68d72545ce551bc44a0b5122b114d5a2dabcb8b222923b88af92"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/rollback_cleanup.sh",
+      "source_sha256": "79d93d2d124ccd91914324d28f7989d728d13f2f1f475f2ca2f516d6b8852b55"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/rollback_list.sh",
+      "source_sha256": "2cb1f1575c040bd6f5fca5a35ffa447dc717bc1e871e3493ef10a87f7d129c1d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/rollback_restore.sh",
+      "source_sha256": "0232195a96180f8624a492abef8a77f7a0773469b7f15f68c63d74c9c52c12db"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/run_switch.sh",
+      "source_sha256": "e5139305f067caad2bf2b904b4bba1f93a0a847bf074356037c506de8362a09e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/secure_env_import.py",
+      "source_sha256": "4d35cb43c56a3ab0b2989420bff62012e7afe12c92c851f693d85da082b09fc1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/session_switch.py",
+      "source_sha256": "5631f9a645e61029b2c0271d92bed263efe85d003196968b689596822f8baab9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/switch_session.sh",
+      "source_sha256": "1d76a6003871bd05fb3955887c88b9669f58dd6d79601f712f52b403fe29d2fa"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/scripts/test_chain_adapter.py",
       "kind": "runtime-deploy",
       "source": "scripts/test_chain_adapter.py",
-      "source_sha256": "7c5b67978feaf925b2bccab03a654c20b94dad5472a20bb3083d632276824567"
+      "source_sha256": "c6d6216a418a98eb46fb271078d54582c5ee5f4da870baaf6bdd132e32c0306a"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/test_chain_llm.py",
       "kind": "runtime-deploy",
       "source": "scripts/test_chain_llm.py",
       "source_sha256": "06e27945d7f3b33f7d82429b86cacf0427762523d1fc3013584b4f1759641702"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/test_chain_monitor.py",
+      "source_sha256": "39a96a4f38a3e7cec13a534af4960fd072a3a53a54fd7a1b77042f613a6e9e7c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/test_effective_done.py",
+      "source_sha256": "7689f060684a008042440983aa47e9a55c25afe3a365487011c7a9479ccb0eb3"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/watchdog.sh",
@@ -659,10 +833,970 @@
       "source_sha256": "cf966b3294844fc13f1d71b3bd72e060b654df1b2d48980e92c312eb1196546c"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/wiki_gate_measure.py",
+      "source_sha256": "b1da5e623f508ec43193b374281082a5c98407ffebf9e63864c5455c2916e870"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/4R-design-skills/SKILL.md",
+      "source_sha256": "97b56e5c1ea47c53fc90db01f2df3c3cbf2501044c49f7b244cbd213cf370a3e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/4R-design-skills/references/output-claude-spec.md",
+      "source_sha256": "fca384723e707ed2cda907c131021a7bcef2487d1acf7d964ab6e3cc5d05ec11"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/4R-design-skills/references/output-google-design-md.md",
+      "source_sha256": "046c8688726761cfb1cfdfe2ceeb0d61afa3f533ad480b72955a836c9200e121"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/4R-design-skills/references/phase-1-reference-checklist.md",
+      "source_sha256": "7f19279b705ffa6aad5cbc9c9a4100eccbd00b60f832137499e5ca2fba415c5f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/4R-design-skills/references/phase-2-render-requirements.md",
+      "source_sha256": "7e021b3d5542765ddc70fc9ffc68cf20b01903b8005e6dca66db59aecc8241e1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/4R-design-skills/references/phase-3-rebuild-criteria.md",
+      "source_sha256": "f0a26c72bc3567144a6a5e9c5828b83870c92bf78a327248d6b365e861c64648"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/4R-design-skills/references/phase-4-refine-gates.md",
+      "source_sha256": "50c057e2290e9e620be1db2eff6c73f856970941def2eb7535b0415a38fc272a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/4R-design-skills/references/tool-options.md",
+      "source_sha256": "35207c2d42662c446681048e9829d80c8d1dcb92567fe0d1b9b8befa41269175"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/context-engineering/SKILL.md",
+      "source_sha256": "2154c4471269e8069a6a4feae5dfc49a329c214de3cc0b10fc760d682b561ad6"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/debugging-and-error-recovery/SKILL.md",
+      "source_sha256": "b3cba61c90474b8c1c8fedba69daedc9425394ee890c98686b01096eb6a5a7eb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/debugging-and-error-recovery/references/process-lifetime-cache-and-refresh.md",
+      "source_sha256": "64c33c59358e3a047fc5d4ea1486a9871dcf85b7edce06a02992b659ea15b444"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/doubt-driven-development/SKILL.md",
+      "source_sha256": "ab0aa46a2a7cb8cce4470276ca49891ee0525336d2cddb0f637b23804bb3bf40"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/doubt-driven-development/references/adversarial-review-prompt-pattern.md",
+      "source_sha256": "8fa7fe1f4b31af7b84b36b6bc8c851a8962251adb1d2aba20b8667cc2bd89f39"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/doubt-driven-development/references/architecture-adversarial-review.md",
+      "source_sha256": "f0f8ecc831306e57039d01298f86ed8c1e101b099fe82bddd4ca169040d67e59"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/doubt-driven-development/references/architecture-challenge-review-2026-07-16.md",
+      "source_sha256": "74f6662f05255deceec8ab458150a72af9ee65f1570e93131564fda946d6870d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/SKILL.md",
+      "source_sha256": "5464f3f6d174747bf3e35d0ff3eef0b455ca88844c44499cc24de904016679a5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/antigravity-live-catalog-and-wire-routing.md",
+      "source_sha256": "29713d71393bd9f568488131e92e5233f961830f40e0ffa57aa22a4d26352ccf"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/background-suite-status-and-baseline-attribution.md",
+      "source_sha256": "3dfb9174bba1b6069faf3f9dececc26c3dcd59a9859570cc82fa6c327e9a068b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/capability-vs-instance-state.md",
+      "source_sha256": "66779f6e80aa6f039a7826b1e60298b973e5924dc4d57f70ccbd6a724dc176dd"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/cc-live-runtime-recheck-20260819.md",
+      "source_sha256": "0f83cc02a140238fdd39d749fcd0081e4cfb3b9639a113b936c1413d505d1a27"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/cloud-backup-artifact-verification.md",
+      "source_sha256": "137e48c1e3e784013c74eb338d70c9031cab7ca0c7ad7f9a948c79d31525b5a8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/compact-time-confirmations.md",
+      "source_sha256": "62c867fb746b32ea03f3aecd74f5bc94124b9c324ba6e0bf4fbb1f5ebd4610b5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/dexa-chart-vs-json-reconciliation-20260825.md",
+      "source_sha256": "6cc6693f8cb54f4dd833ced372a3b8763d83ad24d0593a37ad67f609af00789e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/git-backed-final-suite-materialization-parity.md",
+      "source_sha256": "67a6264e7d814d27e75560883110a1749ab50b0904ecf1281d61dae0ce9da732"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/git-identity-and-attribution-preflight.md",
+      "source_sha256": "e654769202c2e7fb4d15d4d5312cd5cd741219337a28ca816c32dddc957db06a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/git-live-byte-forensics-and-evidence-packaging.md",
+      "source_sha256": "970188546a4614c32d02cd3c5b2e73a4499de934a5224343ca0432cc0c4ba97d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/live-resolver-vs-static-mapping.md",
+      "source_sha256": "ff822f56c4f879e78e27f71c9f4f50ee2a1b97e2a30abf09ec662996e84bd402"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/med-confirm-provenance-and-parser-gates-20260814.md",
+      "source_sha256": "8dba593f78468bd83cc0289cca13eb63ae158b65f9d67b91ffcda25b40e4b7e7"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/plugin-provider-boundary-check.md",
+      "source_sha256": "6312622de0ccd624745afa170265726747bb061e8aa968134aadf93808188818"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/reviewer-claim-audit-and-final-suite-readiness.md",
+      "source_sha256": "4c6856bc87c8311a95616647c4bf72728933b69ec8c52386679186806bb4b169"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/runtime-config-provenance.md",
+      "source_sha256": "9aa15645b69d0099bf1357f1d71e0a8b69f437403eae4b8c86845e1e05f28020"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/screenshot-live-state-reconciliation.md",
+      "source_sha256": "26bba922baf679212057a296d6734e4a521b995dfa521ced86a78f4b6b0d7e8c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/session-resume-lineage-and-title-verification.md",
+      "source_sha256": "0f0f31f1e3935b775fb8c3cd6eb7a63993547083bb1973d00ec30298e4f24fc4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/session-status-reconciliation.md",
+      "source_sha256": "7ce84a00a3e69dc9e266b80d6c38ae6ba10032d9cc8c1d62676830e56903efb9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/single-repo-migration-claim-audit-20260828.md",
+      "source_sha256": "01e0d2aa6b1a01a2ab82ccb671c242b7666a389539e70983d320121f1801e4df"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/evidence-first-communication/references/structured-output-exit-status.md",
+      "source_sha256": "bb053b85446ba0b435bc37f0cc7d19c23960a27b7d7512ae3fd7dc4a930c0b83"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/incremental-implementation/SKILL.md",
+      "source_sha256": "29aa261e77512e73125bbed19be9e4c95d2548034c449b01c9e7028c6d46b88f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/planning-and-task-breakdown/SKILL.md",
+      "source_sha256": "c4971bcb6db0611fa6da26194ca1c559dc7f8856c8a5110dd204fa54229d0e2a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-best-practices/planning-and-task-breakdown/references/implementation-execution-worked-example-2026-07-16.md",
+      "source_sha256": "fa41a5f29e359df57a12a105ce98306820feb0b1ad9466bb5ad9869df2517c7c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/SKILL.md",
+      "source_sha256": "f81360bc01ac612b211b8f2573868770eebadee5c4ba295f2b8d4f5458c821db"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/references/baseline-first-reconciliation.md",
+      "source_sha256": "a1387b4ae0c84cb331eab1002eb2f285a798f3159d2107c5bc869c871b7be632"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/references/candidate-artifact-parity.md",
+      "source_sha256": "8e0a2d304da5de7a2780ddf4d22a4d9fee0bc8e5bad369fa0a7e39703cd45da4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/references/medication-out-of-window-exception.md",
+      "source_sha256": "f51c42db460078cd7932ccf4a67dc164a90d447f17924eb48c24bf8a70d6b1fc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/references/medication-stale-state-reconciliation.md",
+      "source_sha256": "61a87bcde16b6c67b14a601f360b1a0ed47cbece6c2ec40bf0e53125cc6ab221"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/references/owner-corrected-adherence-analytics.md",
+      "source_sha256": "5d648c7ceab15961dc52d5559b6805d9c4aa684a7690990c5696746bd5cdb405"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/references/runtime-reload-and-config-contract.md",
+      "source_sha256": "bbdeb4b31e25b3362eb7f79c35b7b2d6e21d49ef5871a68e60acbe1101114395"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/references/standing-goal-completion-audit.md",
+      "source_sha256": "fb2900e31317f037958bc10aad73370dd13a31be35e70ab36f09a02967ecb76f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/baseline-first-reconciliation/references/temporal-authority-and-runtime-provenance.md",
+      "source_sha256": "d7192b09035bccf06eac87b9faf63f224227f8123a19c1a067c99f8811a3a793"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/brainstorming/SKILL.md",
+      "source_sha256": "3e960dc4a483915dc718cff161ac261cea88147abbf964d3f54981a23226152a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/brainstorming/scripts/frame-template.html",
+      "source_sha256": "6a8a4e58bd6a44b904e2e3c57de774481d909204597e1498de53f1b2fecc4c4e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/brainstorming/scripts/helper.js",
+      "source_sha256": "43c6d69954a46ec34a2a262bcc62a9a7e83e839c739f199cb72646d397c686e3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/brainstorming/scripts/server.cjs",
+      "source_sha256": "2d2961ea8d11f56c5f4c3a1a68d22709efa5d7601a2246d8c880774e7e9e8412"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/brainstorming/scripts/start-server.sh",
+      "source_sha256": "a4e5ae84275bcaacd2f84345afeabe59cf7b00ba080e123da7cc1fb226f12847"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/brainstorming/scripts/stop-server.sh",
+      "source_sha256": "0b5ccbbd57f62d3ed88993f7940b5ee0e5c0fc9b21c550c623da4f6292e47daf"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/brainstorming/spec-document-reviewer-prompt.md",
+      "source_sha256": "95a0a195de9d984be2fffa95bab16fc8c563bc296a9cfc5e9c29cb3ece0d7457"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/brainstorming/visual-companion.md",
+      "source_sha256": "3321a044c777d03d7177df41c77bb83155ff2a6d0c16b8a3d752426d29f14ea8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/caveman/SKILL.md",
+      "source_sha256": "a2a23daec7a3db52ded4180429531ec543f803e2cb1d33d19c1486942e2c31c0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/dispatching-parallel-agents/SKILL.md",
+      "source_sha256": "f6b827c3b06bb5f4d7f253a45c4f74a6cdb01f6b68c298fb737c2d2222731cb4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/SKILL.md",
+      "source_sha256": "315c1bb107c2cae2bb314033f982de9e309f729def8fb606b0ee04a2319b67c5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/arabic-perfume-research-data.md",
+      "source_sha256": "73af93f383582a26cbb1a8f6d1db49a10cff420c2adb7ce49ec2e81616977893"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/cloudflare-escalation-ladder.md",
+      "source_sha256": "baa0e5b2714a4677530399d1acf4d308664607d314dbc6dcddf436386e4b44c1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/external-skill-install-evaluation.md",
+      "source_sha256": "f2c0311b53700ef817f177691b77a7134fbceb40b4aadb286488d3f149f3b5e8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/meta-analysis-credibility.md",
+      "source_sha256": "55cc852a31c638dbdd1e21e67a2822cb9b012c5e4672a60c82848cf27a5ccf40"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/multi-ai-audit-verification-protocol.md",
+      "source_sha256": "f1efbf09efb9dc465a339329a4af22c9293011c9d02a36bc62dee13bda6330c3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/nebula-pricing-mechanism.md",
+      "source_sha256": "8305e2487b41099f65f3cdf22ad920273e81b72751ab2fe43fc3fdd68da49e81"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/openai-codex-auth-flow.md",
+      "source_sha256": "d4c39c89a04ecb213174de70339de2dc4836de9ddab448f5bb00b54f6dbae1fc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/openai-codex-known-bugs.md",
+      "source_sha256": "23dcdfc9aab19585007529a2a9c62bfc082623c4ce3f30e8c4506f21e0d5f903"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/opencode-api-quirks.md",
+      "source_sha256": "7ef1aff4c9f2b213940319f1eac5158cfe516e9e912b652d766c03a7d2ba0f0b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/evidence-first-feasibility-assessment/references/self-gated-verification.md",
+      "source_sha256": "d409fe121e6e87600070cabe2be83b5b0d0f0ca944de891e037b2f7e0e683007"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/executing-plans/SKILL.md",
+      "source_sha256": "0e80e8cd8c52656219b8065844335453744ef1ba7c96772a243a598800080791"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/independent-review-verification/SKILL.md",
+      "source_sha256": "119745076610bf19b28bbd9517462ac56279e05febe6782a428416f11312cf98"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/independent-review-verification/references/reviewer-finding-reproduction.md",
+      "source_sha256": "44eb7e822bd3f3b0971c4c5706b670274bdae8a12d2dc313038f257fc6897a89"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/self-improving-agent/SKILL.md",
+      "source_sha256": "aa532130b5a2bca86b7c35bcb67b9bc04017007fa50c5b2bd526e0ab286606de"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/self-improving-agent/references/historical-task-label-anchoring.md",
+      "source_sha256": "7bbef69edf4ff94cd73de26bfa43ba5b5dddf30e87170a7ac170103a38321274"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/self-improving-agent/references/read-only-scope-and-approval-boundaries.md",
+      "source_sha256": "814e61daa132cda260a65f39bbc7b781166b91e7e07cfc03dfd462461a7ff662"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/subagent-driven-development/SKILL.md",
+      "source_sha256": "5fec87b356a4668ff8dc48db525fb7342a22cd7d8aba3df3dbac9364c282be42"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/using-superpowers/SKILL.md",
+      "source_sha256": "0d38a62189450c18c02ec8e0fe8c2ae4709c61bcdf795b047f17791a737dc43c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/using-superpowers/references/antigravity-tools.md",
+      "source_sha256": "d0bcfa94dd0fa399fb9606a0f7c9562b43040cad02be167a2b999c3913a1d5e9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/using-superpowers/references/codex-tools.md",
+      "source_sha256": "9310bb2315eed2c1cebea02cd1c9e8fe121cb788fc6b41e8b8f8b5ff46f85f37"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/using-superpowers/references/pi-tools.md",
+      "source_sha256": "703dbc83d23ecab9c6f388460c38abc482e9dee2fe6772a8c7a255152ad3a4d5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/SKILL.md",
+      "source_sha256": "cc1ccab922ae7bde0b6cb78f5b1880ca7fa17ec653c7361fc37c1a970357a108"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/candidate-closure-and-harness-verification.md",
+      "source_sha256": "2d125221efbe1f3cd51de1b3b0f06a2fabb2ce17a0fd3b78937556bdfad0292c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/candidate-failure-classification.md",
+      "source_sha256": "9f02b0ae3da0e7df67ef7dfb940a82f1e3166d4c6bb6433530ffda709017323a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/candidate-full-suite-resume.md",
+      "source_sha256": "60ebbadceffb1579d964fed0e00189a0457d35be289f5419ab1b126b6ffb8cca"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/candidate-materialization-and-staged-gates.md",
+      "source_sha256": "bb3ade4466456c7829f40e8a0e9f8805e510b4e17cef3e161f2e9227430813dd"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/cross-check-completion-audit.md",
+      "source_sha256": "dd19cbb9738f997e08733c8ebcff4d8cf2c047649715c5c0191b21faed182ea3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/dirty-live-update-vs-candidate.md",
+      "source_sha256": "272cd349fd37099432fa0ed6f055bcc39f50d0527645fb7ea767cbdfbe5a9f24"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/durable-source-preservation-and-hunk-port.md",
+      "source_sha256": "8de6907b129e80e9220f6b02f8f0ec7b071c2d2a6201aa14a1f8e388f1bc174b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/gateway-restart-and-dirty-merge.md",
+      "source_sha256": "bd3d8659b9c077b87a2889c14f9196969590dc5d4dbcb5320c8fc1e0f9626263"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/interrupted-release-resume.md",
+      "source_sha256": "56ddf808827333bd3a87f28c8c6c680a503dde04b764b04e741fb520b212711b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/isolated-patch-test.md",
+      "source_sha256": "fa6793018f576b8b615843ae0c1587713fe7d67dcd5dd7fd802709ec20ae45af"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/moving-target-rebase-and-candidate-rebuild.md",
+      "source_sha256": "ea0c200ba4b9421635ce94964c846310bb088af9566dabb93bc9cb64eb5ff6f1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/post-commit-manifest-and-disk-growth.md",
+      "source_sha256": "63179bacff1c1da338346d60e9d0767587c3d3c59259a0ee95ee1dda4e0de2f0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/precommit-candidate-privacy-gates.md",
+      "source_sha256": "beaeb7fdee5aeba7e413f8a7e3044f0487e42ec03932b04995bda2c33e168dca"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/provider-boundary-and-scheduler-evidence.md",
+      "source_sha256": "7a010d63a4ebb94a56106037d428875c2e31029ffa531646f203da12fcd5f664"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/source-port-vs-behavior-change.md",
+      "source_sha256": "952bf1ed15e5de53c7cd435a6f8ce12697d2c649958d3da747b8b4b4a247eeab"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/verification-before-completion/references/test-fixture-pattern-remediation.md",
+      "source_sha256": "f468cfa6ffb0eb92a32da86dc3255804377693ae6c4266ac490909ddd75458bc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/writing-plans/SKILL.md",
+      "source_sha256": "a2d1fa9e81fe9f96fc5e52bea0a3ab6bf174d473095764827b118901e4fd2544"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/agent-methodology/writing-plans/references/hermes-current-runtime-architecture.md",
+      "source_sha256": "bb608bbc26f46d94378631177e1a78bce9e6170152cb3495ea6924b13612a730"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/ai-design-workflow/SKILL.md",
+      "source_sha256": "7efe1b0347c1b801c7f6f553c9c92c4d092780b567e7c1a8601103c1f1937785"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/apple/DESCRIPTION.md",
+      "source_sha256": "c9537e578d68950224dbc09a425497a780e8c3956db9cb38a97b4a9e985516b3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/auto-skill-suggester/SKILL.md",
+      "source_sha256": "87c58fdadc0ec73691361a1a41900c222254266c68e0e181e855250832752df1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/auto-skill-suggester/references/mapping.json",
+      "source_sha256": "6eeaaa4c4d3f654394c2a4c0159de4696a857286b83eda602d277f610b0bcd43"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/automation/bulk-email-account-creation/SKILL.md",
+      "source_sha256": "c9699bfcf92e297e8f77902f25f5d5e4330723044d35183f54f9e3169657891f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/automation/bulk-email-account-creation/references/provider-research-2026.md",
+      "source_sha256": "14c735416156f91602b48a4c266a3b45b133cd51670673da8b3e7606303c6997"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/automation/bulk-email-account-creation/references/qrypt-captcha.md",
+      "source_sha256": "7a89e8490a8c10dbe7c15c93c7620cbf86292b153dd9dd98402130d5ce6d5704"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/automation/bulk-email-account-creation/references/qrypt-inbox-login.md",
+      "source_sha256": "94c689ad29bd84a74b8f36ea870a0a0fe4e957342efa1474420638d23a38d5d0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/automation/bulk-email-account-creation/scripts/playwright-captcha-solver.py",
+      "source_sha256": "f0a0662032f0ca8b9c24f9e5f566c7011d8894349bf52bb01ce700136488adf4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/automation/bulk-email-account-creation/scripts/qrypt_api_creator.py",
+      "source_sha256": "cfc8d3a80a8f21f4c9951b943cb38767a64eb9f46766f18f00a4f7c9b5a5739b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/DESCRIPTION.md",
+      "source_sha256": "7f2427c7112d71235d92f68ba68392a4fed3d28a7636f522deb2748cb44fe7fc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/SKILL.md",
+      "source_sha256": "45ccd79e80410a00a05c7d29eaae81edd064681fa133141eac12807edea5b447"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/a6api-setup.md",
+      "source_sha256": "8e518707649c99e236ea6ab4cc7af13e055845a46975736af87d557222d9270a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/all-provider-verification.md",
+      "source_sha256": "fce95ea82407f995762c6dd9caf67a13fa6cdc1ce9f8107d5bdf9aac764572b6"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/antigravity-provider-setup.md",
+      "source_sha256": "1d4eb6cdd5d7880ad4aaca96efa5a3b8460cec7ebfe0560004acc22177203243"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/api-key-verification.md",
+      "source_sha256": "f04c34c6b7c3603e32c33a18e7d6b549be2cb9337622b39f9da680383da40ef4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/catgpt-gateway-setup.md",
+      "source_sha256": "566217cb7dc1a085be027ea9ecca1e402f1bbdc546067ad2f56cffb95406e9bc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/chatgpt-plus-codex-oauth.md",
+      "source_sha256": "450cffb33bd21189a364d8f56dd3ca05cd4de0091c760142423acd16cb7ce7cf"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/gmi-cloud-setup.md",
+      "source_sha256": "7a031ecac0da6c43cd48a9a56783cf68fe09198b4599f7950ebd444198caa505"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/openai-codex-manual-refresh.md",
+      "source_sha256": "f95b0c860eb84ccb904df34ddca362a3c5d748f84e06a3ddf3aba656734c5d48"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/openai-codex-multi-account-pool.md",
+      "source_sha256": "bd45356e96a90284dc23937809da8d7b87dcc6a2299a05b9215e41198404273f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/references/provider-picker-discovery.md",
+      "source_sha256": "66388dc5565e8894e07da558b90d1350102571773c7012eb047dea2b8a5758e5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/scripts/verify-codex-pool.py",
+      "source_sha256": "54bdb1aa95a938f2346f141fe70d7f7a593719ea158040160485e8c1bbbb8401"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/autonomous-ai-agents/hermes-custom-provider/scripts/zero-token-provider-probe.py",
+      "source_sha256": "1c2fd63cf2ce96d54b77b588c32443e1ef491a3d57575c09e48b2eb42b0781ce"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/communication/explain-tech-to-user/SKILL.md",
+      "source_sha256": "a959c8cdeff353c998963ffc5effe73b8cf4e3044f5cd2ed82ebbb71d8af49bb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/communication/explain-tech-to-user/references/clean-formatting-discipline.md",
+      "source_sha256": "7e26dfc15edf9dd78b7c0916d1e8a89e6ce49462919e47fd0259db1c0c4874cd"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/communication/explain-tech-to-user/references/telegram-response-quality-audit.md",
+      "source_sha256": "4c032474a1da6654f09c10681539bd6a3b6b4bcd5781453f3b76d826610a862f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/communication/non-tech/SKILL.md",
+      "source_sha256": "bec41ed76b8f2f217afd4980e61d246c2ab7a7e54bf978d12347d8f1b5c5ff9c"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/skills/computer-use/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/computer-use/SKILL.md",
       "source_sha256": "33fdce112f142cd3ec1978b53720099b706b3b51e1781d37c3b4f30f32ebdddd"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/creative/DESCRIPTION.md",
+      "source_sha256": "e890a87ac49fed98df4e1fc72fb9c548dd2ba66efa9f15dd1ba65935a1a60eed"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/data-science/DESCRIPTION.md",
+      "source_sha256": "1311078585c2e122ffa920a54d71fbc244a218d72a242cc795f4fec8cb8fbd21"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/data-science/jupyter-live-kernel/SKILL.md",
+      "source_sha256": "d93c4b4f50e66c0c074d49e43e28bf5ab87531eaa48884d0083568db827f5869"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/ci-failure-reproduction/SKILL.md",
+      "source_sha256": "b705329e3637e95a3f293644512dbf14f07ea50560a47355b95e2bf82732459b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/ci-failure-reproduction/references/dual-defense-manifest-gate.md",
+      "source_sha256": "2d5b0cb09311371ea1a0c1805c47e858b31a2072bee9629e2299c3e33eff3738"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/ci-failure-reproduction/references/med-entrypoint-path-audit.md",
+      "source_sha256": "8d18c536f33df519273640b4cf6588f278862037943ddbbf9e0ccfff7378d484"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/SKILL.md",
+      "source_sha256": "53b73f5a93792d7e3b709410bd965d9a00f46e2b686484fe2d8dfe6d7782d7d8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/references/3-test-acceptance.md",
+      "source_sha256": "5008a65a61ca269a426c06d33bf543270eb5ba13abf26df00c5586f47ffbe17a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/references/fresh-test-20260717.md",
+      "source_sha256": "7d397ca1c11ecce5758ddc9e888ea510761218ffed0cf93be23e3014054708ea"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/references/guard-reference.md",
+      "source_sha256": "73e3405ae137fa93ba55030e208160601c8a4de32387dad72aa5c20ba3fc7631"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/references/phase1-escalation-script.md",
+      "source_sha256": "a65ed08b4d31a6541b3ec89dff1c5c5932a71a82fc7a251924ae9b4307dd9661"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/references/phase2-graceful-script.md",
+      "source_sha256": "3169b11fa8c3685ef6e6983217fcfa03581bf65c3a428ef2d1a8c0edf01f7286"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/references/resumption-path.md",
+      "source_sha256": "e16ca791eade2ee5dc840cd0d9c163f1ae0785ef69ed4d78de6b111e0fc5c7d9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/references/root-cause-analysis.md",
+      "source_sha256": "0a052d77e548ab8629e7badf76b006d532fd6d58c03ae92e7890e6037a69a48f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/clean-restart-gateway/references/systemd-unit-reference.md",
+      "source_sha256": "a4f92d8666c0d6252e81c953763255f745606a5c1c509ca3a5b10765fef28c73"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/cost-tracking/SKILL.md",
+      "source_sha256": "094cbaf08bc586fe99cec25d0feb9df6c1abe87b11a5fc0dc1a42d57505d07b0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/cost-tracking/references/deepseek-pricing.md",
+      "source_sha256": "fb2f6c8d5fb099306cc56e8c661c2ee3264011634fee2573d27d79f975ec6f38"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/cost-tracking/references/free-tier-models.md",
+      "source_sha256": "afb9951ffb24b79493067baa1a2c04270bfc7dc2858e3f8aea800be10cd172c2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/cost-tracking/references/state-db-queries.md",
+      "source_sha256": "66b55b58aacaa0c22ee06148406ffafa388abb1b4b251a6dafc3f16745bdefdc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/cost-tracking/references/tavily-usage-check.md",
+      "source_sha256": "a15b0c975f2788b3c18ccbb6cdfebb542b2c9a7ac105538c75bdadf519e97a7a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/SKILL.md",
+      "source_sha256": "5dfcbd21ac7180e29aa7fce84aaa15a955447eeba0d9ecd3629a59ea74c98e76"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/cross-channel-branch-sprawl-closure.md",
+      "source_sha256": "a2148191db740e8ba1a539939db904837f9e98b95d5318d34c1a8f3524573a2e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/cross-channel-identity-and-publication-gates.md",
+      "source_sha256": "d5a322f964d01009a2ced47b3fcae43167fa1f2fd02bd23fbaf32da1c9df89c8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/current-working-tree-checkpoint.md",
+      "source_sha256": "7d92832bc51aa1044a7b628dc661e08a7dfc0baf0800f75d611f5c33245b31f0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/live-runtime-preservation-baseline.md",
+      "source_sha256": "bdd3e302e7c2142e08de09b0eaac94ab614dc071e98d7c3697348d4e75871ddb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/live-vs-canonical-chat-repo-audit.md",
+      "source_sha256": "8c8a47e7c2f1b3d6866c12bb621ede40ced202e122d196562ebf431fb10dd807"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/model-b-runtime-source-closure.md",
+      "source_sha256": "8777e4f4b1bbeea599deccd99b9d991edff73fdff3890318420fad9fd36ab531"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/ordered-patch-evidence-closure.md",
+      "source_sha256": "afe91362fae881c1f946be18bd113a97ec098fe98a3ac24942e14d160d218e90"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/read-only-forensics-command-book.md",
+      "source_sha256": "d4027b55d386b51976b44bc3f1ab06c1116bb834b1b943175222f96a64f55cfb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/read-only-worktree-push-audit.md",
+      "source_sha256": "38e5a90789c21e04bd076cfb4558dbf65c0752dcc0c4836e394b825be78efe2d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/single-repo-vps-consolidation-and-nightly-hygiene.md",
+      "source_sha256": "b2851ece70b74e792f23b87beec4b847473058dbcb2c7288b73eb0fa9305b356"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/git-repository-reconciliation/references/snapshot-boundary-and-overlay-comparison.md",
+      "source_sha256": "12cde023ca34ec430197cde6f395861b183dd94cd0285f544bdc77ce87412585"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/devops/google-oauth-vps-setup/SKILL.md",
@@ -677,10 +1811,196 @@
       "source_sha256": "073f7e499c7e602b93a4a94261c768b46b0d9d30c99ab597dd15b3230528478d"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/hermes-browser-providers/SKILL.md",
+      "source_sha256": "a6fa037590f03ca6e6bdd41e75d8397bfb223431ec3058bca56ea8a774570fa6"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/hermes-browser-providers/references/provider-details.md",
+      "source_sha256": "4f39096ad569623a3948382a2408449d35108f0afef293f6eb676db54561920c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/hermes-session-routing-repair/SKILL.md",
+      "source_sha256": "f15f4e67d645f9cdc38877094238fc5b5324b241d902870be70840693ef3217a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/hermes-session-routing-repair/references/queries.sql",
+      "source_sha256": "a9f7465f13ccfb32249707548f5f1fb6aa9df4afe23ba989e5408edab9146c52"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/kanban-orchestrator/SKILL.md",
+      "source_sha256": "e82d8bb8a87173ee1feb99494bac3774a6fa26b33c8d22a6233328b243554f0a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/kanban-worker/SKILL.md",
+      "source_sha256": "806c5f0fe2d4d0df8da91f720032bb6524b4dbecf6b4532aee9b3a7914401c89"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/live-resource-forensics/SKILL.md",
+      "source_sha256": "1fd622d2ddad7e7f74aa318c95e505f4fa2303bf143cd93e6c23c1deed1a6683"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/live-resource-forensics/references/resource-spike-forensics.md",
+      "source_sha256": "3d722f55ebaf3c7072440b9530757b2945a94f31394fff17a1dda0fef4490803"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/medical-runtime-recovery/SKILL.md",
+      "source_sha256": "f1b897b0683089ab2a7af29aed964e239ef94f4e5723595a45c62690948760dd"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/medical-runtime-recovery/references/cc-compound-recovery-20260812.md",
+      "source_sha256": "795e5a7eb13e1e35cb41a68ea193d7f5c94e58e372507fccfd6cf2e5f6f2a4da"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/medical-runtime-recovery/references/dexa-bd-dynamic-deactivation-20260826.md",
+      "source_sha256": "6df451d8fb5c532dbed126a4d04a67aff8140211254dfefd6ff8bb956b475b8f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/medical-runtime-recovery/references/dexa-bd-slot-f-solver-gap-fix-20260827.md",
+      "source_sha256": "c04efa85e8b6e8e0bd94c3999a046811c4bb965ddd02b4dcb3c995198f35470c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/medical-runtime-recovery/references/dexa-chart-rebase-20260825.md",
+      "source_sha256": "92a3cae90fd6a08c50c42985d9659d8f1c061bd9498f287cf03afffe00a50ee7"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/medical-runtime-recovery/references/dexa-dose-dataflow-fix-20260812.md",
+      "source_sha256": "6133c95afe26a5c10c94cf453e969d4ef7289f96533036e083f2481b3976fd16"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/medical-runtime-recovery/references/live-vs-personal-source-drift.md",
+      "source_sha256": "de32152af8342fda1a0941fc9fcb04d3e8970a3e7c059735da7770435e76c7a2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/ordered-overlay-candidate-closure/SKILL.md",
+      "source_sha256": "b1932d512aaa9e0bc7ff9126fcbfd2bb4c901b2c9d922dd42e85d5015a78d807"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/ordered-overlay-candidate-closure/references/fast-contract-subset-runner.md",
+      "source_sha256": "857b898e7a09350a66bed10cfcba4c71b068f1b24180a46dbb8324458256544d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/ordered-overlay-candidate-closure/references/model-b-ordered-overlay-closure.md",
+      "source_sha256": "63a5ac561d03849949ef6f2a4d7015b8d5e1432171ac0227e0c8432724d64765"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/runtime-to-source-port/SKILL.md",
+      "source_sha256": "32a53d0759486fd978f910198c3cff1ce57bd5c6e4543f5b679284d48dade185"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/runtime-to-source-port/references/manifest-gated-port.md",
+      "source_sha256": "e716245df99dce35f8cec9f91d7fa828c28556ed083de1737f3db821d7d35a5f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/security-audit/SKILL.md",
+      "source_sha256": "5984c3e1aa31ff055dc2da81c6b64db54162b6fbc7f11910bc2fc6c5a9d3f9be"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/security-audit/references/chat-edge-secret-handoff.md",
+      "source_sha256": "c6a7aadf250af191098b62d855b80dfba6388683ebacbdcb53aa7d361d3b5b20"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/security-audit/references/evidence-based-security-audit.md",
+      "source_sha256": "4c356c7ebdd091983b8b866def01b1a319b99c04e3c9e9bf92e027b41501b43d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/security-audit/references/hermes-osv-audit-command.md",
+      "source_sha256": "2277943cb477c96790096457f7c1c2d7d8c8f80dd0980356fff14e793c16a2c2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/system-self-monitor/SKILL.md",
+      "source_sha256": "b6e57cd6c1c4aaec0952a9a5ae774c3fd84dd75ed7643734b71934821e83c2ab"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/system-self-monitor/references/cron-boundary-and-transport-separation-2026-07-29.md",
+      "source_sha256": "23ed1dc69b4aac73efc5f8d67ca6898fd20e17ddeb438cab99b5f4fbd21cbb3c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/system-self-monitor/references/health-monitor-setup-2026-07-04.md",
+      "source_sha256": "4c4665a7c612e1a36c7dfc8cf370a724a11f984242dbb6e72ccbbc6e53ebc782"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/system-self-monitor/references/live-system-check-delta.md",
+      "source_sha256": "f58721931c892ebde4ab7f2f119b9bdedf372a3f10607d52be0fb2db418238f3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/using-git-worktrees/SKILL.md",
+      "source_sha256": "45b30b5d92b98caed9a5728f57e86bbabb15e3261c64dd8fcce23fb50fba2f1a"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/skills/devops/vps-audit-sync-handoff/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/devops/vps-audit-sync-handoff/SKILL.md",
       "source_sha256": "33eb229ad792a22f26fca3e6897b1424980d19553489015a598876dcae9bdce9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-audit-sync-handoff/references/backup-artifact-coverage.md",
+      "source_sha256": "777b5815d42a0eec42de4b33fcd411db4fbb87400db0c4b97f6e8e0749fead5b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-audit-sync-handoff/references/bounded-source-closure.md",
+      "source_sha256": "dd93b3d9031746d57e0fbb121a7e9e220fd701b1746d3911547d59f46625b15c"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/devops/vps-audit-sync-handoff/references/deliverable-collision-verification.md",
@@ -693,6 +2013,12 @@
       "kind": "runtime-deploy",
       "source": "skills/devops/vps-audit-sync-handoff/references/handoff-checklist.md",
       "source_sha256": "179ae40b86827c7f52c54b98952ab1c82237f734fcde1d45175586bb88ce9efa"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-audit-sync-handoff/references/live-source-census.md",
+      "source_sha256": "891427ced38bdd11c2b488372a7a05d5a2781f9c7904086ce9fd193b6b745321"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/devops/vps-audit-sync-handoff/references/multi-auditor-fairness.md",
@@ -713,16 +2039,154 @@
       "source_sha256": "8a07dfcc78bb2c9515cbda0ba4e36c0f1757fc016df4ca051d1d59e9b5c6adc1"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-audit-sync-handoff/references/recovery-evidence-boundaries.md",
+      "source_sha256": "4c654ebf70a6f56821cacfd3b8d101546b00d07a65a5095067cfb46a9be6a83d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/SKILL.md",
+      "source_sha256": "067924e5ceb8bd86c3608734a4123d872ae911059ff6bbd462f007675c1b137b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/references/audit-cleanup-20260823.md",
+      "source_sha256": "ad358d27514dc8e32aef8cd1842bc1072132b0e2a200567da047e840045d1349"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/references/b-plus-update-cutover.md",
+      "source_sha256": "a0b7ba2b2afb64a3a2ba4f509ff2887aeffc24502f2ff07f57a31b9f25e5be85"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/references/branch-disposability-audit.md",
+      "source_sha256": "ed31dfba7fbf4317b8a7a9ad96789f6c6aa293f1c28e2b660cd0957b275a81ea"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/references/disk-breakdown-recipe.md",
+      "source_sha256": "6b158f0239d6cc5c0778c1bedc51c6ca5d5164bc60c50265f141924d606bbe1f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/references/disk-cleanup-20260809.md",
+      "source_sha256": "da07e57aa18743762dcd6b0dd7c0d7bc129e6a0dd0b8a646185f657081073a5d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/references/drive-artifact-identity.md",
+      "source_sha256": "854ae017a68c926d08510fb4c8bdfd68182ebbf3032fbbdb2395f909ac63e4bd"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/references/emergency-disk-full-recovery.md",
+      "source_sha256": "e8a0fb0105db4cfee04987454a23f37917f295a38a3689f5d635a2feb75b807a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/references/post-deploy-cleanup-20260820.md",
+      "source_sha256": "ab638b2e34fce581e2062e130e8b0c618a3b01004f65f7bc5391e13c64f67a2b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/vps-disk-reclaim/scripts/tmp_inventory.py",
+      "source_sha256": "943a6f53d23f76cbc365367543c7a3db4b719feb9e51303fb22806e487cd74f0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/SKILL.md",
+      "source_sha256": "2b2f3f533275a151721f127a38b25bd55b5df0df041d4d69b4871a3a376a958a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/references/10-solutions-anti-bot.md",
+      "source_sha256": "fdee3926c7e0a44bd3ea15d8ad50f7fb53692e7a267447b6049bfb722f02d300"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/references/browser-captcha-solving.md",
+      "source_sha256": "10789d4a5ca01b0e399aaaabc2404c0c17c815ff7084746abad39acdcdb69d9d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/references/shadowmail-temp-inbox-api.md",
+      "source_sha256": "391f2fda85a3ae95bcea546f3fcf990d2442356fc39976b44aee9a9107cf8947"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/references/spa-api-reverse-engineering.md",
+      "source_sha256": "d336a9a203c39c708d75dfc146e5d9fa925acd4557129edf590b5f6ad35a5649"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/references/tavily-signup-flow.md",
+      "source_sha256": "a2129f6d5926a819d151f3fbdccfd0b3e3e0e9416322b224af87133c314da6bf"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/references/web-compat-benchmark-harness.md",
+      "source_sha256": "2ae95f613c15b9398c89a2f4f5228597e72015cad19b7c972ec1fe67f3795880"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/references/xai-grok-signup-proxy.md",
+      "source_sha256": "07ee5f8381630693f6feb5ab8d7c27a3af7818d28436e21874db50a67c0f2988"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/web-scraping-tools/scripts/qrypty-batch-creator.py",
+      "source_sha256": "3232d4b30cb15c06af5d4ba558dcfcfbd1b9297d3e24fa3bd7c5591ed0768f31"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/skills/devops/whatsapp-bridge-maintenance/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/devops/whatsapp-bridge-maintenance/SKILL.md",
-      "source_sha256": "6a25f32deac6016be77b5899cb645315e8da5b3c41ba23ccac9d7a1d6f54202a"
+      "source_sha256": "7d9e70767fe4050d7c5a8dec074e3e19177f3b3120a0720be8e883449db8e3e8"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/devops/whatsapp-bridge-maintenance/references/bridge-405-reconnect-storm-2026-07-29.md",
       "kind": "runtime-deploy",
       "source": "skills/devops/whatsapp-bridge-maintenance/references/bridge-405-reconnect-storm-2026-07-29.md",
       "source_sha256": "87050c6b773901e6ec0abc8079334830c68cdf395dd94eec8a7f0b0b1f7af25c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/whatsapp-bridge-maintenance/references/candidate-closure-and-retry-ownership-2026-08-12.md",
+      "source_sha256": "14294c89437d7406fdbee947f5e433a401ea840fc44a777e16dec7c34272d7ea"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/whatsapp-bridge-maintenance/references/group-intake-fail-closed-2026-08-12.md",
+      "source_sha256": "98929d2abbf83cfcda2f25d0f0e8c3c6eaade781693fb0bd534723dae1e0f7b5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/whatsapp-bridge-maintenance/references/reconnect-controller-audit-boundaries-2026-08-12.md",
+      "source_sha256": "70b08dd28645b55c4fbb425fa95134ab4342f0fd5e0a69b24f7484361800cc34"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/devops/whatsapp-bridge-maintenance/references/reconnect-storm-controller-and-runtime-boundary-2026-07-29.md",
@@ -749,10 +2213,88 @@
       "source_sha256": "3ff81e1f389dc88209e6303e50e9dd1433c6c7f94292c3134c503180eca9b246"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/devops/whatsapp-bridge-maintenance/references/silent-inbound-loss-2026-08-11.md",
+      "source_sha256": "306a9a1d3648f0453f2f6d9bd55455f5761033376f5516a062f2f399d3887033"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/email/DESCRIPTION.md",
+      "source_sha256": "2c40e123f597ebbb4db9edf5fe8e5d63a1aacf8f00b59eca1b5af0748062ac24"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/experts/research-expert/SKILL.md",
+      "source_sha256": "ac4e07880c7facc4c504d1abe905bda78cbf957dbdd737918f01023c79b33339"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/experts/research-expert/pipeline.md",
+      "source_sha256": "b91310d1688544066625c1f40a99ae74616023d93ba58a6cef6f7ba22dd9fd45"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/experts/research-expert/references/conversation-repository-audit.md",
+      "source_sha256": "2e1c278d0405f0701373096040cd6aa5e99e9d0e4aa8c348c06d21aacd42e9ea"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/experts/research-expert/references/pipeline.md",
+      "source_sha256": "515fc82c2b4289ff80023dad4719a3a3cdf7fa6b8239da36569b7c98a357ee27"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/github/DESCRIPTION.md",
+      "source_sha256": "51c160e23661890049042988073695110b1c1c88d00389f1abf05f5842b19ca4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/hermes-no-agent-cron-pattern/SKILL.md",
+      "source_sha256": "c474d3095b9e93b74f30a4c33e5e38a552dc7909e4e09a8e6ac87e27eefbcd3d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/hermes/hermes-session-store-repair/SKILL.md",
+      "source_sha256": "6e77f9efcf70d4beea8a682076afc93d103e09eee439a6d681e161438f603d5f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/hermes/hermes-session-store-repair/references/repair-routing-findings.md",
+      "source_sha256": "33e7f3359269be360c218e25df391a74c3ae0d761660d52f5207174f72c26128"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/hermes/hermes-session-store-repair/references/runtime-drift-shell-row-case.md",
+      "source_sha256": "3809c72502aeccd0c51a34e9158def914c6269a4892b4e95e917a9b02c09ff6f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/hermes/hermes-session-store-repair/scripts/diagnose_null_keys.py",
+      "source_sha256": "b6ae67247dbd96de2b87be2fd6228907a277ba08398be4fd4099129584555ea2"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/skills/i-have-adhd/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/i-have-adhd/SKILL.md",
       "source_sha256": "cae8c063977214b372c6897b7c93ac8faa573214a8635896f767e3bac092adf8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/life-management/adhd-daily-planning/SKILL.md",
+      "source_sha256": "3ce7342bca61d04bf3a4a7c3497472df1f3f56a87a590465f3738373b9658dc2"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/SKILL.md",
@@ -866,13 +2408,13 @@
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/references/dexa-resolver-and-timing.md",
       "kind": "runtime-deploy",
       "source": "skills/med-tracker/references/dexa-resolver-and-timing.md",
-      "source_sha256": "18a44fe9e662844022650317e257c271148e79ca7aec4a7627e28c0dc00f98c1"
+      "source_sha256": "80cb19fd38739d904603992902cc88520b7bb90b3c854acd2f6ee3d59b10bac9"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/references/dexamethasone-tapering-schedule.md",
       "kind": "runtime-deploy",
       "source": "skills/med-tracker/references/dexamethasone-tapering-schedule.md",
-      "source_sha256": "1c7989d568bf509f586d07688af37dfcc40131a152e98588e9656fff41d0898e"
+      "source_sha256": "4e03b7066d6fb9fecc85c6415324c466d39041fef6f62240602a461d04e5cddc"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/references/drug-level-upgrade.md",
@@ -884,7 +2426,7 @@
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/references/live-confirmation-pitfalls.md",
       "kind": "runtime-deploy",
       "source": "skills/med-tracker/references/live-confirmation-pitfalls.md",
-      "source_sha256": "3903baff5935d5ed6d85523feb73fb724d652558ca9e975248c192106c86413f"
+      "source_sha256": "18db04f53cb9d092d1c9ea76d06a2dbafaee330676dac9089ba2b79faffb6597"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/references/makan-ambiguity-ask-dont-assume.md",
@@ -1001,10 +2543,94 @@
       "source_sha256": "62dee254b52ef37f1ccc4e669ed138cc75aafca44914fb6740ff519083eda2a6"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/media/DESCRIPTION.md",
+      "source_sha256": "c27bb2f0f3acd71771de1e7dc2ec27311dced72cbdf3989577c6907928e52645"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/media/heartmula/SKILL.md",
+      "source_sha256": "d6f8322ba9ab47564ff73dc0ee8d8158d78cea4de557e5b0abe5c6921a12fa57"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/DESCRIPTION.md",
+      "source_sha256": "2cbbd46162c529fefacae77b43bbb47d3267f6124a30f4c03bd6cab4fe960253"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/evaluation/DESCRIPTION.md",
+      "source_sha256": "5e682e8f8f791d3378e34540395603a98b2803db76c80b86482e60a843cc33f8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/inference/DESCRIPTION.md",
+      "source_sha256": "f409a16dfccb4dca6aa5b8fd0b53005b053e2d13d26f53160f89252e5fc72640"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/models/DESCRIPTION.md",
+      "source_sha256": "97a8c2c6c7f4dcbb01a067b4f1df7d4ac790d1e134f449c604afc68695cd655d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/models/audiocraft/SKILL.md",
+      "source_sha256": "eebe52632e3312a55a352d766828e7153b2ee23e2e67c0e4e874474e5c52198c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/models/audiocraft/references/advanced-usage.md",
+      "source_sha256": "5efe98c6ebcd0107e48c809cadc0e48591f9c235ac47014f39a40772fc45116d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/models/audiocraft/references/troubleshooting.md",
+      "source_sha256": "af0c56aca0902aca6f05350caab3750de608cf904a4e6bb9dd0967c664d8de0e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/models/segment-anything/SKILL.md",
+      "source_sha256": "86440d99e8ec3bd7f0a92640d62bf307915ec2a7154e45dd55a214d58ee6966d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/models/segment-anything/references/advanced-usage.md",
+      "source_sha256": "73a46290ac6986333e5ef65b785afc7c9463d6835d8a67c5f74f418fa284fb39"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/mlops/models/segment-anything/references/troubleshooting.md",
+      "source_sha256": "cbab544d97ddc3813b4f74c805086579e7bd51547ccf9830dd44fa5936b07b4e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/note-taking/DESCRIPTION.md",
+      "source_sha256": "fb28a609372460b2788d3b7dbc551985d24d4042057971f4d6345144d2d78caa"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-git-pr-flow/SKILL.md",
+      "source_sha256": "041906f874ca0a1a0013ce9c4e1038c6433b355e4ef23745247ea25e9bf86db8"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/skills/operator/hermes-live-audit/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/operator/hermes-live-audit/SKILL.md",
-      "source_sha256": "535f7a003b1f039afb1e02f0a185ff806328e803e5383aa3d3034448daf6ea58"
+      "source_sha256": "932d678a0a68338518083ddab608256e9ef11ede95170da82620ec2a1b3b07e2"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/operator/hermes-recovery/SKILL.md",
@@ -1016,19 +2642,109 @@
       "destination": "/home/ubuntu/.hermes/skills/operator/hermes-release-deploy/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/operator/hermes-release-deploy/SKILL.md",
-      "source_sha256": "68463c21e9cf4d62e1a94cc6cb8351955fea9324ce2e83fb3a597594559295a1"
+      "source_sha256": "b77b7c2c68ec55be68e64bfa2f04572a59efd99ae4637572f7d9e2008c7fd217"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-release-deploy/references/isolated-live-base-rebuild.md",
+      "source_sha256": "20c58680f507d922745a63225eebea815c3e1a41c173d35a5ab7579cf05b74ce"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-release-deploy/references/remote-ci-and-live-deploy-verification.md",
+      "source_sha256": "d8b744b3e8ebfedc5f3e43baab8955adfd804b18143db244e780b216c5acf7f5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-session-diagnostics/SKILL.md",
+      "source_sha256": "2cafba81301bf4588c424379da1ae1e5455fb3ca93db147980a304f7164fe0bc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-session-diagnostics/references/exact-vs-effective-resume-20260817.md",
+      "source_sha256": "5cbd7e2babdd0762e9eee7f4c9cc8600ec033db8ed6b47ebe405e7d5fc9f9f55"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-session-diagnostics/references/session-listing-empty-20260813.md",
+      "source_sha256": "78af8f0191cd7fd997d9e1ce5e8e2a63273865dc7de28f2ea9a911d55f5358ee"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-session-diagnostics/references/session-reconciliation-20260816.md",
+      "source_sha256": "c46873d333a97f6b406a15c8154122fb8bf3db69bd104c1bf9de7badc793aaaf"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-session-diagnostics/references/stale-lineage-tip-20260815.md",
+      "source_sha256": "7342cf6e46b12bcc146781db2fea5c817184c389469932ff63607f339e1f55ee"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-session-troubleshooting/SKILL.md",
+      "source_sha256": "37008a19cf7fcef74d7d20252692d4fe8b819a586fa685b711ee3a07c8d38a9a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-session-troubleshooting/references/session-db-schema.md",
+      "source_sha256": "9363e9455a0a3e3b38cb8dd3eab2a8999dbe1732c30e1e037c8bb6c01fb945f6"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/hermes-session-troubleshooting/scripts/backfill_session_routing.py",
+      "source_sha256": "05db3d6f795b7264db0257462b87b3169a9255a7260c996ba1d9de3a4b467586"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/operator/hermes-source-change/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/operator/hermes-source-change/SKILL.md",
-      "source_sha256": "5dfb68aaee413c4b4350a41226e432cb3d3e60918e057ed95ac6b173efe7d70b"
+      "source_sha256": "0f8b6a27bea310cc2a6fa4a9da4aaaf764f90a591082de8cd3870d0143d0345c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/live-system-usage-audit/SKILL.md",
+      "source_sha256": "0dd6d1dd8f9e7e82eae1a88fa47418e7d684125da3e8eb061d0195883e8b6012"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/live-system-usage-audit/references/host-runtime-probe-pattern.md",
+      "source_sha256": "338369a189c400be80ab56945d986a62227cc8a74e13558772a1b2b8ad2054b0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/release-live-update-routing/SKILL.md",
+      "source_sha256": "3d26f281f1f5b8bad1955d389a986a38bb629b5d91cdd909ba8452eac46c0123"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/operator/release-live-update-routing/references/release-live-update-routing.md",
+      "source_sha256": "2e965179f81a522de238367414501a31b1470c62c7fa56a9441061f3ce334db2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/DESCRIPTION.md",
+      "source_sha256": "b5a494a45bfd430bfb3042ee0452a6b88c81481f147ce7fca2c29ed3e93c490a"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/productivity/documentation-workflow/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/productivity/documentation-workflow/SKILL.md",
-      "source_sha256": "face714a7e97d802261e9b689e17e6dd724074776de8a674ee29bc292afc6d31"
+      "source_sha256": "a542d4b6894629dc62cff0c84f357b6efbbe846b5fa35d68c99151a4b19b97b1"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/productivity/documentation-workflow/references/anthropic-docx-skill-analysis.md",
@@ -1043,10 +2759,106 @@
       "source_sha256": "8d41fefa2cd0c763ada918324f6d5554328da404acd86b830b3293969b39923a"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/documentation-workflow/references/gdocs-delivery-closure.md",
+      "source_sha256": "a9bc0f2cf8c0532de419651f9fec89e05030826df7623ca84144acbb2bc94888"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/skills/productivity/documentation-workflow/references/reconciliation-v1.1-audit-pattern.md",
       "kind": "runtime-deploy",
       "source": "skills/productivity/documentation-workflow/references/reconciliation-v1.1-audit-pattern.md",
       "source_sha256": "c8a35e7270688be6279d0338ad0365ecb9c8bf41f985d2a650f1ec5b06547f0a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/documentation-workflow/references/recovery-runbook-google-doc-delivery.md",
+      "source_sha256": "8bc8ae33d7c5b424491f21e04a2619dee1903a2a8aa897d881e492b2a9880f1a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/gdocs/SKILL.md",
+      "source_sha256": "025319d67f5004c41b9b778f729ab88fa543ae17604dec814c9e2abe545cca33"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/grill-me/SKILL.md",
+      "source_sha256": "6189dfceb7304a6e5558f75d87e68fa3bc7fcf7ba120e44f21f8a61fe01eba54"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/grill-me/agents/openai.yaml",
+      "source_sha256": "c061e39c3e0f9d865fb1b97556d485704af2a8a58f4b8221a8917a5c2074a32b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/grilling/SKILL.md",
+      "source_sha256": "fa5c1e5ee76b1c8f1ae56101f52c9e239de75d5c578adc61227b92d10b7e52ef"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/grilling/agents/openai.yaml",
+      "source_sha256": "1411d7df7d99b7e621a1ff8283c8133cc2464be63d064e52d8ce169c6800ee9b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/handoff/SKILL.md",
+      "source_sha256": "78469e67a635def89953bc0faf6d53a226aa78a77d61b3f2b9897a9d2cdea735"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/petdex/SKILL.md",
+      "source_sha256": "ca52cda72a9c49d60c4a3c2dbfa6c64c87e62562857b598599cc496b30116fd1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/teach/SKILL.md",
+      "source_sha256": "001b13dd9c4d33e42d61cf83dfcfc3f5f92afc929670f46edc7cfaf45c680dd8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/teach/templates/GLOSSARY-FORMAT.md",
+      "source_sha256": "d177def491519d97873291f2e860d8f1d60ead78feecb82eee022177958069c6"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/teach/templates/LEARNING-RECORD-FORMAT.md",
+      "source_sha256": "0b2e0274a8f6578e6b14b4f16a3ce86d2f00b8fa80fb2c44ef84b98b5fe37b68"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/teach/templates/MISSION-FORMAT.md",
+      "source_sha256": "8da6d3ac84eb2eb19f17c260b6acf01c560d3ac7a4501c415eea0e985602f4d7"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/teach/templates/RESOURCES-FORMAT.md",
+      "source_sha256": "4345acf31ba935d3ae5e101fcc0f9b9497df69a9b8c9ed74850d0ef708590703"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/to-issues/SKILL.md",
+      "source_sha256": "9ad838979376c7a8667e5db73ae69a03bfbd56a4e1c2de5879f4ee53036dd7a8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/productivity/to-prd/SKILL.md",
+      "source_sha256": "45d0001a3f8adc961905be6e33ae3659b8d88176fe8cca9b0c7ea36c7a4f683f"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/reference/wiki-vs-gdocs-hybrid/SKILL.md",
@@ -1059,6 +2871,24 @@
       "kind": "runtime-deploy",
       "source": "skills/reference/wiki-vs-gdocs-hybrid/references/vault-operations.md",
       "source_sha256": "935623ddcb29dd2aa6d2768d31f8a1f5baffc80617c80fd0c6ae8c1723ec0709"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/DESCRIPTION.md",
+      "source_sha256": "a7bc842330a491de5f73cd63e87521e53724d94d4f53949bfa2171beb8200e18"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/job-role-research/SKILL.md",
+      "source_sha256": "deba9ade52eef01e484d1a131fabe1ef7d9e183ce0c1cc3a2b70ca47b1593d24"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/job-role-research/references/research-pattern.md",
+      "source_sha256": "214ffb89c63c2f15c272331ef6bff8c724311e0eedb18e4a6c691b4d9bf34678"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/malaysia-telco-research/SKILL.md",
@@ -1076,7 +2906,7 @@
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/SKILL.md",
-      "source_sha256": "e555c702448ded3cf66ba64e2da09e39c259aecf9a6f62da47cbaeed39f7ac23"
+      "source_sha256": "8362e6af2ec2c61bcccfa19a7b94611f18fae424c3e093ac04a2c68e37f0fbee"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/akurit4-timing-empty-stomach.md",
@@ -1091,10 +2921,22 @@
       "source_sha256": "d8d9101a3367c6af63ac3f22c109a639c8392baa3c16a28ac87f01f365738e0e"
     },
     {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/medication-safety-research/references/food-effect-pk-factcheck.md",
+      "source_sha256": "167cdafacecfdd00ecf25c896fd9e39ccb8c46006e95db2ebfa9782b6f5547dc"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/interaction-source-guide.md",
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/references/interaction-source-guide.md",
       "source_sha256": "02332a3595f80e1724af8cd3c8cb443f6aae16758fd4367ed0a437ae0767af9e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/medication-safety-research/references/missed-dose-uncertainty-confabulation.md",
+      "source_sha256": "ec4281f150ae93a054ecf55fe4b4ba43e220f3ffc8007d6beb6c28dea8c3c9da"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/ppi-tb-steroid-interactions.md",
@@ -1113,6 +2955,780 @@
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/references/wikipedia-api-medical-research.md",
       "source_sha256": "9577c15d4446f23bc65257cbd481bb27fa30246a648c5ea2700648618bbb3e97"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/polymarket/SKILL.md",
+      "source_sha256": "becfa71e730b482c3f087c4de4071fd25f0feb475aec1293aee0b845c10fa190"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/polymarket/references/api-endpoints.md",
+      "source_sha256": "d000b3c89c51fee874d5e097f9b9f057c353734710b567915b4189e54ca176a3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/polymarket/scripts/polymarket.py",
+      "source_sha256": "7873e054539a8c782a671dd84686e1ee763e29fe20245c1d10798b767d76980f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/web-research-benchmark/SKILL.md",
+      "source_sha256": "7d5e375d6ba1938e96b6de41e7ffed53ebdba4a969ae2aa681fc16c7f3a63285"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/web-research-benchmark/references/web_compat_suite.py",
+      "source_sha256": "5962e3f80a4e3c7039b5668e4bfa559e800268bdb145af6fc9e258af0a228f0a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/web-source-verification/SKILL.md",
+      "source_sha256": "e9673737507182acf53452480b2226fa0563301a2d844db6151ade1500ca2448"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/web-source-verification/references/x-post-to-wiki.md",
+      "source_sha256": "1d9cd75099c2d1cf3cf0dafa5912418b12fa0682dee04527c3e9cbfa1e3cf3aa"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/research/web-source-verification/scripts/github_repo_batch_verify.py",
+      "source_sha256": "240ed82d7cf0f0c9f02318fda5a8c45b8d48c29b950b750da703cde1dde6b828"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/smart-home/DESCRIPTION.md",
+      "source_sha256": "34a853f25b3ea6c6515fb0b4f6b5e36c6b1459e6d1396f6b345027d193f46ee1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/social-media/DESCRIPTION.md",
+      "source_sha256": "2ea0d50444337de4809a62dc618d6d9c35bd2ba30f17ec6a138a20f53f9974a7"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/anti-fabrication-guardrails/SKILL.md",
+      "source_sha256": "e2600b233bedae6e832d568f6a4e6f1700dde1153e76ec1e743d6795b7857472"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/anti-fabrication-guardrails/references/verify-external-claims.md",
+      "source_sha256": "1bfb3b59475e465c68ca89ad0f5e73bff11340b553087d5fe3ba8b601529fae3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/code-review/SKILL.md",
+      "source_sha256": "9cf46653dd9c710ea1e6c22423caf31a794c88773bc94bdaa23140277f470442"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/code-review/agents/openai.yaml",
+      "source_sha256": "8229ca854e11dc8e6aef2131ee03f31fb1561cf905fab9ccc325180cf3331352"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/codebase-design/SKILL.md",
+      "source_sha256": "6bb1cb08485c06a3efd12e9f71d53fd294619f1c722b042cddc3d41c64341438"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/codebase-design/references/DEEPENING.md",
+      "source_sha256": "125e6b77413ad2bc7cf7a772bc74336d580a50f9e797db2178ed133d62333d06"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/codebase-design/references/DESIGN-IT-TWICE.md",
+      "source_sha256": "21c3264953bd30ee87b181a3ccaf0e70649f461e5ffd7dc654acee4ba1788b31"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/cross-boundary-integration/SKILL.md",
+      "source_sha256": "d614c66638d2daa84d77c616d7daac74f01626c50ceea59af5ac4ac41e4b2b50"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/cross-boundary-integration/references/cross-boundary-slice-gates.md",
+      "source_sha256": "910b5ed00213c152f5cb36e617c8d4525f3e609b3cd801379f6bd1f91acbd03f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/cross-boundary-integration/references/production-update-routing-matrix.md",
+      "source_sha256": "349dfbb2f9d7bd55cb6a20738c87bc6a39a6eb4863aba97be13cb691d7382257"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/diagnosing-bugs/SKILL.md",
+      "source_sha256": "9c3cea7e2beb5b4d04c6ce4049ac196a97132b86692e9d1e2a54b2b12c2f2cd5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/diagnosing-bugs/references/cron-trace-debugging.md",
+      "source_sha256": "57f73f402d03ec15ddc457c02c0a0f1234e8c9aa0eb3319a70ef88a87f065b40"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/diagnosing-bugs/references/feedback-loop-techniques.md",
+      "source_sha256": "600b74e1950410ed9ad973580019b6319ef1b009124b44e9e5326d48190e6f23"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/diagnosing-bugs/references/system-resolution-debugging.md",
+      "source_sha256": "c2b4c5a46afc71f087c0d2c845f1dfec663e7d56a366c07027878b5b0fa5b1c4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/domain-modeling/SKILL.md",
+      "source_sha256": "d67fa0a3d35ffde7396a8dec1e2ae432b1b30e532a4e8564b29221a43b410a6a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/domain-modeling/references/feature-and-data-status-ledger.md",
+      "source_sha256": "028a85e80897461183a568b06ee3d2c38cab17fe6fba9dce466457f2d9d5c638"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/external-agent-handoff/SKILL.md",
+      "source_sha256": "8d59b3d953cccabd3262659df8a63783fcac129e63406ec3ca2a21f3d2a304ec"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/external-agent-handoff/references/vps-session-db-quirk.md",
+      "source_sha256": "35a78e47d8e70b97c9694f1d7e7deb8a41801ba74fa16bd772556c6218e031c1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/external-agent-handoff/templates/execution-brief-skeleton.md",
+      "source_sha256": "077149431f52121ef0726cb26eb7d65f4d1791f4dcb5764b6a56995db3465cbf"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/finishing-a-development-branch/SKILL.md",
+      "source_sha256": "e6d4a812de900d33c6eacfb40747f99427f25c304a7b7099120f9373b115a47f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/hermes-model-catalog-maintenance/SKILL.md",
+      "source_sha256": "55871127103968158617ba46da0aaf9a4cc2f67ba98962e7485d1bf61180e09d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/hermes-plugin-development/SKILL.md",
+      "source_sha256": "55753c87832378b0232345c7739adf3337902421ce01c0ced8831e49d6b258d4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/hermes-plugin-development/references/example-google-workspace-plugin.md",
+      "source_sha256": "e9a01034d83c08262a1dbeca9873c4680e636c489ccfcabe0d46d89a882940ce"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/implement/SKILL.md",
+      "source_sha256": "6d3fd9e83b8f36e5213854779db49b256a457a7ebb4a503e53fa7dcff696adc3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/implement/agents/openai.yaml",
+      "source_sha256": "8970a8596ade0c28ab427f41a4ea242d6bdf6186c59ebf55e1238dbecaab79dc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/malaysia-country-selector-interaction/SKILL.md",
+      "source_sha256": "08701599f89ef5485a06c21ce7249f8a767e6a47bc0ee5f3dcf30dda1ea18428"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/med-auto-confirm/SKILL.md",
+      "source_sha256": "d03c8fd444ac37f61e335561205368229430c8781b8c4da3332be39fb3c81c6f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/prototype/SKILL.md",
+      "source_sha256": "012241b4f7e376e082f5ead9efb9cdeb2e16b5cf19188b3a5bc634e5212dc631"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/receiving-code-review/SKILL.md",
+      "source_sha256": "647036bbdab7bf2317e14e079595e984c9030f64295e2b4c0fb57dbeb48f25dd"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/review-driven-candidate-closure/SKILL.md",
+      "source_sha256": "3bf5d6a17e154e51011a311e6cba5e3a8d59ba342b4a19131a29dd9788a511ad"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/review-driven-candidate-closure/references/reviewer-driven-stateful-candidate-closure.md",
+      "source_sha256": "59a55256405ccfe0c9a7d4cfeea8294b86da25f57603c3a3be6a3cb8887e5e97"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/SKILL.md",
+      "source_sha256": "310fb1a73c0467e617e17d7c41d4a2278b5405c4a27f36d7cd22bb4599aee6bb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/agents/openai.yaml",
+      "source_sha256": "9527de0110541c45712319025155aeab8dc7d77c6ed6e5e83271bab1851ab939"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/domain.md",
+      "source_sha256": "25be404b58798b3cb2d51c93dba2ab052fc3a425632185726ac3f5fcff193b99"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-github.md",
+      "source_sha256": "ec8332bb69e7e79e349989e940be481a0c79b552be3acc613e718278bcc5e03d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-gitlab.md",
+      "source_sha256": "16ea4a727803876cbc763e1f6b00992b3b393ba5e0cd394382dccc0f8d83c564"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-local.md",
+      "source_sha256": "6f38f66f9ffce2fdc26c43608d06b527f60e45c6f43003d0ea77d4e2641c9de3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/setup-matt-pocock-skills/triage-labels.md",
+      "source_sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/state-transition-lineage-debugging/SKILL.md",
+      "source_sha256": "a3a6918ebbcbe669bd02c193e849b30b06c9ccd849e23c0db2f070ef0569ee8a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/state-transition-lineage-debugging/references/canonical-state-transition-predicates.md",
+      "source_sha256": "dd13d9eac5b3c033259b99bdf93aeec8ede2268bb8fe2c1141ce87de4e64249e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/state-transition-lineage-debugging/references/closure-gate-controls.md",
+      "source_sha256": "cf9393056b9e38ca001203d1d8ece4940bb326199796d344012e4dc720fbd991"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/state-transition-lineage-debugging/references/live-vs-pinned-resume-differential.md",
+      "source_sha256": "920cf0690ba05b66e6103e99df1f9ab3aa0eb34eeb1ac02cd364251cb3d9b591"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/state-transition-lineage-debugging/references/source-closure-routing-search-gates.md",
+      "source_sha256": "f76d11c137a07213bf5a0aff998a3e1ef86c06ea7797bf092fe171902db766dc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/SKILL.md",
+      "source_sha256": "c04fc348149dc4c8d2d1f9a96d3581511f3d8f1bd004e5225494ceda5f42cbf8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/15-level-hermes-capability-audit.md",
+      "source_sha256": "6bc9d4ecf65a66685a733f6e699e57dd056d00ae1af13142c162c444f48e1228"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/auxiliary-vision-config-pitfalls.md",
+      "source_sha256": "8d3aaa3e37c0aed5389be86a1c6cc9e010aa8a711fbca82e7a9addb8c3765150"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/billing-monitoring-methodology.md",
+      "source_sha256": "cc2a8a6e20300301178ae8d0f3b6358c8dbcb3d4fff95d0b244188933f1ecbf4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/budget-exhaustion-restart-latch.md",
+      "source_sha256": "b00ef38306aeedb92cd42cc7805649b879b1de6e1f28bbe99cc137118b5bc4ed"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/cloud-doc-live-reconciliation.md",
+      "source_sha256": "01185e6a2c9c0641c1a80e140dcf9e3a6623b83a82f0747505a57ef532cd817d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/codex-account-usage-audit.md",
+      "source_sha256": "9ceec2f66449d05897e65488c2293a6a4bf1594056eba9e9fba0add3339bb7c6"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/codex-model-offering-and-runtime-verification.md",
+      "source_sha256": "8430667d7281a30d46a925e5828c6c431bc24d84a09fac5bf0db6fd089d88c19"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/codex-oauth-repair-vs-pool-add.md",
+      "source_sha256": "1c049a3b870b658ddd2e076d084accf6bab366440bc34e6e58a0ae2f278c6054"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/cross-channel-codex-e2e.md",
+      "source_sha256": "2fd379b9d3ecfaecca6821668884e69d7c6645c470c71fabc18b56f3bf998a92"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/cross-platform-audit-prep.md",
+      "source_sha256": "e0865d74efb952a166dec7443a5af6f5ded8be87c8d12d23642203898f25ef69"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/deployment-updater-truth-2026-08-12.md",
+      "source_sha256": "b34799a87d71106dcb6f44745e9b721f0199f98a96bc845f4649cd7bbd139c58"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/env-loading-diagnostics.md",
+      "source_sha256": "6af688244d47decc2e3bb26a188604f83f97e05c875e522db045153d9bdcd884"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/fact-check-accuracy-audit-2026-07-02.md",
+      "source_sha256": "65fb761f566db687d42084f67953adf66fb43019bd182d909a11018ee63185bd"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/fallback-verification-protocol.md",
+      "source_sha256": "1c78959d5abcee81f7653ac541707826bcc2ca40be396df10f071078cc98e066"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/gateway-restart-bypass.md",
+      "source_sha256": "0c8bb73f521e62a19e722f3326658c8cd3baf7a576d7295e644d682356c43723"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/hermes-config-model-debug-2026-07-09.md",
+      "source_sha256": "20a7380217188d0a9480d58286f0d9fb7ed38f94d636df53ae49cd7aa6db13ba"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/iteration-budget-and-live-runtime.md",
+      "source_sha256": "f14c0f1142bc71f61e2467040dd49e4e2efecacfd9c0a5b1fd02dec81834cec9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/kb-incident-documentation.md",
+      "source_sha256": "302ccccc2924373fd857bde785dc57d0d99d9c1fcd367f9262accbc08dd088d6"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/live-audit-procedure.md",
+      "source_sha256": "e4321e093789c5aa48118ae576d3b08579f26877ee5c448bd8a0feeffb8eade9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/live-model-provider-probe.md",
+      "source_sha256": "ccbb7baf0ccc28ddbd83cfe075adf96b130698f391f3f190f371d2c0c34098bf"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/mcp-server-architecture.md",
+      "source_sha256": "19e3e82c85801afe317f8f57d12884b80048eec7f8cc6e31b04eceadd8ef7237"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/model-catalog-update.md",
+      "source_sha256": "533137305a1443d1216d181b4ed666a4c61603eab2ecccf98b21aed5b642a1dc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/model-resolution-trace.md",
+      "source_sha256": "1ed0633e1bcc9d2d00c21398060c949bda9720f2a08b9187cdca706d5a294a4c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/opencode-api-call-pattern.md",
+      "source_sha256": "ebc1e35913379c66bc3ec3c6052e1fc0ac5e24da16e16ca7135f198f7c36be4b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/opencode-zen-audit-findings-2026-07-01.md",
+      "source_sha256": "581d9ec0e861f0eb8e4d70badf65d6d40446545e179574e795d219f36443008c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/opencode-zen-free-models-2026-08-24.md",
+      "source_sha256": "806298fda27a277bd49c9025fa82f355e4b5a6634c38c86a0f40ee93b445b0ad"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/opencode-zen-model-tiers.md",
+      "source_sha256": "23530adfcc961e2ef8d68f462130c52561756bc6a1b2200bc32b87350733142b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/provider-endpoint-triage.md",
+      "source_sha256": "14954ab4b4042a14749c2a782b02e8d3ebcf03f54c54944332dd72761bc08759"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/provider-model-identity-verification.md",
+      "source_sha256": "4164b3daccdd41d3924e441ace18064580263abccdf6a7e710ff2139922ab369"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/reasoning-display-suppression-pitfall.md",
+      "source_sha256": "c25666c9f8642e3d88864532288418cc68b2025260ad2e7cf707e90521c92e4a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/reasoning-effort-code-path.md",
+      "source_sha256": "fa8c76e14b2a7ccf73910e46ea69c20b993e04c4c272b1f727fe8228697afded"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/reasoning-effort-per-model.md",
+      "source_sha256": "0e2acdaf9b7c536ddb2108346a9f30b429cd9d9e06bc75f5f3f98cdd89d5a278"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/reasoning-forensic-audit-2026-07-15.md",
+      "source_sha256": "d0d223b0078e9e7adb9d1936f8916a9cd91e80570a33db21b2d053066c461548"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/reasoning-tokens-troubleshooting.md",
+      "source_sha256": "af3f52a43185a434f0940299c61948d9b9303cca2f10c402495aaf63a4ea0502"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/resume-session-redirect-bug.md",
+      "source_sha256": "a2ca8e92a936b341f978e959e5fb9b036ed81baf402a4f49ae1fdcde8755b6db"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/session-db-model-update-chain.md",
+      "source_sha256": "453fce8df843bbd2fda64438e6404ea4650d6e0a79fd8e67bc7a6658ac9fcb36"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/session-db-recovery.md",
+      "source_sha256": "ed79d99cec9fe49d0567577b9bdb7e7cc382ff441c21cb63d5f47e3c17f18ac9"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/startup-hooks.md",
+      "source_sha256": "e95287f5a35e1efdedcf50d3afa5b5f7109da646dc8096b40d5200fba57630bb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/status-block-field-verification.md",
+      "source_sha256": "255ebe4a06c904b254ac72b65251e209188bb9ceeab677963efc8772481ab169"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/status-vs-model-divergence.md",
+      "source_sha256": "40b98c27a3acc5118ba355ec43fa657bab2af6f83d3318ae6915dbe6d73cbc4c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/tavily-architecture-and-key-management.md",
+      "source_sha256": "7bb17f4f093a797fab06aa0ee393a0d8f17d45c1369c0c60ce345e7738cec1a0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/tracing-parameter-flow.md",
+      "source_sha256": "2486d8923385a61a6c155f09449482891c9f489139c7ec77624ac17a5964d581"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/version-and-upstream-forensics.md",
+      "source_sha256": "8bc0c96ce664bde0c4f3efa201cf7af75bf11c8d4c26f7fd3affb6d8abb0a4a5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/references/whatsapp-bridge-troubleshooting.md",
+      "source_sha256": "b62d5f0dea7e81c94a8f09c2b5aa8cdc7455cbf4cb87c402cbb68dc4476b62f2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/scripts/probe-live-models.py",
+      "source_sha256": "d9e1d408126c65b91727cdf0e28a7cdc3f14c0fce6999d218aec5c5ffc62bf22"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/scripts/probe-reasoning-echo.py",
+      "source_sha256": "414dd80d27ac41f36c1753c022fcda7732711bcfc7b4ed5c35773a86a8ec1401"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/scripts/probe-reasoning-effort.py",
+      "source_sha256": "9ba58d112c16918167e55a8e8f96d9b2d0a9848af57e15e99982219491cafa36"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/scripts/probe-zen-free.py",
+      "source_sha256": "a6c06eeaa859ede570bee53d1bb9e426ce05ebd08a02f88f3673590c6675027b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/system-verification-qa/scripts/runtime-model-audit.py",
+      "source_sha256": "7e87a3a3b866890f89533119b4a84fe0992bfab6e24c490be32c41db538c3ae3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/tdd/SKILL.md",
+      "source_sha256": "5e6b9c16b547113e90afbb946489d1c1384be5c2128f0159bd0bee57251ecf08"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/tdd/agents/openai.yaml",
+      "source_sha256": "ea6f01cf1b8c06a4b0f5b649d74b1b8ce8685e72af1b38d70d877693e092af0b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/tdd/mocking.md",
+      "source_sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/tdd/tests.md",
+      "source_sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/test-isolation-hygiene/SKILL.md",
+      "source_sha256": "858e1e8be4606472a24536680ed97e9e0632676862812de95825cdf228261e10"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/test-isolation-hygiene/references/ci-host-parity-2026-08-13.md",
+      "source_sha256": "08433a0be0f5ad000923a2780d0b48c43c268b376e387859790b962499304db1"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/test-isolation-hygiene/references/fork-migration-partial-index-harness-2026-08-21.md",
+      "source_sha256": "855e0e6efa6bdf28c0e9953269e25d174adf598a3c64d99c6eafcf5b449725f5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/test-isolation-hygiene/references/stale-live-runtime-and-harness-gates.md",
+      "source_sha256": "6ce0b47d43c50688fd43e8aaab35c0877a4c2297f579c35d4ba660702c78d32b"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/test-isolation-hygiene/references/unstaged-candidate-review.md",
+      "source_sha256": "894fa2d25275fadae826593f424533d86e8c176cc8c5b2bd4e3c1d606ab917f5"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/to-spec/SKILL.md",
+      "source_sha256": "5d26479544b08048d3a8f79d937b39bc613a617f026b3fd083bafc1e99a7b811"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/to-spec/agents/openai.yaml",
+      "source_sha256": "1c5b4d1e3d8e52287ef19cc2742fdbbfae1914ac75d33af3e4c8174f08cc55bb"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/to-tickets/SKILL.md",
+      "source_sha256": "5ecdf1d4df8a360ed39df21a2347f97ba177afd449a577da4f6b6ea8e1ebb808"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/to-tickets/agents/openai.yaml",
+      "source_sha256": "21bc6215fffcd7614e9f772bb1760e87cc5fc7dcc707e7d282bc9414267a6090"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/wayfinder/SKILL.md",
+      "source_sha256": "d33e2141f7c8bbfd137fef0213cbec465820e4680e67da5d0f0815d6742d26c2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/wayfinder/agents/openai.yaml",
+      "source_sha256": "88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/writing-great-skills/SKILL.md",
+      "source_sha256": "42974c283b8f726b1e311ea7f0445080378bc5813b9e25ed9018fafb58df0c15"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/writing-skills/SKILL.md",
+      "source_sha256": "ba76bc890411f04b56adfbd8a647fd7af8ce8cbc5a0a2e53909b91801947d67c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/writing-skills/anthropic-best-practices.md",
+      "source_sha256": "217629b356c09c9bd11017c9788e8fc654ca1b32c92d4a51cd490e16dd65e59a"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/writing-skills/examples/CLAUDE_MD_TESTING.md",
+      "source_sha256": "0b379a3415e185d3c434b3ad283d8aa132f3022c2a4f210f168865b5986bcef0"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/writing-skills/graphviz-conventions.dot",
+      "source_sha256": "e2890a593c91370e384b42f2f67b1a6232c9e69dddea7891a0c1c46d7b20b694"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/writing-skills/persuasion-principles.md",
+      "source_sha256": "a51bc9bf75189ea73a27b3fb504a2fdfdb966fb1f7f1cdf03203230a216ccc03"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/writing-skills/render-graphs.js",
+      "source_sha256": "ccda971a87bb185f8febf81c56b556a20d026fa980c17b35fa3e8824fbb37852"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/software-development/writing-skills/testing-skills-with-subagents.md",
+      "source_sha256": "c711346852c911b24a84aa161e0cff06a4cd7f4e2fa9e9c0a266cead5afcbade"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/taste-skill/SKILL.md",
+      "source_sha256": "65b31c1492401685e540ff8353fb66a5734c9b43e69450728e51c0965e48a560"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/ui-ux-pro-max/SKILL.md",
+      "source_sha256": "44a1e19a76b90c9333d4456a36e1a28982e56896db4b95e6b44490e3202757c4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "skills/vision-semantic-only/SKILL.md",
+      "source_sha256": "7c3e4dd9f20ba2eba70f6f5d3cc4a04111a29aaae9b2ed1241b8ad2024a580c6"
     },
     {
       "destination": null,
@@ -1197,6 +3813,12 @@
       "kind": "source-only",
       "source": "tests/guard/test_guards.py",
       "source_sha256": "2785dffd3515b21f8a383480dc613e4670cd639a1f6d98e47cb0465446fedc2c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "tests/guard/test_whitespace_review.py",
+      "source_sha256": "6b93210df0ddbc878b7766fe0cfc6e5ec06bb78a35892aa06c793379c50f236a"
     },
     {
       "destination": null,
@@ -1287,160 +3909,10 @@
       "kind": "source-only",
       "source": "tests/test_model_forces_max_completion_tokens.py",
       "source_sha256": "6503617d39545dd8071324c14cf54c6174291075fde8a5385a04efa6e1305f88"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/productivity/grill-me/SKILL.md",
-      "source_sha256": "6189dfceb7304a6e5558f75d87e68fa3bc7fcf7ba120e44f21f8a61fe01eba54"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/productivity/grill-me/agents/openai.yaml",
-      "source_sha256": "c061e39c3e0f9d865fb1b97556d485704af2a8a58f4b8221a8917a5c2074a32b"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/productivity/grilling/SKILL.md",
-      "source_sha256": "fa5c1e5ee76b1c8f1ae56101f52c9e239de75d5c578adc61227b92d10b7e52ef"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/productivity/grilling/agents/openai.yaml",
-      "source_sha256": "1411d7df7d99b7e621a1ff8283c8133cc2464be63d064e52d8ce169c6800ee9b"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/to-spec/SKILL.md",
-      "source_sha256": "5d26479544b08048d3a8f79d937b39bc613a617f026b3fd083bafc1e99a7b811"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/to-spec/agents/openai.yaml",
-      "source_sha256": "1c5b4d1e3d8e52287ef19cc2742fdbbfae1914ac75d33af3e4c8174f08cc55bb"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/setup-matt-pocock-skills/SKILL.md",
-      "source_sha256": "310fb1a73c0467e617e17d7c41d4a2278b5405c4a27f36d7cd22bb4599aee6bb"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/setup-matt-pocock-skills/agents/openai.yaml",
-      "source_sha256": "9527de0110541c45712319025155aeab8dc7d77c6ed6e5e83271bab1851ab939"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/setup-matt-pocock-skills/domain.md",
-      "source_sha256": "25be404b58798b3cb2d51c93dba2ab052fc3a425632185726ac3f5fcff193b99"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-github.md",
-      "source_sha256": "ec8332bb69e7e79e349989e940be481a0c79b552be3acc613e718278bcc5e03d"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-gitlab.md",
-      "source_sha256": "16ea4a727803876cbc763e1f6b00992b3b393ba5e0cd394382dccc0f8d83c564"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/setup-matt-pocock-skills/issue-tracker-local.md",
-      "source_sha256": "6f38f66f9ffce2fdc26c43608d06b527f60e45c6f43003d0ea77d4e2641c9de3"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/setup-matt-pocock-skills/triage-labels.md",
-      "source_sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/to-tickets/SKILL.md",
-      "source_sha256": "5ecdf1d4df8a360ed39df21a2347f97ba177afd449a577da4f6b6ea8e1ebb808"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/to-tickets/agents/openai.yaml",
-      "source_sha256": "21bc6215fffcd7614e9f772bb1760e87cc5fc7dcc707e7d282bc9414267a6090"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/tdd/SKILL.md",
-      "source_sha256": "5e6b9c16b547113e90afbb946489d1c1384be5c2128f0159bd0bee57251ecf08"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/tdd/agents/openai.yaml",
-      "source_sha256": "ea6f01cf1b8c06a4b0f5b649d74b1b8ce8685e72af1b38d70d877693e092af0b"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/tdd/mocking.md",
-      "source_sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/tdd/tests.md",
-      "source_sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/code-review/SKILL.md",
-      "source_sha256": "9cf46653dd9c710ea1e6c22423caf31a794c88773bc94bdaa23140277f470442"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/code-review/agents/openai.yaml",
-      "source_sha256": "8229ca854e11dc8e6aef2131ee03f31fb1561cf905fab9ccc325180cf3331352"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/implement/SKILL.md",
-      "source_sha256": "6d3fd9e83b8f36e5213854779db49b256a457a7ebb4a503e53fa7dcff696adc3"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/implement/agents/openai.yaml",
-      "source_sha256": "8970a8596ade0c28ab427f41a4ea242d6bdf6186c59ebf55e1238dbecaab79dc"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/wayfinder/SKILL.md",
-      "source_sha256": "d33e2141f7c8bbfd137fef0213cbec465820e4680e67da5d0f0815d6742d26c2"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/wayfinder/agents/openai.yaml",
-      "source_sha256": "88bc81a11a6d52ac67aeaa76b8b619e387020d47c5133a4dd4927fd15c4ad073"
     }
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "bbb1a6f686c125e16e86b8190209b3463ffab8efbf5d8b1f70c1e041feb3d26f",
+  "payload_sha256": "2cf3febf35afe349195524357da546406ccaa167c8988e452e9c3f48620c9ec3",
   "schema_version": 1
 }

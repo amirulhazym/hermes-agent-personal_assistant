@@ -1,7 +1,7 @@
 ---
 name: documentation-workflow
 description: Create structured engineering documentation (findings, analysis, architecture decisions) as Markdown, then deliver it as a natively formatted Google Doc via the /gdocs pipeline. Owns WHAT goes in the document; /gdocs owns HOW it is rendered.
-version: 2.0.0
+version: 2.0.1
 author: MJ
 tags: [documentation, google-docs, engineering, productivity]
 supersedes: documentation-workflow 1.1.0
@@ -127,6 +127,21 @@ When revising an existing canonical decision record, treat the document artifact
 
 See `references/reconciliation-v1.1-audit-pattern.md` for the reusable evidence and verification pattern.
 
+## 5C. Recovery and deletion runbooks
+
+For recovery documentation created before a destructive operation or upgrade, the document must be executable by a fresh session without relying on chat history:
+
+1. Define the exact removed/deleted path set and the corresponding artifact ID or destination for every path.
+2. Separate `DOCUMENT-PASS`, `ARTIFACT-PRESENT`, `HASH-PASS`, `LIST-PASS`, `DECRYPT-PASS`, `RESTORE-PASS`, and `LIVE-SMOKE-PASS`; never collapse these into one `verified` label.
+3. Record archive root names, member counts, hashes, and the command that produced each value. If a source archive is associated with a deleted path by naming or path-set comparison, label it `INFERENCE / recovery mapping` unless original path metadata or a byte-level manifest proves identity.
+4. Make all restore commands stage into a new temporary directory first and refuse to overwrite an existing live target. Include an explicit safe-member check for absolute paths and `..` traversal.
+5. State what the artifact does not contain, especially separate private runtime/session state such as WhatsApp authentication.
+6. Verify the final Google Doc independently: document ID, title, MIME type, Drive parent, owner-only permissions, source marker, and rendered-document gate result.
+
+A recovery runbook is complete when the document is structurally PASS and the limitations are explicit. It is not evidence that the system has been restored or upgraded.
+
+Use `references/recovery-runbook-google-doc-delivery.md` for the reusable archive-mapping, safe-staging, Drive-parent verification, and C1 remediation pattern.
+
 ## 6. Drive delivery
 
 ```bash
@@ -141,7 +156,7 @@ $GAPI drive create-folder "<project>" --parent HERMES_AGENT_FOLDER_ID
 Convention: `OVIS/Hermes Agent /<project>/`. Verify parent IDs from Drive
 metadata and filter search results by `mimeType = application/vnd.google-apps.folder`.
 
-Then hand off to `/gdocs` v2 for creation, rendering, and verification.
+Then hand off to `/gdocs` v2 for creation, rendering, and verification. For the full post-render closure gate — parent metadata, final export read-back, source/manifest hash round-trip, BOM handling, C1 repair and OAuth mtime disclosure — load `references/gdocs-delivery-closure.md`.
 Deliver: Docs URL + Drive folder path + `verify.json` verdict + `MEDIA:` the `.md` file.
 
 ## 7. Keep the Markdown
@@ -155,7 +170,39 @@ cp "$WORK/doc.md" ~/wiki/decisions/NNNN-<slug>.md    # or runbooks/ , wiki/
 Google Docs is the sharing surface. The repo copy is the source of truth, is
 greppable, diffable, and is what future sessions read.
 
-## 8. Pitfalls (each one has bitten this workflow)
+## 7A. Reading / ingesting an existing gdoc (user-supplied link or ID)
+
+This skill also governs the READ path, not only authoring. When the user pastes a
+`docs.google.com/.../d/<ID>` link, says "read this gdoc", or says "use our
+gdocs/gdrive skills", do NOT hunt for the document via `session_search`,
+`search_files`, or `find`. The user already gave you the ID and auth is live —
+read it directly. (Verified correction 2026-08-14: agent wasted 3 turns on
+session_search + filesystem grep before the user said "just use the skills".)
+
+Steps (load `google-workspace` skill first via `skill_view(name="google-workspace")`):
+
+```bash
+SK="$HOME/.hermes/skills/productivity/google-workspace/scripts"
+GAPI="python3 $SK/google_api.py"
+DOC_ID="17QE-tOvMYn9jd6-IA-8UI6kgcU_YhvDDCpfYopgJy1w"   # the ID from the user's link
+
+# Short doc (<~5KB body): docs get returns full JSON; body is a plain-text string.
+$GAPI docs get "$DOC_ID" > /tmp/doc.json
+
+# Long doc: docs get TRUNCATES the body string (~6-7KB cutoff, marked "[truncated]").
+# Use Drive text export for the complete, reliable read:
+$GAPI drive download "$DOC_ID" --export-mime text/plain --output /tmp/doc.txt
+```
+
+Pitfall — `docs get` body truncation (verified 2026-08-14): a 6.8KB doc came
+back with `[truncated]` inside the body string via `docs get`; the same doc read
+fully (79 lines, 6827 bytes) via `drive download --export-mime text/plain`. For
+any doc longer than a few KB, prefer the Drive export. Tables are flattened to
+text in the export — acceptable for reading/analysis; use the `walk_structural`
+table walker from the google-workspace skill only when you need table structure
+from `docs get`.
+
+## 8. Pitfalls (each one has bitten this workflow):
 
 1. Two rendering paths -> always the lazy one wins. There is now one path.
 2. `docs create --body "."` leaves a literal `.` in the body. Create empty.
@@ -167,5 +214,14 @@ greppable, diffable, and is what future sessions read.
 8. Academic drift: if it reads like background -> methodology -> results, restructure to verdict-first.
 9. Send the file with `MEDIA:` -- never tell the user where to find it.
 10. Do not start implementing while the user asked for documentation and preparation.
-11. **C1 false-positive on structural headings.** `verify_doc.py` C1 flags any heading with no body paragraph before the next heading. This catches report sections that are pure section-dividers (e.g. `## 7. Findings` followed by `### 7.1 Network`). The heading's content IS its sub-headings. See gdocs skill §4 failure handling for the two workarounds (intro sentence vs. transparent delivery under user constraint). Do not silently hide a FAIL verdict — paste the defects array and explain the false-positive reason.
+11. **C1 false-positive on structural headings.** `verify_doc.py` C1 flags any heading with no body paragraph before the next heading. This catches report sections that are pure section-dividers (e.g. `## 7. Findings` followed by `### 7.1 Network`). Ensure every parent heading includes an intro sentence before child subheadings to pass `verify_doc.py` cleanly.
 12. **When evaluating external document skills (e.g. anthropic `docx`), remember they are mechanical-only.** The docx skill (source-available, NOT open-source — port ideas, never code) contains zero content-structure guidance; our verdict-first/Q1-Q10 formatting is our own strength and is what the user wants kept. See `references/anthropic-docx-skill-analysis.md` for the full gap analysis + planned gdocs upgrade scope.
+13. **Drive wrappers may not expose every Drive API action.** If a requested move/parent operation is explicitly authorized but the wrapper rejects the action as unsupported, report that failure and use the direct Drive API `files.update(addParents=..., removeParents=...)`; then re-read parent IDs, MIME type, title, link, and permissions. Do not claim the move from a command that never executed.
+14. **Archive names are not original filesystem identities.** For deleted overlays or snapshots, preserve the exact archive root, hash, member count, and path-set comparison. Call the old-path association a recovery mapping/inference unless a manifest proves byte identity. Keep original-folder restoration and archive-equivalent reconstruction as separate statuses.
+15. **Reading a gdoc the user sent: do NOT hunt, read directly.** When the user
+pastes a `docs.google.com` link or says "use our gdocs/gdrive", load the
+google-workspace skill and read via `$GAPI docs get DOC_ID` (short) or
+`drive download DOC_ID --export-mime text/plain` (long — `docs get` truncates).
+The user already supplied the ID; auth is live. `session_search` / `search_files`
+/ `find` are the wrong tools for a document the user just handed you — that
+detour wasted three turns on 2026-08-14 and drew a direct correction.

@@ -34,6 +34,25 @@ For an urgent live-first fix that the active task genuinely requires:
 
 Dormant/unloaded/privacy-adjacent custom source is not silently excluded.
 
+## 2A. Fail-safe update guard and current-overlay capture
+
+Before allowing a live updater to mutate a checkout, run a read-only preflight
+before backup, stash, checkout, pull or dependency work. Refuse dirty state,
+local commits ahead of the target remote, unrelated history, missing merge-base,
+comparison errors and malformed history counts. Never convert a failed
+`git pull --ff-only` into `git reset --hard origin/<branch>`.
+
+For a dirty live checkout, preserve a bounded exact candidate separately:
+tracked changes via `git diff --binary --full-index HEAD --`, all untracked
+files in a non-dereferencing archive, and a manifest containing exact base
+`HEAD`, status, hashes, modes, file types and symlink targets. Restore into a
+fresh directory from the exact base SHA, apply/extract, explicitly reapply
+manifest modes when host umask changes them, and compare every manifest field.
+A clean patch application is structural evidence only; do not call it
+byte-exact restore proof. Keep updater-candidate, overlay-restore, off-device
+transfer, live update and channel smoke tests as separate gates. See the
+systematic-debugging reference `references/fail-safe-update-overlay-preservation.md`.
+
 ## 3. Required gates
 
 - secret scan fails on scanner error, missing base, malformed input or a hit;

@@ -64,13 +64,29 @@ Follow stages in order. Full detail: `references/pipeline.md`.
 
 Skip stages only for trivial single-fact lookups (still cite URL if used).
 
+## Conversation-and-Repository Audit Mode
+
+When the research target is prior chat sessions plus a live/local codebase, use a two-source audit rather than treating either source as authoritative by itself:
+
+1. Search the requested time window and identify relevant sessions by exact session ID, timestamp, channel, and message evidence.
+2. Extract recurring failure patterns and user corrections. Separate the user's observed symptom from the assistant's historical interpretation.
+3. Inspect the current filesystem, active runtime/config, local refs, remote refs, and relevant working-tree diffs.
+4. Build a claim matrix: historical claim, current filesystem evidence, git evidence, runtime evidence, and end-to-end evidence.
+5. Classify each item as RESOLVED, PARTIAL, UNRESOLVED, or UNVERIFIED. A past claim of “done” never upgrades current evidence.
+6. For branch/release/security work, distinguish local-only refs from pushed remote refs and count current sensitive matches on each requested ref.
+7. For stateful/provider systems, distinguish configured/requested identity from effective runtime identity and fallback outcome.
+8. Write resolution plans against the root cause and missing evidence, not merely against the symptom.
+
+Use `references/conversation-repository-audit.md` for the compact evidence matrix and recurring failure patterns.
+
 ## Output contract (user-facing)
 
 1. **Direct answer** first (Manglish OK if user uses it)
 2. **Key findings** (bullets, each with source)
-3. **Confidence** + what was not verified
-4. **Sources** (title, URL, date if known)
-5. **Artifact path** if a package was written
+3. **Status per claim**: RESOLVED / PARTIAL / UNRESOLVED / UNVERIFIED, with evidence boundary
+4. **Confidence** + what was not verified
+5. **Sources** (title, URL, date if known)
+6. **Artifact path** if a package was written
 
 ## Artifact location
 

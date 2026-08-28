@@ -108,17 +108,31 @@ DRUG_MAP = [
     (r"\bb[- ]?complex\b|\bswisse\b", "C", "b_complex"),
 ]
 
-# Time patterns — tolerant (2026-08-12/13 owner directive): in a med
-# confirmation context any plausible time shape is accepted. am/pm is
-# OPTIONAL: resolution falls back to context words (pagi/petang/malam/
-# siang) or nearest-to-now (12h ambiguity). Bare digits without separator
-# or suffix ("4", "20") are NOT accepted — too easy to confuse with tablet
-# counts. Leading word still optional.
+# Inbound gateway messages carry a leading envelope timestamp, e.g.
+#   [Thu 2026-08-13 20:34:27 +08] Dah makan letram jam 8.32pm
+# That envelope contains the YEAR ("2026") which, under a loose 4-digit time
+# pattern, gets mis-parsed as "20:26". We strip the envelope FIRST so the
+# year can never reach the time parser. This is a structural separation, not a
+# pattern tweak — the envelope is consumed by a dedicated matcher, not scanned
+# as free text.
+ENV_RE = re.compile(r"^\s*\[[^\]]*\]\s*")
+
+# Time patterns — tolerant (2026-08-13 owner directive): in a med confirmation
+# context any plausible time shape is accepted. Order is significant:
+#   1. leader (jam/pukul/at/@/pada) + H.MM OR compact HHMM  (jam 12:15 / jam 1215)
+#   2. bare H.MM or H:MM with optional am/pm                (4.32pm / 12:15)
+#   3. bare compact HHMM with optional am/pm                (815 / 1215)
+#   4. bare H + am/pm                                      (8pm / 6am)
+# The compact forms MUST be tried before the loose "leader + 1-2 digits" shape,
+# otherwise "jam 610" grabs only "61" and the trailing "0" is lost.
 TIME_RE = re.compile(
-    r"(?:(?:\bpukul\b|\bjam\b|\bat\b|@|\bpada\b)\s*(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?"
-    r"|(\d{1,2})[:.](\d{2})\s*(am|pm)?"
-    r"|(\d{1,2})(\d{2})\s*(am|pm)?"
-    r"|(\d{1,2})\s*(am|pm))",
+    r"(?:(?:\bpukul\b|\bjam\b|\bat\b|@|\bpada\b)\s*"
+    r"(?:(?P<ah>\d{1,2})[:.](?P<am>\d{2})"          # jam 4.25 / jam 12:15
+    r"|(?P<bh>\d{1,2})(?P<bm>\d{2}))"              # jam 1215 / jam 610
+    r"\s*(?P<ap1>am|pm)?)"
+    r"|(?P<ch>\d{1,2})[:.](?P<cm>\d{2})\s*(?P<ap2>am|pm)?"   # 4.25pm / 12:15
+    r"|(?P<dh>\d{1,2})(?P<dm>\d{2})\s*(?P<ap3>am|pm)?"       # 815 / 1215
+    r"|(?P<eh>\d{1,2})\s*(?P<ap4>am|pm)",                      # 8pm / 6am
     re.IGNORECASE,
 )
 
@@ -154,25 +168,30 @@ def _parse_time(message: str, now: datetime):
       - hour > 12 is already 24h;
       - otherwise nearest-to-now (within ±12h) wins.
     """
-    m = TIME_RE.search(message)
+    # Strip the leading gateway envelope ([...] timestamp) BEFORE scanning.
+    # The envelope year ("2026") must never be reachable by TIME_RE.
+    body = ENV_RE.sub("", message)
+    m = TIME_RE.search(body)
     if not m:
         return None
-    if m.group(1) is not None:
-        hour = int(m.group(1))
-        minute = int(m.group(2)) if m.group(2) else 0
-        ap = (m.group(3) or "").lower()
-    elif m.group(4) is not None:
-        hour = int(m.group(4))
-        minute = int(m.group(5))
-        ap = (m.group(6) or "").lower()
-    elif m.group(7) is not None:
-        hour = int(m.group(7))
-        minute = int(m.group(8))
-        ap = (m.group(9) or "").lower()
+    g = m.groupdict()
+    ap = (g.get("ap1") or g.get("ap2") or g.get("ap3") or g.get("ap4") or "").lower()
+    if g.get("ah") is not None:
+        hour, minute = int(g["ah"]), int(g["am"] or 0)
+    elif g.get("bh") is not None:
+        # Compact leader form "jam 1215" / "jam 610": explicit HHMM, treat as
+        # 24h directly. No 12h/nearest-to-now ambiguity — the user typed the
+        # full time. "610" -> 06:10, "815" -> 08:15, "2015" -> 20:15.
+        hour, minute = int(g["bh"]), int(g["bm"])
+    elif g.get("ch") is not None:
+        hour, minute = int(g["ch"]), int(g["cm"] or 0)
+    elif g.get("dh") is not None:
+        # Bare compact "815" / "1215" / "2015": explicit HHMM, 24h directly.
+        hour, minute = int(g["dh"]), int(g["dm"])
+    elif g.get("eh") is not None:
+        hour, minute = int(g["eh"]), 0
     else:
-        hour = int(m.group(10))
-        minute = 0
-        ap = (m.group(11) or "").lower()
+        return None
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         return None
     if ap:
@@ -180,12 +199,14 @@ def _parse_time(message: str, now: datetime):
             hour += 12
         elif ap == "am" and hour == 12:
             hour = 0
-    elif hour <= 12:
-        # 12h without suffix: resolve from context words or nearest-to-now.
-        if _AM_HINT.search(message) and not _PM_HINT.search(message):
+    elif hour <= 12 and g.get("ah") is None and g.get("ch") is None and g.get("bh") is None and g.get("dh") is None:
+        # Only single-number forms without a separator (e.g. bare "8") reach
+        # 12h ambiguity. Compact HHMM (bh/dh) and explicit H.MM (ah/ch) are
+        # already 24h-clean by the time we get here.
+        if _AM_HINT.search(body) and not _PM_HINT.search(body):
             if hour == 12:
                 hour = 0
-        elif _PM_HINT.search(message) and not _AM_HINT.search(message):
+        elif _PM_HINT.search(body) and not _AM_HINT.search(body):
             if hour < 12:
                 hour += 12
         else:

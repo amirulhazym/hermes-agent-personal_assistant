@@ -22,6 +22,20 @@ Use this reference whenever a user reports a Dexa dose with a time, asks whether
 - Therefore the resolver dosage was stale; current dose was 4mg, not 5mg.
 - Slot C intake at 12:58 makes a strict 4-hour schedule-consistent Slot D time approximately 16:58. This is a calculation based on the tracked IPR 8/12/4 pattern, not independent authorization to change a prescriber's instruction.
 
+## BD phase handling (added 2026-08-25)
+
+- **BD phase** = 2x/day: 8am (Slot B) + 2pm (Slot F). Slot D (4pm) deactivated.
+- **Slot F (14:00)** carries the 2pm dexa dose. Drug ID: `dexamethasone_f`. Auto-deactivated on OD/STOP phases.
+- Time-based disambiguation window: F = 14:00-16:00 (overlaps with old C window 10:30-16:00 — narrow C to 10:30-14:00).
+- Word-based slot hint: "2pm" → F.
+- BD active: 2026-08-26 to 2026-11-17 (12 weeks, 6 BD phases + 1 transition day).
+
+## Pending pharmacist confirmation
+
+- **Phase 13 (2026-10-21 to 2026-11-03):** chart shows 6mg BD only, no split. Dose values NULL until boss confirms with pharmacist (early Sep 2026).
+- **Phase 14 (2026-11-04 to 2026-11-17):** chart shows 5mg BD only, no split. Dose values NULL until boss confirms.
+- See `dexa_taper.json` → `pending_pharmacist_confirm` array for fillable template. Do NOT fill in numbers preemptively.
+
 ## Food guidance evidence
 
 For oral dexamethasone, NHS says not to take it on an empty stomach and to take it with or immediately after breakfast. MedlinePlus says to take it with food or milk to reduce stomach upset. If a dose was already taken empty-stomach, do not repeat or compensate; eat when practical and monitor for severe stomach pain, persistent vomiting, blood in vomit, or black/tarry stool.
