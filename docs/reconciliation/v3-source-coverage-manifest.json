@@ -607,6 +607,12 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "scripts/deploy_custom_runtime.py",
+      "source_sha256": "e842753e5cec4107a8a5a1fa2df54171c9a2a9c143f32f6fabded6d2a8e49f25"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "scripts/deploy_hermes_runtime.py",
       "source_sha256": "d4a8e777c74f03957d93017b474fc1dd859b8d275f90a8f1bdab6dd8acc64864"
     },
@@ -3931,6 +3937,12 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "tests/reconciliation/test_custom_runtime_deploy.py",
+      "source_sha256": "f49bc04676ff8b46f5c3ccc56eccf98b1fb9aa1e698cab5948db8a9f36e04cab"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "tests/reconciliation/test_deploy_normalized_worktree.py",
       "source_sha256": "84f17b9f0bc7f8546ad459a3745ea2f15054cc4272a340627820b13d8eb366b4"
     },
@@ -3961,6 +3973,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "e7a1ddd15b8fd348abf458b8f91536cbd10e1c60c6129e76021c9a6fb1c4dc90",
+  "payload_sha256": "e744dfbd385c75bb427ec14bfd4005425f1c27ace2142f18b0941ddeaa198f83",
   "schema_version": 1
 }
