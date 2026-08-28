@@ -32,6 +32,8 @@ RECEIPT_JSON_PATH = HERMES_HOME / "logs" / "git-nightly-receipt.json"
 
 
 def run_cmd(cmd: list[str], cwd: Path = REPO_ROOT) -> tuple[int, str]:
+    if not cwd.exists():
+        return 1, f"directory does not exist: {cwd}"
     res = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
     out = res.stdout.strip()
     if res.stderr.strip():
@@ -74,11 +76,6 @@ def scan_uncommitted_privacy(repo_root: Path) -> tuple[bool, bool, list[str]]:
 
 def check_operational_proposals(repo_root: Path, today_str: str) -> str | None:
     """Analyze operational error patterns and generate a draft proposal if recurring issues found."""
-    # Check gateway starts / errors
-    log_file = HERMES_HOME / "logs" / "gateway-starts.log"
-    if not log_file.exists():
-        return None
-
     proposals_dir = repo_root / "docs" / "proposals"
     proposal_file = proposals_dir / f"nightly-{today_str}.md"
 
