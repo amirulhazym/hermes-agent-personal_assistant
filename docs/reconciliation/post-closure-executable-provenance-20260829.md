@@ -70,6 +70,26 @@ The nightly implementation now records, in every future JSON/Markdown receipt:
 
 This prevents repository HEAD from being mistaken for executable identity.
 
+## Deployment write-set and rollback invariant
+
+The custom deployment plan has one canonical write set:
+
+```text
+content mismatch ∪ new destination
+```
+
+`mode_only` and unchanged entries are metadata/no-action rows. Dry-run reports
+`plan.write_sources`; apply iterates the same manifest-ordered set and returns
+`written_sources` for direct parity checking. Existing destination modes remain
+unchanged; no unrelated chmod normalization is performed.
+
+Before `os.replace` can mutate a destination, the transaction records the
+(destination, previous-snapshot) pair. This covers failures before replacement,
+immediate post-replace failures, post-write hash failures, multi-file failures,
+and failures after creation of a new destination. Rollback restores existing
+bytes/modes from the per-path snapshot and removes only a newly-created declared
+destination. Undeclared files are never part of the rollback/delete set.
+
 ## Verifier correction
 
 `scripts/verify_post_closure.py` is a read-only deterministic verifier. It

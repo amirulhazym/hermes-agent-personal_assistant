@@ -48,11 +48,18 @@ class DeploymentPlan:
     source_mismatches: tuple[str, ...]
     new_destinations: tuple[str, ...]
 
+    @property
+    def write_sources(self) -> tuple[str, ...]:
+        """Return the exact manifest-ordered source paths requiring writes."""
+        required = set(self.content_mismatches) | set(self.new_destinations)
+        return tuple(entry["source"] for entry in self.entries if entry["source"] in required)
+
 
 @dataclass(frozen=True)
 class ApplyResult:
     rollback_root: Path
     plan: DeploymentPlan
+    written_sources: tuple[str, ...]
 
 
 def _sha256_file(path: Path) -> str:
@@ -166,8 +173,12 @@ def apply_manifest(source_tree: Path, manifest: dict[str, Any], release_sha: str
     rollback_root.mkdir(mode=0o700, parents=True, exist_ok=False)
     os.chmod(rollback_root, 0o700)
     changed: list[tuple[Path, Path | None]] = []
+    written_sources: list[str] = []
+    write_sources = set(plan.write_sources)
     try:
         for entry in plan.entries:
+            if entry["source"] not in write_sources:
+                continue
             source = source_tree / entry["source"]
             destination = Path(entry["destination"])
             _safe_destination(destination, RUNTIME_ROOT)
@@ -189,13 +200,16 @@ def apply_manifest(source_tree: Path, manifest: dict[str, Any], release_sha: str
                     handle.flush()
                     os.fsync(handle.fileno())
                 os.chmod(temporary, target_mode)
+                # Register before replace: an exception after the filesystem
+                # mutation must still have a rollback record.
+                changed.append((destination, previous))
                 os.replace(temporary, destination)
             finally:
                 if temporary.exists():
                     temporary.unlink()
             if _sha256_file(destination) != entry["source_sha256"]:
                 raise RuntimeError(f"post-write hash mismatch: {entry['source']}")
-            changed.append((destination, previous))
+            written_sources.append(entry["source"])
     except Exception:
         for destination, previous in reversed(changed):
             if previous is None:
@@ -204,7 +218,11 @@ def apply_manifest(source_tree: Path, manifest: dict[str, Any], release_sha: str
             else:
                 shutil.copy2(previous, destination)
         raise
-    return ApplyResult(rollback_root=rollback_root, plan=plan)
+    return ApplyResult(
+        rollback_root=rollback_root,
+        plan=plan,
+        written_sources=tuple(written_sources),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -241,7 +259,8 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 "CUSTOM DEPLOY APPLY PASS: "
                 f"release_sha={args.release_sha} entries={len(result.plan.entries)} "
-                f"rollback={result.rollback_root} deletes=0 restart=0"
+                f"writes={len(result.written_sources)} deletes=0 restart=0 "
+                f"rollback={result.rollback_root}"
             )
     except (OSError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"CUSTOM DEPLOY FAIL: {exc}")
