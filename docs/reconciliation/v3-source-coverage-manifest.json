@@ -254,7 +254,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/post-closure-executable-provenance-20260829.md",
-      "source_sha256": "b58e1acde5c04179616cd6294b532d3a531d3524a69e25a2f61c23e5a522f63e"
+      "source_sha256": "54e3ac8439902912cdb0b48f976afc274d7598b646c19bcf2d5dbccea8b0bef4"
     },
     {
       "destination": null,
@@ -620,7 +620,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/deploy_custom_runtime.py",
-      "source_sha256": "9cd004371794c2008f31bb0b25c434275026cf6ced6d02d27b6474a945eac261"
+      "source_sha256": "b5512448b6e76ec32d443694e10c23fc13c493f23e7121dc6b9f55b37b08fe82"
     },
     {
       "destination": null,
@@ -3968,7 +3968,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_custom_runtime_deploy.py",
-      "source_sha256": "a863c4d807c40b087f1af87bbc73d80c887d328d78b8a7feb3dc7cec0c63e23a"
+      "source_sha256": "bce8d837fb7c9b7d082925a2bcac8ff1943f72ecc80e072e00b49012ca9d86f4"
     },
     {
       "destination": null,
@@ -4021,6 +4021,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "37cace9417d872d367f31cbd6cc0bb83b4b36233d09675ac4c9bd9e4d15d045f",
+  "payload_sha256": "0dced18cd6b88924fbdeb3db36e74e5a8b1c248f13c0c8a8c4ef9ad6a5d999f1",
   "schema_version": 1
 }
