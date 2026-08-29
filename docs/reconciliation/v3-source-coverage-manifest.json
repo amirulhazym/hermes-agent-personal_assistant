@@ -584,7 +584,7 @@
       "destination": "/home/ubuntu/.hermes/plugins/nightly-git-closure/__init__.py",
       "kind": "runtime-deploy",
       "source": "plugins/nightly-git-closure/__init__.py",
-      "source_sha256": "69f05e13d75410f61ff86bbe069b64247f2ef4632634e3dd7bd8aebe5b9939df"
+      "source_sha256": "8d3cd790a1754b870e3f40400c124dfe39aeba68399054a9e8628c4d021728bb"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/nightly-git-closure/plugin.yaml",
@@ -800,7 +800,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "adc75a82dc24fdf2115b81c9b52e2a641fd5acf6a8a2b84c453aaf201f132f39"
+      "source_sha256": "b98da54fce46d2d73ae46de46254c7c17e1e702e1f1f6d77c21ae700fec99009"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_timeout.sh",

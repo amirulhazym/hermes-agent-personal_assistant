@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 
-_APPROVE_RE = re.compile(r"^\s*APPROVE\s+NIGHTLY(?:\s+([A-Za-z0-9][A-Za-z0-9._-]{0,127}))?\s*$", re.IGNORECASE)
-_REJECT_RE = re.compile(r"^\s*(?:REJECT|HOLD|CANCEL)\s+NIGHTLY(?:\s+([A-Za-z0-9][A-Za-z0-9._-]{0,127}))?(?:\s+(.+?))?\s*$", re.IGNORECASE)
+_APPROVE_RE = re.compile(r"^\s*APPROVE\s+NIGHTLY\s+([A-Za-z0-9][A-Za-z0-9._-]{0,127})\s*$", re.IGNORECASE)
+_REJECT_RE = re.compile(r"^\s*REJECT\s+NIGHTLY\s+([A-Za-z0-9][A-Za-z0-9._-]{0,127})(?:\s+(.+?))?\s*$", re.IGNORECASE)
 
 
 def _hermes_home() -> Path:
@@ -48,9 +48,9 @@ def _run_target(args: list[str]) -> str:
 
 def _usage() -> str:
     return (
-        "Usage: /nightly status | approve [RUN_ID] | reject [RUN_ID] [reason] | "
+        "Usage: /nightly status | approve <RUN_ID> | reject <RUN_ID> [reason] | "
         "json show|hide\n"
-        "Plain text is also accepted: APPROVE NIGHTLY RUN_ID or REJECT NIGHTLY RUN_ID reason."
+        "Plain text is also accepted: APPROVE NIGHTLY <RUN_ID> or REJECT NIGHTLY <RUN_ID> [reason]."
     )
 
 
@@ -62,18 +62,14 @@ def _handle(raw_args: str) -> str:
     if not parts or parts[0].lower() == "status":
         return _run_target(["--status", "--human-only"])
     command = parts[0].lower()
-    if command in {"approve", "yes"}:
-        args = ["--approve"]
-        if len(parts) > 1:
-            args += ["--run-id", parts[1]]
-        if len(parts) > 2:
+    if command == "approve":
+        if len(parts) != 2:
             return _usage()
-        args.append("--human-only")
-        return _run_target(args)
-    if command in {"reject", "hold", "cancel", "no"}:
-        args = ["--reject"]
-        if len(parts) > 1:
-            args += ["--run-id", parts[1]]
+        return _run_target(["--approve", "--run-id", parts[1], "--human-only"])
+    if command == "reject":
+        if len(parts) < 2:
+            return _usage()
+        args = ["--reject", "--run-id", parts[1]]
         if len(parts) > 2:
             args += ["--reason", " ".join(parts[2:])]
         args.append("--human-only")
@@ -81,6 +77,7 @@ def _handle(raw_args: str) -> str:
     if command == "json" and len(parts) == 2 and parts[1].lower() in {"show", "hide"}:
         return _run_target(["--set-json-display", parts[1].lower(), "--human-only"])
     return _usage()
+
 
 
 def _event_text(event: Any) -> str | None:
