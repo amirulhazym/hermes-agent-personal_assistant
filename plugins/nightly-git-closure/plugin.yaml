@@ -1,0 +1,4 @@
+name: nightly-git-closure
+version: 1.0.0
+description: "Authenticated controls for the bounded nightly Git remediation workflow"
+author: amirulhazym
