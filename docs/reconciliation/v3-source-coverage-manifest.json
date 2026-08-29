@@ -236,7 +236,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/g1-source-closure-inventory-20260828.json",
-      "source_sha256": "9073e9ef25728a292972a290e59401358d47a14eadc2c5656901e2f0d17e8eb9"
+      "source_sha256": "a938dc3ec435d50cbb12efb9cf65f510658a26e8068823a2b8782c1f363b3564"
     },
     {
       "destination": null,
@@ -249,6 +249,12 @@
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-tree-manifest.json",
       "source_sha256": "a9966667418eb169482a4d3f0d23880162963d93fce8ba2e21b54904b23b5c34"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "docs/reconciliation/post-closure-executable-provenance-20260829.md",
+      "source_sha256": "b58e1acde5c04179616cd6294b532d3a531d3524a69e25a2f61c23e5a522f63e"
     },
     {
       "destination": null,
@@ -614,7 +620,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/deploy_custom_runtime.py",
-      "source_sha256": "e842753e5cec4107a8a5a1fa2df54171c9a2a9c143f32f6fabded6d2a8e49f25"
+      "source_sha256": "9cd004371794c2008f31bb0b25c434275026cf6ced6d02d27b6474a945eac261"
     },
     {
       "destination": null,
@@ -773,10 +779,16 @@
       "source_sha256": "6ae026cbbbb9fc617ed009058ae2e6c480cd797eba80125d0834c747bb55e06b"
     },
     {
-      "destination": null,
-      "kind": "source-only",
+      "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
+      "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "0473742e0b661d393f7c3dd4247d3a3d5c84bee5389e09937cb580fb85a809a4"
+      "source_sha256": "d590b73fda1f145c718963529f033646dd7f36402efaf1551e56dc702d685478"
+    },
+    {
+      "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_wrapper.sh",
+      "kind": "runtime-deploy",
+      "source": "scripts/nightly_git_hygiene_wrapper.sh",
+      "source_sha256": "5ad7aefc940344ba830d1a725f6acb4538d94c0b22138d4c5776c593a98615f9"
     },
     {
       "destination": null,
@@ -861,6 +873,12 @@
       "kind": "source-only",
       "source": "scripts/test_effective_done.py",
       "source_sha256": "7689f060684a008042440983aa47e9a55c25afe3a365487011c7a9479ccb0eb3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "scripts/verify_post_closure.py",
+      "source_sha256": "cf55986eff3cdb19c934d1b148f844ca29e9af47a3699afffadb4b81cf7e3aeb"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/watchdog.sh",
@@ -3950,7 +3968,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_custom_runtime_deploy.py",
-      "source_sha256": "f49bc04676ff8b46f5c3ccc56eccf98b1fb9aa1e698cab5948db8a9f36e04cab"
+      "source_sha256": "a863c4d807c40b087f1af87bbc73d80c887d328d78b8a7feb3dc7cec0c63e23a"
     },
     {
       "destination": null,
@@ -3967,8 +3985,20 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "tests/reconciliation/test_nightly_execution_identity.py",
+      "source_sha256": "6e94e52ae8f1fb6de8e4836a97e721e5a34c1d0a59587e2986ab4b07e076827c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_git_hygiene.py",
-      "source_sha256": "28b0d2af855aaa77c3ab551a244c490f4d7ee4625e2613fe0ba54f5d1caab08b"
+      "source_sha256": "d9fe38db05bc76628bea7826ef8a90513a9034b44d1f213a87bf9687ad22e0cc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "tests/reconciliation/test_post_closure_executable_provenance.py",
+      "source_sha256": "32c6149c0d8613e8012b6b528abb3419639967cff6c9cf207225572f37660ec9"
     },
     {
       "destination": null,
@@ -3991,6 +4021,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "d1e419e3cedc70d82b624262997a7d18eb644aaa455518aa8a6436821884b067",
+  "payload_sha256": "37cace9417d872d367f31cbd6cc0bb83b4b36233d09675ac4c9bd9e4d15d045f",
   "schema_version": 1
 }
