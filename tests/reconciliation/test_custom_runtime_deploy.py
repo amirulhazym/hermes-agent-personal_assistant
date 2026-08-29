@@ -58,6 +58,27 @@ class CustomRuntimeDeployTest(unittest.TestCase):
             self.assertEqual(plan.mode_only, ("scripts/tool.py",))
             self.assertEqual(plan.missing, ())
 
+    def test_plan_classifies_new_destination_as_planned_write(self):
+        with tempfile.TemporaryDirectory(prefix="custom-deploy-new-") as temp:
+            root = Path(temp) / "source"
+            destination_root = Path(temp) / "runtime"
+            root.mkdir()
+            destination_root.mkdir()
+            source = root / "scripts" / "new_tool.py"
+            source.parent.mkdir()
+            source.write_bytes(b"print('new')\n")
+
+            plan = DEPLOY.build_plan(
+                root,
+                self.make_manifest(root, "scripts/new_tool.py", destination_root / "scripts" / "new_tool.py"),
+                destination_root,
+            )
+
+            self.assertEqual(plan.missing, ())
+            self.assertEqual(plan.source_mismatches, ())
+            self.assertEqual(plan.new_destinations, ("scripts/new_tool.py",))
+            self.assertEqual(plan.content_mismatches, ())
+
     def test_apply_preserves_existing_mode_and_creates_rollback(self):
         with tempfile.TemporaryDirectory(prefix="custom-deploy-apply-") as temp:
             root = Path(temp) / "source"

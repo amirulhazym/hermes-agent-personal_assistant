@@ -16,6 +16,7 @@ Executes daily at 23:55 MYT:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -29,6 +30,26 @@ REPO_ROOT = Path("/home/ubuntu/hermes-agent-personal_assistant-work")
 HERMES_HOME = Path("/home/ubuntu/.hermes")
 RECEIPT_PATH = HERMES_HOME / "logs" / "git-nightly-receipt.md"
 RECEIPT_JSON_PATH = HERMES_HOME / "logs" / "git-nightly-receipt.json"
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def execution_identity(repo_root: Path, audited_head: str) -> dict[str, Any]:
+    """Capture the exact executable identity used for this audit invocation."""
+    script_path = Path(__file__).resolve()
+    return {
+        "script_path": str(script_path),
+        "script_sha256": sha256_file(script_path),
+        "script_size": script_path.stat().st_size,
+        "audited_repo": str(repo_root),
+        "audited_repo_head": audited_head,
+    }
 
 
 def run_cmd(cmd: list[str], cwd: Path = REPO_ROOT) -> tuple[int, str]:
@@ -115,6 +136,13 @@ def run_audit(repo_root: Path = REPO_ROOT, dry_run: bool = False) -> dict[str, A
     # 2. Check current HEAD
     rc, head = run_cmd(["git", "rev-parse", "HEAD"], cwd=repo_root)
     audit["git_state"]["head"] = head
+    audit["execution"] = execution_identity(repo_root, head) if rc == 0 else {
+        "script_path": str(Path(__file__).resolve()),
+        "script_sha256": sha256_file(Path(__file__).resolve()),
+        "script_size": Path(__file__).resolve().stat().st_size,
+        "audited_repo": str(repo_root),
+        "audited_repo_head": None,
+    }
 
     # 3. Privacy & Security Scans
     secret_pass, pii_pass, scan_errors = scan_uncommitted_privacy(repo_root)
@@ -211,6 +239,10 @@ def run_audit(repo_root: Path = REPO_ROOT, dry_run: bool = False) -> dict[str, A
         f"- **Secret Scan:** `{audit['gates'].get('secret_scan')}`",
         f"- **PII Review:** `{audit['gates'].get('pii_review')}`",
         f"- **Contract Tests:** `{audit['gates'].get('contract_tests')}`",
+        f"- **Executable Script:** `{audit['execution']['script_path']}`",
+        f"- **Executable SHA-256:** `{audit['execution']['script_sha256']}`",
+        f"- **Executable Size:** `{audit['execution']['script_size']}` bytes",
+        f"- **Audited Repository HEAD:** `{audit['execution']['audited_repo_head']}`",
         f"- **Sync (origin/main):** Ahead {audit['sync_state'].get('origin', {}).get('ahead', 0)}, Behind {audit['sync_state'].get('origin', {}).get('behind', 0)}",
         f"- **Release Pending:** `{audit['release_pending']}`",
         "",

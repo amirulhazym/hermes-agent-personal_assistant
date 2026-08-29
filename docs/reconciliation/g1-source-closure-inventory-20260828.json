@@ -15234,5 +15234,32 @@
     "materialization": "raw Git blobs via git ls-tree + git cat-file blob",
     "live_dry_run": "reconstruction PASS; deploy plan PASS; current_hash_mismatches=1; normalized_equivalent=4; writes=0; deletes=0; restart=0",
     "live_apply": "not performed; exact release approval required"
+  },
+  "post_closure_correction": {
+    "captured_at": "2026-08-29T09:47:54.387485+08:00",
+    "reason": "post-closure executable provenance correction",
+    "previously_unaccounted_live_path": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_wrapper.sh",
+    "initial_classification": "LIVE_ONLY_UNMANAGED",
+    "ssot_representation": {
+      "source": "scripts/nightly_git_hygiene_wrapper.sh",
+      "kind": "runtime-deploy",
+      "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_wrapper.sh",
+      "candidate_sha256": "5ad7aefc940344ba830d1a725f6acb4538d94c0b22138d4c5776c593a98615f9",
+      "candidate_mode": "0o755"
+    },
+    "runtime_observation_at_correction": {
+      "wrapper_exists": true,
+      "wrapper_sha256": "60b0824f85b7ab99764133edb220e3d5e2eb5e639c948f86fa59352cb6b25f99",
+      "wrapper_is_tracked_in_hermes_root": false,
+      "target_runtime_exists": false
+    },
+    "target_representation": {
+      "source": "scripts/nightly_git_hygiene.py",
+      "kind": "runtime-deploy",
+      "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
+      "candidate_sha256": "d590b73fda1f145c718963529f033646dd7f36402efaf1551e56dc702d685478"
+    },
+    "verifier_source": "scripts/verify_post_closure.py",
+    "verifier_test": "tests/reconciliation/test_post_closure_executable_provenance.py"
   }
 }

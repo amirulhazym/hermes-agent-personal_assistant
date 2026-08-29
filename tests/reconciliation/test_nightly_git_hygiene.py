@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -43,7 +44,16 @@ class NightlyGitHygieneScenarioTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(self.repo_dir), "push", "-q", "-u", "origin", "main"], check=True)
         subprocess.run(["git", "-C", str(self.repo_dir), "push", "-q", "-u", "upstream", "main"], check=True)
 
+        self.receipt_dir = Path(self.temp_dir) / "hermes" / "logs"
+        self.receipt_dir.mkdir(parents=True, exist_ok=True)
+        self.previous_receipt_path = getattr(HYGIENE, "RECEIPT_PATH")
+        self.previous_receipt_json_path = getattr(HYGIENE, "RECEIPT_JSON_PATH")
+        setattr(HYGIENE, "RECEIPT_PATH", self.receipt_dir / "git-nightly-receipt.md")
+        setattr(HYGIENE, "RECEIPT_JSON_PATH", self.receipt_dir / "git-nightly-receipt.json")
+
     def tearDown(self):
+        setattr(HYGIENE, "RECEIPT_PATH", self.previous_receipt_path)
+        setattr(HYGIENE, "RECEIPT_JSON_PATH", self.previous_receipt_json_path)
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -185,7 +195,7 @@ class NightlyGitHygieneScenarioTests(unittest.TestCase):
     def test_scenario_13_proposal_generation(self):
         proposals_dir = self.repo_dir / "docs" / "proposals"
         proposals_dir.mkdir(parents=True, exist_ok=True)
-        today_str = "2026-08-28"
+        today_str = datetime.now(HYGIENE.MYT).strftime("%Y-%m-%d")
         proposal_file = proposals_dir / f"nightly-{today_str}.md"
         proposal_file.write_text("# Proposal Draft\n")
 

@@ -46,6 +46,7 @@ class DeploymentPlan:
     mode_only: tuple[str, ...]
     missing: tuple[str, ...]
     source_mismatches: tuple[str, ...]
+    new_destinations: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -124,6 +125,7 @@ def build_plan(source_tree: Path, manifest: dict[str, Any], destination_root: Pa
     modes: list[str] = []
     missing: list[str] = []
     source_mismatches: list[str] = []
+    new_destinations: list[str] = []
     for entry in runtime:
         source = source_tree / entry["source"]
         destination = Path(entry["destination"])
@@ -133,7 +135,7 @@ def build_plan(source_tree: Path, manifest: dict[str, Any], destination_root: Pa
         if _sha256_file(source) != entry["source_sha256"]:
             source_mismatches.append(entry["source"])
         if not destination.exists():
-            missing.append(entry["source"])
+            new_destinations.append(entry["source"])
             continue
         if not destination.is_file():
             raise RuntimeError(f"existing destination is not a regular file: {destination}")
@@ -141,7 +143,14 @@ def build_plan(source_tree: Path, manifest: dict[str, Any], destination_root: Pa
             content.append(entry["source"])
         elif (source.stat().st_mode & 0o7777) != (destination.stat().st_mode & 0o7777):
             modes.append(entry["source"])
-    return DeploymentPlan(tuple(runtime), tuple(content), tuple(modes), tuple(missing), tuple(source_mismatches))
+    return DeploymentPlan(
+        tuple(runtime),
+        tuple(content),
+        tuple(modes),
+        tuple(missing),
+        tuple(source_mismatches),
+        tuple(new_destinations),
+    )
 
 
 def apply_manifest(source_tree: Path, manifest: dict[str, Any], release_sha: str) -> ApplyResult:
@@ -222,7 +231,8 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 "CUSTOM DEPLOY PLAN PASS: "
                 f"entries={len(plan.entries)} hash_mismatches={len(plan.content_mismatches)} "
-                f"mode_only={len(plan.mode_only)} writes=0 deletes=0 restart=0"
+                f"mode_only={len(plan.mode_only)} new_destinations={len(plan.new_destinations)} "
+                f"writes={len(plan.content_mismatches) + len(plan.new_destinations)} deletes=0 restart=0"
             )
         else:
             if not args.release_sha:
