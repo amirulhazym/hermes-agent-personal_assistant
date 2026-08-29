@@ -462,6 +462,7 @@ def _workflow_git(repo: Path, args: list[str], *, env: dict[str, str] | None = N
 
 def _status_records(raw: str) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
+    conflict_codes = {"UU", "AA", "UD", "DU", "DD", "AU", "UA"}
     for line in raw.splitlines():
         if len(line) < 2:
             continue
@@ -483,6 +484,7 @@ def _status_records(raw: str) -> list[dict[str, Any]]:
             "path": path,
             "untracked": status == "??",
             "deleted": "D" in status,
+            "conflict": status in conflict_codes or "U" in status,
         })
     return records
 
@@ -638,12 +640,17 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
         return result
     records = _status_records(status)
     effective = [record for record in records if record["path"] not in EXCLUDED_PRIVATE_PATHS]
+    has_private_diff = len(effective) != len(records)
     result["git_state"] = {
-        "is_clean": not effective,
-        "status_porcelain": [f"{r['status']} {r['path']}" for r in effective],
-        "status_records": effective,
+        "is_clean": not records,
+        "is_effective_clean": not effective,
+        "has_private_diff": has_private_diff,
+        "status_porcelain": [f"{r['status']} {r['path']}" for r in records],
+        "status_records": records,
         "excluded_private_paths": [r["path"] for r in records if r["path"] in EXCLUDED_PRIVATE_PATHS],
     }
+    if has_private_diff:
+        result["holds"].append("private uncommitted files present (SOUL.md); no automated push/commit")
     rc, branch = _workflow_git(repo, ["branch", "--show-current"])
     rc_head, head = _workflow_git(repo, ["rev-parse", "HEAD"])
     if rc != 0 or rc_head != 0:
@@ -730,7 +737,10 @@ def _auto_commit_safe(path: str) -> bool:
         return False
     if normalized.startswith(FORBIDDEN_AUTO_COMMIT_PREFIXES):
         return False
+    if normalized == "AGENTS.md" or normalized.startswith("skills/"):
+        return False
     return not normalized.endswith(FORBIDDEN_AUTO_COMMIT_SUFFIXES)
+
 
 
 def _git_identity_valid(repo: Path) -> bool:
@@ -774,9 +784,11 @@ def _build_actions(snapshot: dict[str, Any]) -> tuple[list[dict[str, Any]], list
         holds.append(f"current branch is {branch or 'unknown'}, not main")
     records = git_state.get("status_records", [])
     if records:
+        if any(record.get("conflict") for record in records):
+            holds.append("unresolved Git conflict markers/status exist in working tree")
         unsafe = [
             record["path"] for record in records
-            if record["untracked"] or record["deleted"] or not _auto_commit_safe(record["path"])
+            if record["untracked"] or record["deleted"] or record.get("conflict") or not _auto_commit_safe(record["path"])
         ]
         if unsafe:
             holds.append("dirty work requires owner classification: " + ", ".join(sorted(unsafe)))
@@ -1237,7 +1249,7 @@ def _commit_dirty_action(
     expected_status = action.get("expected_status", [])
     if git_state.get("status_porcelain", []) != expected_status:
         return None, "commit precondition failed: working tree changed after recommendation", snapshot, {}
-    if any(record["untracked"] or record["deleted"] or not _auto_commit_safe(record["path"]) for record in git_state.get("status_records", [])):
+    if any(record["untracked"] or record["deleted"] or record.get("conflict") or not _auto_commit_safe(record["path"]) for record in git_state.get("status_records", [])):
         return None, "commit precondition failed: dirty paths are not all safe tracked paths", snapshot, {}
     if not _git_identity_valid(repo):
         return None, "commit precondition failed: Git author/committer identity is missing or unsafe", snapshot, {}
