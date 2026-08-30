@@ -800,13 +800,13 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "b98da54fce46d2d73ae46de46254c7c17e1e702e1f1f6d77c21ae700fec99009"
+      "source_sha256": "53d0e3d52959490efaed17a04875f5f5b9fb4a75820e54acf65824c9aa74e4af"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_timeout.sh",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene_timeout.sh",
-      "source_sha256": "592b54bc25cf93dc97dff244126376fc4d0dea500dcba91e63c6994e8b5bb53e"
+      "source_sha256": "f80661c7bfdab19b94935a9702ca38e83cae43cf8352fac694f27a263a89f49f"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_wrapper.sh",
@@ -4010,7 +4010,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_closure_workflow.py",
-      "source_sha256": "ec7010093b9b79dbda058cbf373c56e73b91ec0c7fd9a066117ada0378cab76f"
+      "source_sha256": "3488e0e5254e8b0fe49a85a5aab30f4f52e41f2f082024af6755236d50791509"
     },
     {
       "destination": null,

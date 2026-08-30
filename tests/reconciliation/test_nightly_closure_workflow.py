@@ -140,6 +140,15 @@ def _make_ahead_case(tmp_path: Path) -> tuple[Path, Path, datetime]:
     return repo, tmp_path / "hermes", datetime(2026, 8, 30, 23, 55, tzinfo=MYT)
 
 
+def _install_timeout_target(hermes_home: Path) -> Path:
+    scripts = hermes_home / "scripts"
+    scripts.mkdir(parents=True, exist_ok=True)
+    target = scripts / "nightly_git_hygiene.py"
+    shutil.copy2(MODULE_PATH, target)
+    os.chmod(target, 0o755)
+    return scripts
+
+
 def test_immediate_approval_executes_and_verifies_normal_push(tmp_path: Path) -> None:
     repo, hermes_home, now = _make_ahead_case(tmp_path)
     scheduled: list[dict] = []
@@ -212,7 +221,124 @@ def test_deadline_timeout_executes_without_chat_continuation(tmp_path: Path) -> 
     assert result["actions_taken"] == ["push_main"]
     assert git(repo, "rev-parse", "origin/main") == git(repo, "rev-parse", "HEAD")
 
-def test_dirty_tracked_work_is_planned_as_commit_then_push(tmp_path: Path) -> None:
+
+def test_timeout_missing_run_id_is_fail_closed(tmp_path: Path) -> None:
+    repo, hermes_home, now = _make_ahead_case(tmp_path)
+    pending = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=now,
+        schedule_timeout=lambda **kwargs: "timeout-missing-id",
+    )
+    before = git(repo, "rev-parse", "origin/main")
+
+    result = HYGIENE.process_pending(
+        decision="timeout",
+        run_id=None,
+        hermes_home=hermes_home,
+        now=now + timedelta(minutes=30),
+    )
+
+    assert result["status"] == "HOLD"
+    assert result["actions_taken"] == []
+    assert "exact run_id" in " ".join(result["holds"])
+    assert git(repo, "rev-parse", "origin/main") == before
+    state = json.loads((hermes_home / "pending" / "nightly-git-remediation.json").read_text())
+    assert state["status"] == "pending"
+    assert state["run_id"] == pending["run_id"]
+
+
+def test_timeout_malformed_run_id_is_fail_closed(tmp_path: Path) -> None:
+    repo, hermes_home, now = _make_ahead_case(tmp_path)
+    HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=now,
+        schedule_timeout=lambda **kwargs: "timeout-malformed-id",
+    )
+    before = git(repo, "rev-parse", "origin/main")
+
+    result = HYGIENE.process_pending(
+        decision="timeout",
+        run_id="not a valid run id!",
+        hermes_home=hermes_home,
+        now=now + timedelta(minutes=30),
+    )
+
+    assert result["status"] == "HOLD"
+    assert result["actions_taken"] == []
+    assert "malformed run_id" in " ".join(result["holds"])
+    assert git(repo, "rev-parse", "origin/main") == before
+
+
+def test_timeout_wrong_run_id_cannot_execute_pending_plan(tmp_path: Path) -> None:
+    repo, hermes_home, now = _make_ahead_case(tmp_path)
+    pending = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=now,
+        schedule_timeout=lambda **kwargs: "timeout-wrong-id",
+    )
+    before = git(repo, "rev-parse", "origin/main")
+
+    result = HYGIENE.process_pending(
+        decision="timeout",
+        run_id="20260830T155500Z-deadbeefcafe-0123456789abcdef0123456789abcdef",
+        hermes_home=hermes_home,
+        now=now + timedelta(minutes=30),
+    )
+
+    assert result["status"] == "HOLD"
+    assert result["actions_taken"] == []
+    assert "does not match" in " ".join(result["holds"])
+    assert git(repo, "rev-parse", "origin/main") == before
+    state = json.loads((hermes_home / "pending" / "nightly-git-remediation.json").read_text())
+    assert state["status"] == "pending"
+    assert state["run_id"] == pending["run_id"]
+
+
+def test_superseded_timeout_run_id_cannot_execute_newer_pending_plan(tmp_path: Path) -> None:
+    repo, hermes_home, now = _make_ahead_case(tmp_path)
+    older = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=now,
+        schedule_timeout=lambda **kwargs: "timeout-old",
+    )
+    rejected = HYGIENE.process_pending(
+        decision="reject",
+        run_id=older["run_id"],
+        hermes_home=hermes_home,
+        now=now + timedelta(minutes=1),
+    )
+    assert rejected["remediation"]["status"] == "rejected"
+
+    newer = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=now + timedelta(minutes=2),
+        schedule_timeout=lambda **kwargs: "timeout-new",
+    )
+    assert newer["run_id"] != older["run_id"]
+    before = git(repo, "rev-parse", "origin/main")
+
+    result = HYGIENE.process_pending(
+        decision="timeout",
+        run_id=older["run_id"],
+        hermes_home=hermes_home,
+        now=now + timedelta(minutes=31),
+    )
+
+    assert result["status"] == "HOLD"
+    assert result["actions_taken"] == []
+    assert "does not match" in " ".join(result["holds"])
+    assert git(repo, "rev-parse", "origin/main") == before
+    state = json.loads((hermes_home / "pending" / "nightly-git-remediation.json").read_text())
+    assert state["status"] == "pending"
+    assert state["run_id"] == newer["run_id"]
+
+
+def test_ambiguous_tracked_dirty_work_is_retained_as_owner_hold(tmp_path: Path) -> None:
     repo, _origin, _upstream = make_repo(tmp_path)
     add_gate_scripts(repo)
     (repo / "README.md").write_text("legitimate daily edit\n", encoding="utf-8")
@@ -227,39 +353,56 @@ def test_dirty_tracked_work_is_planned_as_commit_then_push(tmp_path: Path) -> No
     )
 
     assert result["status"] == "HOLD"
-    assert [item["kind"] for item in result["remediation"]["actions"]] == [
-        "commit_dirty",
-        "push_after_commit",
-    ]
-    assert result["remediation"]["actions"][0]["paths"] == ["README.md"]
+    assert result["remediation"]["status"] == "blocked"
+    assert result["remediation"]["actions"] == []
+    assert "README.md" in " ".join(result["holds"])
+    assert not (hermes_home / "pending" / "nightly-git-remediation.json").exists()
     assert git(repo, "rev-parse", "origin/main") == git(repo, "rev-parse", "HEAD")
 
 
-def test_approved_dirty_work_commits_exact_paths_then_pushes(tmp_path: Path) -> None:
+def test_legacy_commit_dirty_timeout_is_blocked_without_commit(tmp_path: Path) -> None:
     repo, _origin, _upstream = make_repo(tmp_path)
     add_gate_scripts(repo)
     (repo / "README.md").write_text("legitimate daily edit\n", encoding="utf-8")
     hermes_home = tmp_path / "hermes"
     now = datetime(2026, 8, 30, 23, 55, tzinfo=MYT)
-    pending = HYGIENE.run_nightly(
-        repo_root=repo,
-        hermes_home=hermes_home,
-        now=now,
-        schedule_timeout=lambda **kwargs: "timeout-dirty",
-    )
+    run_id = "20260830T155500Z-abcdef123456-0123456789abcdef0123456789abcdef"
+    head = git(repo, "rev-parse", "HEAD")
+    pending_path = hermes_home / "pending" / "nightly-git-remediation.json"
+    pending_path.parent.mkdir(parents=True)
+    pending_path.write_text(json.dumps({
+        "schema_version": 1,
+        "run_id": run_id,
+        "status": "pending",
+        "created_at": "2026-08-30T23:25:00+08:00",
+        "deadline_at": "2026-08-30T23:55:00+08:00",
+        "repo": str(repo),
+        "baseline": {"head": head, "branch": "main", "status_porcelain": [" M README.md"]},
+        "actions": [{
+            "kind": "commit_dirty",
+            "paths": ["README.md"],
+            "expected_status": [" M README.md"],
+            "expected_head": head,
+            "message": "chore(nightly): close daily repository hygiene",
+        }],
+        "holds": [],
+        "timeout_job_id": "legacy-timeout-job",
+    }) + "\n", encoding="utf-8")
+    before_origin = git(repo, "rev-parse", "origin/main")
 
     result = HYGIENE.process_pending(
-        decision="approve",
-        run_id=pending["run_id"],
+        decision="timeout",
+        run_id=run_id,
         hermes_home=hermes_home,
-        now=now + timedelta(minutes=5),
+        now=now,
     )
 
-    assert result["status"] == "PASS"
-    assert result["actions_taken"] == ["commit_dirty", "push_after_commit"]
-    assert git(repo, "status", "--porcelain") == ""
-    assert git(repo, "rev-parse", "origin/main") == git(repo, "rev-parse", "HEAD")
-    assert "chore(nightly): close daily repository hygiene" in git(repo, "log", "-1", "--format=%s")
+    assert result["status"] == "HOLD"
+    assert result["actions_taken"] == []
+    assert "commit_dirty" in " ".join(result["holds"])
+    assert git(repo, "status", "--porcelain") == "M README.md"
+    assert git(repo, "log", "-1", "--format=%s") == "test gates"
+    assert git(repo, "rev-parse", "origin/main") == before_origin
 
 
 def test_untracked_work_is_retained_as_owner_hold(tmp_path: Path) -> None:
@@ -624,14 +767,12 @@ def test_pending_plan_is_invalidated_when_head_changes(tmp_path: Path) -> None:
 
 def test_native_timeout_job_uses_profile_store_and_once_schedule(tmp_path: Path) -> None:
     home = tmp_path / "hermes"
-    scripts = home / "scripts"
-    scripts.mkdir(parents=True)
-    (scripts / HYGIENE.TIMEOUT_SCRIPT).write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
-    os.chmod(scripts / HYGIENE.TIMEOUT_SCRIPT, 0o755)
+    scripts = _install_timeout_target(home)
+    run_id = "20260831T002500Z-abcdef123456-0123456789abcdef0123456789abcdef"
 
     job_id = HYGIENE._schedule_timeout_job(
         deadline_at=datetime(2026, 8, 31, 0, 25, tzinfo=MYT),
-        run_id="RUN-SCHEDULE",
+        run_id=run_id,
         repo_root=tmp_path,
         hermes_home=home,
     )
@@ -639,7 +780,11 @@ def test_native_timeout_job_uses_profile_store_and_once_schedule(tmp_path: Path)
     jobs = json.loads((home / "cron" / "jobs.json").read_text(encoding="utf-8"))
     job = next(item for item in jobs["jobs"] if item["id"] == job_id)
     assert job["no_agent"] is True
-    assert job["script"] == HYGIENE.TIMEOUT_SCRIPT
+    assert job["script"] != HYGIENE.TIMEOUT_SCRIPT
+    assert job["script"].startswith("nightly_git_hygiene_timeout-")
+    wrapper = scripts / job["script"]
+    assert wrapper.is_file()
+    assert f"--timeout --run-id {run_id} --human-only" in wrapper.read_text(encoding="utf-8")
     assert job["schedule"]["kind"] == "once"
     assert job["schedule"]["run_at"] == "2026-08-31T00:25:00+08:00"
     assert job["repeat"] == {"times": 1, "completed": 0}
@@ -651,26 +796,24 @@ def test_native_timeout_job_uses_profile_store_and_once_schedule(tmp_path: Path)
 
 def test_timeout_wrapper_executes_persisted_plan_in_fresh_process(tmp_path: Path) -> None:
     repo, hermes_home, now = _make_ahead_case(tmp_path)
+    scripts = _install_timeout_target(hermes_home)
     pending = HYGIENE.run_nightly(
         repo_root=repo,
         hermes_home=hermes_home,
         now=now,
-        schedule_timeout=lambda **kwargs: "timeout-wrapper",
     )
-    scripts = hermes_home / "scripts"
-    scripts.mkdir(parents=True)
+    jobs = json.loads((hermes_home / "cron" / "jobs.json").read_text(encoding="utf-8"))
+    job = next(item for item in jobs["jobs"] if item["id"] == pending["remediation"]["timeout_job_id"])
+    wrapper = scripts / job["script"]
+    assert wrapper.is_file()
+    assert f"--timeout --run-id {pending['run_id']} --human-only" in wrapper.read_text(encoding="utf-8")
     pending_path = hermes_home / "pending" / "nightly-git-remediation.json"
     pending_state = json.loads(pending_path.read_text(encoding="utf-8"))
     pending_state["deadline_at"] = "2026-08-30T00:25:00+08:00"
     pending_path.write_text(json.dumps(pending_state) + "\n", encoding="utf-8")
-    target = scripts / "nightly_git_hygiene.py"
-    wrapper = scripts / "nightly_git_hygiene_timeout.sh"
-    shutil.copy2(MODULE_PATH, target)
-    shutil.copy2(REPO_ROOT / "scripts" / "nightly_git_hygiene_timeout.sh", wrapper)
-    os.chmod(target, 0o755)
-    os.chmod(wrapper, 0o755)
     env = os.environ.copy()
     env["HERMES_HOME"] = str(hermes_home)
+    env["HERMES_REPO_ROOT"] = str(repo)
     result = subprocess.run(
         [str(wrapper)],
         env=env,
