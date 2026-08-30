@@ -737,9 +737,74 @@ def _merge_forecast(repo: Path, local_ref: str = "main", remote_ref: str = "orig
         shutil.rmtree(forecast_root, ignore_errors=True)
 
 
-def _build_actions(snapshot: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
+def _classify_sync_state(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Classify Git synchronization state into intentional, residue, or ambiguous provenance."""
+    git_state = snapshot.get("git_state", {})
+    origin = snapshot.get("sync_state", {}).get("origin")
+    daily = snapshot.get("daily_delta", {}).get("commits", [])
+    records = git_state.get("status_records", [])
+
+    if origin is None:
+        return {
+            "category": "provenance_insufficient",
+            "reason": "origin/main synchronization status is unavailable",
+            "is_unresolved_residue": None,
+        }
+
+    ahead = origin.get("ahead", 0)
+    behind = origin.get("behind", 0)
+
+    # 1. Fully in sync
+    if ahead == 0 and behind == 0 and not records:
+        return {
+            "category": "intentional_valid_state",
+            "reason": "Local main is fully synchronized with origin/main and working tree is clean.",
+            "is_unresolved_residue": False,
+        }
+
+    # 2. Local is ahead
+    if ahead > 0 and behind == 0 and not records:
+        # If commits were created today during normal working hours and remain unpushed at 23:55
+        if daily:
+            return {
+                "category": "unresolved_end_of_day_residue",
+                "reason": f"Local main has {len(daily)} commit(s) created today ({ahead} total ahead) that were not published to origin/main.",
+                "is_unresolved_residue": True,
+            }
+        # If ahead > 0 but no commits today, provenance is insufficient to assume intent or forgotten residue
+        return {
+            "category": "provenance_insufficient",
+            "reason": f"Local main is ahead of origin by {ahead} commit(s) with clean working tree and no commits created today. Available workflow metadata does not prove whether these commits are intentionally unpushed releases or forgotten backlog residue.",
+            "is_unresolved_residue": None,
+        }
+
+    # 3. Local is behind (fetched origin commits waiting for fast-forward)
+    if ahead == 0 and behind > 0 and not records:
+        return {
+            "category": "unresolved_end_of_day_residue",
+            "reason": f"Local main is behind origin/main by {behind} commit(s) that can be safely fast-forwarded.",
+            "is_unresolved_residue": True,
+        }
+
+    # 4. Diverged (ahead > 0 and behind > 0)
+    if ahead > 0 and behind > 0 and not records:
+        return {
+            "category": "unresolved_end_of_day_residue",
+            "reason": f"Local main has diverged from origin/main (ahead {ahead}, behind {behind}).",
+            "is_unresolved_residue": True,
+        }
+
+    return {
+        "category": "provenance_insufficient",
+        "reason": "Working tree or branch configuration requires owner classification.",
+        "is_unresolved_residue": None,
+    }
+
+
+def _build_actions(snapshot: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str], dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     holds: list[str] = []
+    classification = _classify_sync_state(snapshot)
     git_state = snapshot["git_state"]
     branch = git_state.get("branch")
     if branch != "main":
@@ -751,44 +816,50 @@ def _build_actions(snapshot: dict[str, Any]) -> tuple[list[dict[str, Any]], list
     origin = snapshot["sync_state"].get("origin")
     if origin is None:
         holds.append("origin/main synchronization is unavailable")
-    elif branch == "main":
-        if not records and origin["ahead"] > 0 and origin["behind"] == 0:
-            actions.append({
-                "kind": "push_main",
-                "remote": "origin",
-                "branch": "main",
-                "expected_head": git_state.get("head"),
-                "expected_remote_head": origin.get("remote_head"),
-            })
-        elif not records and origin["ahead"] == 0 and origin["behind"] > 0:
-            actions.append({
-                "kind": "fast_forward_origin",
-                "remote": "origin",
-                "branch": "main",
-                "expected_head": git_state.get("head"),
-                "expected_remote_head": origin.get("remote_head"),
-            })
-        elif not records and origin["ahead"] > 0 and origin["behind"] > 0:
-            forecast_ok, forecast = _merge_forecast(Path(snapshot["repo"]))
-            if forecast_ok:
-                actions.extend([
-                    {
-                        "kind": "merge_origin",
-                        "remote": "origin",
-                        "branch": "main",
-                        "expected_local_head": git_state.get("head"),
-                        "expected_remote_head": origin.get("remote_head"),
-                    },
-                    {
-                        "kind": "push_merged_main",
-                        "remote": "origin",
-                        "branch": "main",
-                        "expected_local_head": git_state.get("head"),
-                        "expected_remote_head": origin.get("remote_head"),
-                    },
-                ])
-            else:
-                holds.append("substantive merge conflict forecast; owner/product intent is required")
+    elif branch == "main" and not records:
+        if classification["category"] == "unresolved_end_of_day_residue":
+            if origin["ahead"] > 0 and origin["behind"] == 0:
+                actions.append({
+                    "kind": "push_main",
+                    "remote": "origin",
+                    "branch": "main",
+                    "expected_head": git_state.get("head"),
+                    "expected_remote_head": origin.get("remote_head"),
+                })
+            elif origin["ahead"] == 0 and origin["behind"] > 0:
+                actions.append({
+                    "kind": "fast_forward_origin",
+                    "remote": "origin",
+                    "branch": "main",
+                    "expected_head": git_state.get("head"),
+                    "expected_remote_head": origin.get("remote_head"),
+                })
+            elif origin["ahead"] > 0 and origin["behind"] > 0:
+                forecast_ok, forecast = _merge_forecast(Path(snapshot["repo"]))
+                if forecast_ok:
+                    actions.extend([
+                        {
+                            "kind": "merge_origin",
+                            "remote": "origin",
+                            "branch": "main",
+                            "expected_local_head": git_state.get("head"),
+                            "expected_remote_head": origin.get("remote_head"),
+                        },
+                        {
+                            "kind": "push_merged_main",
+                            "remote": "origin",
+                            "branch": "main",
+                            "expected_local_head": git_state.get("head"),
+                            "expected_remote_head": origin.get("remote_head"),
+                        },
+                    ])
+                else:
+                    holds.append("substantive merge conflict forecast; owner/product intent is required")
+        elif classification["category"] == "provenance_insufficient":
+            if origin.get("ahead", 0) > 0:
+                holds.append(
+                    f"provenance insufficient to determine if {origin['ahead']} unpushed commit(s) are intentional or leftover residue; no automatic push scheduled"
+                )
     for branch_info in snapshot["branches"].get("merged", []):
         if records:
             holds.append(f"merged branch cleanup deferred while working tree is dirty: {branch_info['name']}")
@@ -802,7 +873,7 @@ def _build_actions(snapshot: dict[str, Any]) -> tuple[list[dict[str, Any]], list
             holds.append(f"merged branch retained because it is checked out/in a worktree: {branch_info['name']}")
     for branch_info in snapshot["branches"].get("stale", []):
         holds.append(f"stale unmerged branch retained for owner decision: {branch_info['name']}")
-    return actions, holds
+    return actions, holds, classification
 
 
 def _json_display_mode(config_path: Path) -> str:
@@ -903,29 +974,43 @@ def _human_report(result: dict[str, Any]) -> str:
     remediation = result.get("remediation", {})
     actions = remediation.get("actions", [])
     action_names = result.get("actions_taken", [])
+    classification = result.get("classification", {})
+    category = classification.get("category")
+    is_preview = result.get("mode") == "preview"
+    run_id_display = result.get("run_id") or ("null (preview)" if is_preview else "unknown")
+
     lines = [
         f"# Nightly Git report — {result['date']}",
         "",
         f"Overall: **{status}**",
-        f"Run: `{result.get('run_id', 'unknown')}`",
+        f"Run: `{run_id_display}`",
         "",
         "What I found:",
     ]
     state = result.get("git_state", {})
     if state.get("is_clean"):
-        lines.append("- Working tree is clean.")
+        lines.append("- Keadaan working tree bersih — tiada fail tergantung atau perubahan belum disimpan.")
     elif state.get("status_porcelain"):
-        lines.append("- Working tree has changes: " + ", ".join(state["status_porcelain"]))
+        lines.append("- Working tree mengandungi perubahan: " + ", ".join(state["status_porcelain"]))
     origin = result.get("sync_state", {}).get("origin")
     if origin:
-        lines.append(f"- Local main is ahead {origin.get('ahead', 0)} / behind {origin.get('behind', 0)} versus origin/main.")
+        ahead = origin.get("ahead", 0)
+        behind = origin.get("behind", 0)
+        if ahead == 0 and behind == 0:
+            lines.append("- Local main seiring sepenuhnya dengan origin/main di GitHub.")
+        elif ahead > 0 and behind == 0:
+            lines.append(f"- Local main berada {ahead} commit di hadapan origin/main (GitHub).")
+        elif ahead == 0 and behind > 0:
+            lines.append(f"- Local main berada {behind} commit di belakang origin/main (GitHub).")
+        else:
+            lines.append(f"- Local main diverged dengan origin/main (ahead {ahead}, behind {behind}).")
     if result.get("daily_delta", {}).get("commits"):
-        lines.append(f"- Today’s MYT delta contains {len(result['daily_delta']['commits'])} commit(s).")
+        lines.append(f"- Delta MYT hari ini mengandungi {len(result['daily_delta']['commits'])} commit.")
     lines.extend(["", "Healthy:"])
     healthy = [name.replace("_", " ") for name, gate in result.get("gates", {}).items() if gate.get("status") == "PASS"]
     lines.extend(f"- ✅ {name} passed." for name in healthy)
     if not healthy:
-        lines.append("- No required gate is currently recorded as passing.")
+        lines.append("- Tiada tapisan kualiti/keselamatan direkodkan sebagai lulus.")
     execution = result.get("execution", {})
     if execution.get("script_path"):
         lines.extend([
@@ -949,21 +1034,29 @@ def _human_report(result: dict[str, Any]) -> str:
                 lines.append("- Merge origin/main into local main using the conflict-free forecast.")
             elif kind == "delete_merged_branch":
                 lines.append(f"- Delete merged local branch `{action.get('branch')}` only; no remote branch deletion.")
-        lines.append("- Why: close resolvable Git work tonight instead of carrying it into tomorrow.")
+        lines.append("- Why: selesaikan kerja Git yang tertinggal malam ini supaya tidak dibawa ke hari esok.")
         lines.append(f"- Proposed automatic-action deadline: **{remediation.get('deadline_at')}**.")
-        lines.append(f"- Confirmation needed: send `/nightly approve {remediation.get('run_id')}` or `/nightly reject {remediation.get('run_id')} <reason>`, or plain `APPROVE NIGHTLY {remediation.get('run_id')}`.")
-        lines.append(f"- No relevant response by the deadline: the presented bounded plan proceeds automatically.")
+        lines.append(f"- Confirmation needed: hantar `/nightly approve {remediation.get('run_id')}` atau `/nightly reject {remediation.get('run_id')} <reason>`, atau teks biasa `APPROVE NIGHTLY {remediation.get('run_id')}`.")
+        lines.append("- No relevant response by the deadline: pelan tindakan ini akan berjalan secara automatik.")
     elif action_names:
         lines.extend(["", "Final result:"])
         lines.append("- Remediation executed: " + ", ".join(action_names) + ".")
-        lines.append("- Git work covered by the presented plan is closed and the final read-back passed." if status == "PASS" else "- The presented plan did not fully close; see the blocker below.")
+        lines.append("- Kerja Git ditutup dan pemeriksaan semula lulus." if status == "PASS" else "- Pelan tidak dapat diselesaikan sepenuhnya; lihat sekatan di bawah.")
         lines.append("- Confirmation needed: no.")
     elif status == "PASS":
-        lines.extend(["", "Tonight’s action:", "- None. No remediation is required.", "- Confirmation needed: no."])
+        lines.extend(["", "Tonight’s action:", "- None. Semua kerja Git dalam keadaan sah & teratur. Tiada remedi diperlukan.", "- Confirmation needed: no."])
+    elif category == "provenance_insufficient":
+        lines.extend([
+            "",
+            "Tonight’s action:",
+            "- Tiada mutasi atau push automatik dicadangkan kerana bukti workflow belum mencukupi untuk membezakan sama ada commit local adalah disengajakan atau kerja tertinggal.",
+            "- Timer 30 minit tidak diaktifkan kerana tiada pelan remedi automatik yang selamat pada masa ini.",
+            f"- Perlu satu pengesahan daripada anda: adakah {origin.get('ahead', 0) if origin else 'commit'} commit ini memang sengaja dibiarkan di local, atau sepatutnya sudah dihantar ke GitHub?",
+        ])
     elif actions:
-        lines.extend(["", "Proposed action is blocked:", "- The stored plan cannot safely continue without resolving the blocker."])
+        lines.extend(["", "Proposed action is blocked:", "- Pelan yang disimpan tidak boleh diteruskan tanpa menyelesaikan sekatan."])
     else:
-        lines.extend(["", "Tonight’s action:", "- No automatic Git mutation is proposed.", "- Confirmation needed: yes, for the unresolved owner decision."])
+        lines.extend(["", "Tonight’s action:", "- Tiada mutasi Git automatik dicadangkan.", "- Confirmation needed: yes, untuk keputusan owner."])
 
     if result.get("proposal_path"):
         lines.append(f"- Recurring-issue proposal: `{result['proposal_path']}`.")
@@ -1016,7 +1109,7 @@ def run_nightly(
         result["human_report"] = _human_report(result)
         _write_workflow_outputs(result, paths)
         return result
-    actions, holds = _build_actions(snapshot)
+    actions, holds, classification = _build_actions(snapshot)
     errors = list(snapshot.get("errors", []))
     if gates and not _gates_pass(gates):
         errors.append("one or more required nightly quality/security gates failed")
@@ -1082,6 +1175,7 @@ def run_nightly(
         "date": current.strftime("%Y-%m-%d"),
         "repo": str(repo),
         "status": status,
+        "classification": classification,
         "release_pending": any(a.get("kind") == "push_main" for a in actions),
         "push_allowed": False,
         "owner_approval_required_for_push": True,
@@ -1388,7 +1482,7 @@ def _execute_pending_actions(
             return taken, error, latest, latest_gates
         if name:
             taken.append(name)
-    remaining_actions, remaining_holds = _build_actions(latest)
+    remaining_actions, remaining_holds, _ = _build_actions(latest)
     if remaining_actions or remaining_holds:
         details = remaining_holds + [f"remaining action: {item.get('kind')}" for item in remaining_actions]
         return taken, "plan did not fully close: " + "; ".join(details), latest, latest_gates
@@ -1726,11 +1820,87 @@ def _display_mode_result(hermes_home: Path, mode: str, now: datetime | None = No
     }
 
 
+def preview_audit(
+    *,
+    repo_root: Path = REPO_ROOT,
+    hermes_home: Path = HERMES_HOME,
+    dry_run: bool = False,
+    now: datetime | None = None,
+    mode: str | None = None,
+) -> dict[str, Any]:
+    """Audit the repository and return the structured audit result without scheduling remediation if dry_run or mode='preview'."""
+    current = _as_myt(now)
+    repo = repo_root.expanduser().resolve()
+    home = hermes_home.expanduser().resolve()
+    paths = _runtime_paths(home)
+    snapshot = _inspect_git(repo, current)
+    head = snapshot["git_state"].get("head") or "unknown"
+
+    is_preview = (mode == "preview" or dry_run)
+    run_id = None if is_preview else _run_id(current, head if len(head) >= 12 else "0" * 12)
+    gates = run_full_delta_gates(repo, current) if not snapshot["errors"] else {}
+
+    actions, holds, classification = _build_actions(snapshot)
+    errors = list(snapshot.get("errors", []))
+    if gates and not _gates_pass(gates):
+        errors.append("one or more required nightly quality/security gates failed")
+        actions = []
+
+    status = "PASS"
+    remediation: dict[str, Any] = {
+        "status": "none",
+        "run_id": run_id,
+        "actions": actions,
+        "holds": holds,
+        "deadline_at": None,
+        "timeout_job_id": None,
+    }
+    if errors:
+        status = "FAIL"
+        remediation["status"] = "blocked"
+    elif actions:
+        status = "HOLD"
+        remediation["status"] = "pending_confirmation" if not is_preview else "none"
+    elif holds:
+        status = "HOLD"
+        remediation["status"] = "blocked" if not is_preview else "none"
+
+    result: dict[str, Any] = {
+        "schema_version": 2,
+        "run_id": run_id,
+        "timestamp": _format_myt(current),
+        "date": current.strftime("%Y-%m-%d"),
+        "repo": str(repo),
+        "status": status,
+        "classification": classification,
+        "release_pending": any(a.get("kind") == "push_main" for a in actions),
+        "push_allowed": False,
+        "owner_approval_required_for_push": True,
+        "gates": gates,
+        "git_state": snapshot["git_state"],
+        "branches": snapshot["branches"],
+        "sync_state": snapshot["sync_state"],
+        "daily_delta": snapshot["daily_delta"],
+        "actions_taken": [],
+        "holds": holds,
+        "errors": errors,
+        "remediation": remediation,
+        "execution": execution_identity(repo, head if len(head) == 40 else ""),
+        "proposal_path": check_operational_proposals(repo, current.strftime("%Y-%m-%d")),
+        "delivery": {"mode": "stdout", "status": "emitted_by_target_not_destination_verified"},
+    }
+    if is_preview:
+        result["mode"] = "preview"
+    result["human_report"] = _human_report(result)
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Nightly Git Hygiene and bounded closure runner")
     parser.add_argument("--repo", type=Path, default=REPO_ROOT)
     parser.add_argument("--hermes-home", type=Path, default=HERMES_HOME)
     parser.add_argument("--dry-run", action="store_true", help="Audit and recommend; never execute Git remediation")
+    parser.add_argument("--preview", action="store_true", help="Preview owner-facing output without creating pending run_id or scheduling timeout")
     parser.add_argument("--approve", action="store_true")
     parser.add_argument("--reject", action="store_true")
     parser.add_argument("--timeout", action="store_true")
@@ -1741,10 +1911,14 @@ def main() -> int:
     parser.add_argument("--json-display", choices=("show", "hide"), default=None)
     parser.add_argument("--human-only", action="store_true")
     args = parser.parse_args()
-    if sum(bool(value) for value in (args.approve, args.reject, args.timeout, args.status, args.set_json_display)) > 1:
+    if sum(bool(value) for value in (args.approve, args.reject, args.timeout, args.status, args.set_json_display, args.preview)) > 1:
         parser.error("choose only one workflow operation")
     if args.set_json_display:
         result = _display_mode_result(args.hermes_home.resolve(), args.set_json_display)
+    elif args.preview:
+        result = preview_audit(repo_root=args.repo.resolve(), hermes_home=args.hermes_home.resolve(), dry_run=args.dry_run, mode="preview")
+    elif args.dry_run:
+        result = run_audit(repo_root=args.repo.resolve(), dry_run=True)
     elif args.status:
         result = status_pending(hermes_home=args.hermes_home.resolve())
     elif args.approve or args.reject or args.timeout:
