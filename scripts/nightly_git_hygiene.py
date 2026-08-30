@@ -801,10 +801,27 @@ def _classify_sync_state(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_actions(snapshot: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str], dict[str, Any]]:
+def _build_actions(
+    snapshot: dict[str, Any],
+    *,
+    clarification: str | None = None,
+) -> tuple[list[dict[str, Any]], list[str], dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     holds: list[str] = []
     classification = _classify_sync_state(snapshot)
+
+    # If owner provided explicit clarification to publish or retain
+    if clarification:
+        norm_clar = clarification.strip().lower()
+        if norm_clar in {"publish", "push", "unresolved", "residue"}:
+            classification["category"] = "unresolved_end_of_day_residue"
+            classification["reason"] = f"Owner clarified that unpushed commits are unresolved residue: {clarification}"
+            classification["is_unresolved_residue"] = True
+        elif norm_clar in {"retain", "keep", "intentional", "local"}:
+            classification["category"] = "intentional_valid_state"
+            classification["reason"] = f"Owner confirmed that unpushed commits are intentionally retained locally: {clarification}"
+            classification["is_unresolved_residue"] = False
+
     git_state = snapshot["git_state"]
     branch = git_state.get("branch")
     if branch != "main":
@@ -1166,7 +1183,50 @@ def run_nightly(
             errors.append(f"could not persist the 30-minute scheduler continuation: {exc}")
     elif holds:
         status = "HOLD"
-        remediation["status"] = "blocked"
+        # Schedule 30-min read-only investigation continuation for ambiguous provenance (when not dirty working tree)
+        if classification.get("category") == "provenance_insufficient" and not snapshot["git_state"].get("status_records"):
+            deadline = current + AUTO_ACTION_WINDOW
+            remediation.update({
+                "status": "pending_investigation",
+                "created_at": _format_myt(current),
+                "deadline_at": _format_myt(deadline),
+            })
+            scheduler = schedule_timeout or _schedule_timeout_job
+            try:
+                timeout_job_id = scheduler(
+                    deadline_at=deadline,
+                    run_id=run_id,
+                    repo_root=repo,
+                    hermes_home=home,
+                )
+                remediation["timeout_job_id"] = str(timeout_job_id)
+                pending = {
+                    "schema_version": 1,
+                    "run_id": run_id,
+                    "status": "pending",
+                    "kind": "investigation",
+                    "classification": classification,
+                    "created_at": _iso_myt(current),
+                    "deadline_at": _iso_myt(deadline),
+                    "repo": str(repo),
+                    "baseline": {
+                        "head": head,
+                        "branch": snapshot["git_state"].get("branch"),
+                        "status_porcelain": snapshot["git_state"].get("status_porcelain", []),
+                        "origin_remote_head": snapshot.get("sync_state", {}).get("origin", {}).get("remote_head"),
+                    },
+                    "actions": actions,
+                    "holds": holds,
+                    "timeout_job_id": str(timeout_job_id),
+                }
+                with _pending_lock(paths):
+                    _atomic_json(paths.pending_path, pending)
+            except Exception as exc:
+                remediation["timeout_job_id"] = None
+                remediation["status"] = "blocked"
+                errors.append(f"could not persist the 30-minute scheduler continuation: {exc}")
+        else:
+            remediation["status"] = "blocked"
 
     result: dict[str, Any] = {
         "schema_version": 2,
@@ -1669,12 +1729,118 @@ def process_pending(
             result["_silent"] = True
             _write_workflow_outputs(result, paths)
             return result
+        state_kind = state.get("kind", "remediation")
+        repo = Path(state["repo"]).expanduser().resolve()
+        snapshot = _inspect_git(repo, current)
+        if state_kind == "investigation":
+            # If owner approved/clarified on an ambiguous investigation state
+            if decision == "approve":
+                # Owner clarifies to publish
+                actions, holds, new_class = _build_actions(snapshot, clarification=reason or "publish")
+                if actions:
+                    state["kind"] = "remediation"
+                    state["actions"] = actions
+                    state["holds"] = holds
+                    state["classification"] = new_class
+                    state["status"] = "pending"
+                    state["deadline_at"] = _iso_myt(current + AUTO_ACTION_WINDOW)
+                    _atomic_json(paths.pending_path, state)
+                    result = _result_from_state(
+                        state=state,
+                        status="HOLD",
+                        remediation_status="pending_confirmation",
+                        snapshot=snapshot,
+                        gates={},
+                        holds=holds,
+                        now=current,
+                    )
+                    _write_workflow_outputs(result, paths)
+                    return result
+                else:
+                    state["status"] = "completed"
+                    state["holds"] = holds
+                    _atomic_json(paths.pending_path, state)
+                    result = _result_from_state(
+                        state=state,
+                        status="PASS",
+                        remediation_status="completed",
+                        snapshot=snapshot,
+                        gates={},
+                        holds=holds,
+                        now=current,
+                    )
+                    _write_workflow_outputs(result, paths)
+                    return result
+            elif decision == "reject":
+                # Owner confirms intentional retention locally
+                state["status"] = "completed"
+                state["decision"] = "reject"
+                state["decision_reason"] = reason.strip() or "owner confirmed intentional local retention"
+                state["classification"] = {
+                    "category": "intentional_valid_state",
+                    "reason": state["decision_reason"],
+                    "is_unresolved_residue": False,
+                }
+                state["actions"] = []
+                state["holds"] = []
+                _atomic_json(paths.pending_path, state)
+                _cancel_timeout_job(state.get("timeout_job_id"), paths.hermes_home)
+                result = _result_from_state(
+                    state=state,
+                    status="PASS",
+                    remediation_status="completed",
+                    snapshot=snapshot,
+                    gates={},
+                    holds=[],
+                    now=current,
+                )
+                _write_workflow_outputs(result, paths)
+                return result
+            elif decision == "timeout":
+                # 30-min timeout for investigation: run read-only provenance investigation
+                actions, holds, new_class = _build_actions(snapshot)
+                if new_class.get("category") == "intentional_valid_state":
+                    state["status"] = "completed"
+                    state["holds"] = []
+                    state["actions"] = []
+                    _atomic_json(paths.pending_path, state)
+                    result = _result_from_state(
+                        state=state,
+                        status="PASS",
+                        remediation_status="completed",
+                        snapshot=snapshot,
+                        gates={},
+                        holds=[],
+                        now=current,
+                    )
+                    _write_workflow_outputs(result, paths)
+                    return result
+                elif new_class.get("category") == "unresolved_end_of_day_residue" and actions:
+                    state["kind"] = "remediation"
+                    state["actions"] = actions
+                    state["holds"] = holds
+                    # Proceed to normal execution below
+                else:
+                    # Ambiguity remains: HOLD without mutation
+                    state["status"] = "blocked"
+                    state["holds"] = list(holds) or ["provenance remains ambiguous after investigation; no mutation executed"]
+                    _atomic_json(paths.pending_path, state)
+                    result = _result_from_state(
+                        state=state,
+                        status="HOLD",
+                        remediation_status="blocked",
+                        snapshot=snapshot,
+                        gates={},
+                        holds=state["holds"],
+                        now=current,
+                    )
+                    _write_workflow_outputs(result, paths)
+                    return result
         if decision == "approve" and current >= deadline:
             decision = "timeout"
         if decision == "reject":
             state["status"] = "rejected"
             state["decision"] = "reject"
-            state["decision_at"] = _iso_myt(current)
             state["decision_reason"] = reason.strip() or "owner rejected the proposed remediation"
             _atomic_json(paths.pending_path, state)
             repo = Path(state["repo"])
@@ -1691,6 +1857,7 @@ def process_pending(
             )
             _write_workflow_outputs(result, paths)
             return result
+
         state["status"] = "executing"
         state["decision"] = decision
         state["decision_at"] = _iso_myt(current)
