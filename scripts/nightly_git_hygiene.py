@@ -25,6 +25,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -288,29 +289,11 @@ EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 PENDING_FILENAME = "nightly-git-remediation.json"
 HISTORY_DIRNAME = "git-nightly-history"
 TIMEOUT_SCRIPT = "nightly_git_hygiene_timeout.sh"
+TIMEOUT_WRAPPER_PREFIX = "nightly_git_hygiene_timeout-"
+TIMEOUT_WRAPPER_SUFFIX = ".sh"
 AUTO_ACTION_WINDOW = timedelta(minutes=30)
+RUN_ID_RE = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}-[0-9a-f]{32}$")
 EXCLUDED_PRIVATE_PATHS = frozenset({"SOUL.md"})
-FORBIDDEN_AUTO_COMMIT_PREFIXES = (
-    ".env",
-    "auth.json",
-    "config.yaml",
-    "state.db",
-    "sessions/",
-    "memories/",
-    "logs/",
-    "cron/",
-    "pending/",
-    "backups/",
-    "hermes-runtime-rollbacks/",
-)
-FORBIDDEN_AUTO_COMMIT_SUFFIXES = (
-    ".db",
-    ".db-shm",
-    ".db-wal",
-    ".bak",
-    ".key",
-    ".pem",
-)
 
 
 @dataclass(frozen=True)
@@ -731,27 +714,6 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
     return result
 
 
-def _auto_commit_safe(path: str) -> bool:
-    normalized = path.strip()
-    if not normalized or normalized in EXCLUDED_PRIVATE_PATHS:
-        return False
-    if normalized.startswith(FORBIDDEN_AUTO_COMMIT_PREFIXES):
-        return False
-    if normalized == "AGENTS.md" or normalized.startswith("skills/"):
-        return False
-    return not normalized.endswith(FORBIDDEN_AUTO_COMMIT_SUFFIXES)
-
-
-
-def _git_identity_valid(repo: Path) -> bool:
-    name_rc, name = _workflow_git(repo, ["config", "--get", "user.name"])
-    email_rc, email = _workflow_git(repo, ["config", "--get", "user.email"])
-    if name_rc != 0 or email_rc != 0 or not name.strip() or not email.strip():
-        return False
-    unsafe_local_email_prefix = "ubuntu" + "@" + "localhost"
-    return not email.strip().lower().startswith(unsafe_local_email_prefix)
-
-
 def _merge_forecast(repo: Path, local_ref: str = "main", remote_ref: str = "origin/main") -> tuple[bool, str]:
     """Forecast a merge in a temporary object store; never alter the repo index/tree."""
     objects_rc, objects_path = _workflow_git(repo, ["rev-parse", "--git-path", "objects"])
@@ -784,42 +746,13 @@ def _build_actions(snapshot: dict[str, Any]) -> tuple[list[dict[str, Any]], list
         holds.append(f"current branch is {branch or 'unknown'}, not main")
     records = git_state.get("status_records", [])
     if records:
-        if any(record.get("conflict") for record in records):
-            holds.append("unresolved Git conflict markers/status exist in working tree")
-        unsafe = [
-            record["path"] for record in records
-            if record["untracked"] or record["deleted"] or record.get("conflict") or not _auto_commit_safe(record["path"])
-        ]
-        if unsafe:
-            holds.append("dirty work requires owner classification: " + ", ".join(sorted(unsafe)))
-        elif branch == "main" and not _git_identity_valid(Path(snapshot["repo"])):
-            holds.append("Git author/committer identity is missing or unsafe; no automated commit")
-        elif branch == "main":
-            actions.append({
-                "kind": "commit_dirty",
-                "paths": [record["path"] for record in records],
-                "expected_status": [f"{record['status']} {record['path']}" for record in records],
-                "expected_head": git_state.get("head"),
-                "message": "chore(nightly): close daily repository hygiene",
-            })
+        paths = ", ".join(sorted(record["path"] for record in records))
+        holds.append("dirty work requires owner classification; no automated commit: " + paths)
     origin = snapshot["sync_state"].get("origin")
     if origin is None:
         holds.append("origin/main synchronization is unavailable")
     elif branch == "main":
-        if records and actions:
-            if origin["ahead"] == 0 and origin["behind"] == 0:
-                actions.append({
-                    "kind": "push_after_commit",
-                    "remote": "origin",
-                    "branch": "main",
-                    "expected_parent_head": git_state.get("head"),
-                    "expected_remote_head": origin.get("remote_head"),
-                })
-            elif origin["ahead"] > 0:
-                holds.append("dirty main and a changed origin/main require owner conflict resolution")
-            else:
-                holds.append("dirty main cannot be auto-synchronized while origin/main is ahead")
-        elif not records and origin["ahead"] > 0 and origin["behind"] == 0:
+        if not records and origin["ahead"] > 0 and origin["behind"] == 0:
             actions.append({
                 "kind": "push_main",
                 "remote": "origin",
@@ -857,7 +790,9 @@ def _build_actions(snapshot: dict[str, Any]) -> tuple[list[dict[str, Any]], list
             else:
                 holds.append("substantive merge conflict forecast; owner/product intent is required")
     for branch_info in snapshot["branches"].get("merged", []):
-        if branch_info.get("safe_to_delete"):
+        if records:
+            holds.append(f"merged branch cleanup deferred while working tree is dirty: {branch_info['name']}")
+        elif branch_info.get("safe_to_delete"):
             actions.append({
                 "kind": "delete_merged_branch",
                 "branch": branch_info["name"],
@@ -904,12 +839,43 @@ def set_json_display_mode(hermes_home: Path, mode: str) -> str:
     return mode
 
 
+def _is_valid_run_id(value: object) -> bool:
+    return isinstance(value, str) and bool(RUN_ID_RE.fullmatch(value))
+
+
 def _run_id(now: datetime, head: str) -> str:
-    return _as_myt(now).astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + head[:12]
+    head_fragment = head.lower()[:12] if re.fullmatch(r"[0-9a-fA-F]{12,}", head) else "0" * 12
+    timestamp = _as_myt(now).astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"{timestamp}-{head_fragment}-{secrets.token_hex(16)}"
+
+
+def _timeout_wrapper_script_name(run_id: str) -> str:
+    if not _is_valid_run_id(run_id):
+        raise ValueError("cannot schedule timeout with malformed run_id")
+    return f"{TIMEOUT_WRAPPER_PREFIX}{run_id}{TIMEOUT_WRAPPER_SUFFIX}"
+
+
+def _write_timeout_wrapper(*, run_id: str, hermes_home: Path) -> str:
+    scripts_dir = hermes_home / "scripts"
+    target = scripts_dir / "nightly_git_hygiene.py"
+    if not target.is_file():
+        raise FileNotFoundError(f"nightly timeout target is missing: {target}")
+    script_name = _timeout_wrapper_script_name(run_id)
+    wrapper = scripts_dir / script_name
+    _atomic_text(
+        wrapper,
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "SCRIPT_DIR=\"$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd -P)\"\n"
+        f"exec \"$SCRIPT_DIR/nightly_git_hygiene.py\" --timeout --run-id {run_id} --human-only\n",
+        mode=0o700,
+    )
+    return script_name
 
 
 def _schedule_timeout_job(*, deadline_at: datetime, run_id: str, repo_root: Path, hermes_home: Path) -> str:
     from cron.jobs import create_job, use_cron_store  # type: ignore[import-not-found]
+    script_name = _write_timeout_wrapper(run_id=run_id, hermes_home=hermes_home)
     with use_cron_store(hermes_home):
         job = create_job(
             prompt=None,
@@ -917,7 +883,7 @@ def _schedule_timeout_job(*, deadline_at: datetime, run_id: str, repo_root: Path
             name=f"nightly-remediation-{run_id}",
             repeat=1,
             deliver="origin",
-            script=TIMEOUT_SCRIPT,
+            script=script_name,
             workdir=str(repo_root),
             no_agent=True,
         )
@@ -975,10 +941,8 @@ def _human_report(result: dict[str, Any]) -> str:
         lines.extend(["", "What needs action tonight:"])
         for action in actions:
             kind = action.get("kind")
-            if kind in {"push_main", "push_after_commit", "push_merged_main"}:
+            if kind in {"push_main", "push_merged_main"}:
                 lines.append("- Publish main to origin/main with a normal non-force push.")
-            elif kind == "commit_dirty":
-                lines.append("- Commit only these safe tracked paths: " + ", ".join(action.get("paths", [])) + ".")
             elif kind == "fast_forward_origin":
                 lines.append("- Fast-forward local main to the already-fetched origin/main commit.")
             elif kind == "merge_origin":
@@ -1118,7 +1082,7 @@ def run_nightly(
         "date": current.strftime("%Y-%m-%d"),
         "repo": str(repo),
         "status": status,
-        "release_pending": any(a.get("kind") in {"push_main", "push_after_commit"} for a in actions),
+        "release_pending": any(a.get("kind") == "push_main" for a in actions),
         "push_allowed": False,
         "owner_approval_required_for_push": True,
         "gates": gates,
@@ -1207,7 +1171,7 @@ def _result_from_state(
             status != "PASS"
             and (
                 snapshot.get("sync_state", {}).get("origin", {}).get("ahead", 0)
-                or any(a.get("kind") in {"push_main", "push_after_commit", "push_merged_main"} for a in state.get("actions", []))
+                or any(a.get("kind") in {"push_main", "push_merged_main"} for a in state.get("actions", []))
             )
         ),
         "push_allowed": status == "PASS" and bool(set(actions_taken or []) & {"push_main", "push_after_commit", "push_merged_main"}),
@@ -1227,90 +1191,6 @@ def _result_from_state(
     }
     result["human_report"] = _human_report(result)
     return result
-
-
-def _commit_dirty_action(
-    *,
-    state: dict[str, Any],
-    repo: Path,
-    now: datetime,
-) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
-    action = next((a for a in state.get("actions", []) if a.get("kind") == "commit_dirty"), None)
-    snapshot = _inspect_git(repo, now)
-    if snapshot.get("errors"):
-        return None, "commit precondition failed: fresh repository inspection has errors", snapshot, {}
-    if action is None:
-        return None, "commit action is missing from pending plan", snapshot, {}
-    git_state = snapshot["git_state"]
-    if git_state.get("branch") != "main":
-        return None, "commit precondition failed: current branch is not main", snapshot, {}
-    if git_state.get("head") != action.get("expected_head"):
-        return None, "commit precondition failed: local HEAD changed after recommendation", snapshot, {}
-    expected_status = action.get("expected_status", [])
-    if git_state.get("status_porcelain", []) != expected_status:
-        return None, "commit precondition failed: working tree changed after recommendation", snapshot, {}
-    if any(record["untracked"] or record["deleted"] or record.get("conflict") or not _auto_commit_safe(record["path"]) for record in git_state.get("status_records", [])):
-        return None, "commit precondition failed: dirty paths are not all safe tracked paths", snapshot, {}
-    if not _git_identity_valid(repo):
-        return None, "commit precondition failed: Git author/committer identity is missing or unsafe", snapshot, {}
-    gates = run_full_delta_gates(repo, now)
-    if not _gates_pass(gates):
-        return None, "required gates failed before commit", snapshot, gates
-    paths = action.get("paths", [])
-    rc, output = _workflow_git(repo, ["add", "--", *paths])
-    if rc != 0:
-        return None, f"git add failed: {output[-500:]}", snapshot, gates
-    rc, staged = _workflow_git(repo, ["diff", "--cached", "--name-only"])
-    if rc != 0 or staged.splitlines() != paths:
-        return None, "staged path set differs from the presented remediation plan", snapshot, gates
-    rc, output = _workflow_git(repo, ["commit", "-m", action["message"]])
-    if rc != 0:
-        return None, f"git commit failed: {output[-500:]}", snapshot, gates
-    final_snapshot = _inspect_git(repo, now)
-    if final_snapshot["git_state"].get("head") == action.get("expected_head"):
-        return None, "git commit returned success but HEAD did not advance", final_snapshot, gates
-    if not final_snapshot["git_state"].get("is_clean"):
-        return None, "git commit left unexpected working-tree changes", final_snapshot, gates
-    return "commit_dirty", None, final_snapshot, gates
-
-
-def _push_after_commit_action(
-    *,
-    state: dict[str, Any],
-    repo: Path,
-    now: datetime,
-) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
-    action = next((a for a in state.get("actions", []) if a.get("kind") == "push_after_commit"), None)
-    snapshot = _inspect_git(repo, now)
-    if snapshot.get("errors"):
-        return None, "post-commit push precondition failed: fresh repository inspection has errors", snapshot, {}
-    origin = snapshot.get("sync_state", {}).get("origin")
-    if action is None:
-        return None, "post-commit push action is missing from pending plan", snapshot, {}
-    head = snapshot["git_state"].get("head")
-    if snapshot["git_state"].get("branch") != "main" or not snapshot["git_state"].get("is_clean"):
-        return None, "post-commit push precondition failed: main is not clean/on the expected branch", snapshot, {}
-    parent_rc, parent = _workflow_git(repo, ["rev-parse", "HEAD^"])
-    if parent_rc != 0 or parent.strip() != action.get("expected_parent_head"):
-        return None, "post-commit push precondition failed: commit parent is not the presented HEAD", snapshot, {}
-    if not origin or origin.get("remote_head") != action.get("expected_remote_head") or origin.get("behind") != 0:
-        return None, "post-commit push precondition failed: origin/main changed", snapshot, {}
-    gates = run_full_delta_gates(repo, now)
-    if not _gates_pass(gates):
-        return None, "required gates failed before post-commit push", snapshot, gates
-    rc, output = _workflow_git(repo, ["push", action["remote"], action["branch"]])
-    if rc != 0:
-        return None, f"normal post-commit push failed: {output[-500:]}", snapshot, gates
-    final_snapshot = _inspect_git(repo, now)
-    final_origin = final_snapshot.get("sync_state", {}).get("origin")
-    if (
-        not final_origin
-        or final_origin.get("ahead") != 0
-        or final_origin.get("behind") != 0
-        or final_origin.get("remote_head") != head
-    ):
-        return None, "post-commit push completed but remote/local synchronization read-back failed", final_snapshot, gates
-    return "push_after_commit", None, final_snapshot, gates
 
 
 def _fast_forward_origin_action(
@@ -1485,11 +1365,9 @@ def _execute_pending_actions(
     latest_gates: dict[str, Any] = {}
     for action in state.get("actions", []):
         kind = action.get("kind")
-        if kind == "commit_dirty":
-            name, error, latest, latest_gates = _commit_dirty_action(state=state, repo=repo, now=now)
-        elif kind == "push_after_commit":
-            name, error, latest, latest_gates = _push_after_commit_action(state=state, repo=repo, now=now)
-        elif kind == "push_main":
+        if kind in {"commit_dirty", "push_after_commit"}:
+            return taken, f"unsafe legacy pending action blocked: {kind}", latest, latest_gates
+        if kind == "push_main":
             name, error, latest, latest_gates = _push_main_action(state=state, repo=repo, now=now)
         elif kind == "fast_forward_origin":
             name, error, latest, latest_gates = _fast_forward_origin_action(state=state, repo=repo, now=now)
@@ -1602,7 +1480,40 @@ def process_pending(
             result["_silent"] = decision == "timeout"
             _write_workflow_outputs(result, paths)
             return result
-        if run_id and run_id != state.get("run_id"):
+        state_run_id = state.get("run_id")
+        if not _is_valid_run_id(run_id):
+            repo = Path(state["repo"])
+            snapshot = _inspect_git(repo, current)
+            reason = (
+                f"{decision} requires an exact run_id"
+                if run_id is None else "malformed run_id; no remediation action was executed"
+            )
+            result = _result_from_state(
+                state=state,
+                status="HOLD",
+                remediation_status="pending_confirmation" if state.get("status") == "pending" else str(state.get("status")),
+                snapshot=snapshot,
+                gates={},
+                holds=[reason],
+                now=current,
+            )
+            _write_workflow_outputs(result, paths)
+            return result
+        if not _is_valid_run_id(state_run_id):
+            repo = Path(state["repo"])
+            snapshot = _inspect_git(repo, current)
+            result = _result_from_state(
+                state=state,
+                status="HOLD",
+                remediation_status="blocked",
+                snapshot=snapshot,
+                gates={},
+                holds=["persisted pending remediation has malformed run_id"],
+                now=current,
+            )
+            _write_workflow_outputs(result, paths)
+            return result
+        if run_id != state_run_id:
             repo = Path(state["repo"])
             snapshot = _inspect_git(repo, current)
             result = _result_from_state(
