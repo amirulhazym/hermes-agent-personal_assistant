@@ -626,7 +626,7 @@ def test_clean_repository_reports_pass_without_creating_remediation(tmp_path: Pa
     assert result["actions_taken"] == []
     assert scheduled == []
     assert not (hermes_home / "pending" / "nightly-git-remediation.json").exists()
-    assert "None. No remediation is required." in result["human_report"]
+    assert "Tiada remedi diperlukan." in result["human_report"]
 
 
 def test_contract_test_failure_is_fail_closed_without_pending_plan(tmp_path: Path) -> None:
@@ -854,3 +854,119 @@ def test_timeout_after_completed_plan_is_silent_noop(tmp_path: Path) -> None:
     assert late_timeout["status"] == "PASS"
     assert late_timeout.get("_silent") is True
     assert late_timeout["actions_taken"] == ["push_main"]
+
+
+def test_three_way_classification_proven_intentional_state(tmp_path: Path) -> None:
+    """When repo is fully in sync or intentional, classification is intentional_valid_state and PASS."""
+    repo, _origin, _upstream = make_repo(tmp_path)
+    add_gate_scripts(repo)
+    hermes_home = tmp_path / "hermes"
+    scheduled: list[dict] = []
+
+    result = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=datetime(2026, 8, 30, 23, 55, tzinfo=MYT),
+        schedule_timeout=lambda **kwargs: scheduled.append(kwargs) or "no-sched",
+    )
+
+    assert result["status"] == "PASS"
+    assert result["classification"]["category"] == "intentional_valid_state"
+    assert result["classification"]["is_unresolved_residue"] is False
+    assert result["remediation"]["actions"] == []
+    assert scheduled == []
+    assert not (hermes_home / "pending" / "nightly-git-remediation.json").exists()
+
+
+def test_three_way_classification_unresolved_daily_residue(tmp_path: Path) -> None:
+    """When commits were created today during normal working hours and remain unpushed at 23:55, classify as residue."""
+    repo, _origin, _upstream = make_repo(tmp_path)
+    add_gate_scripts(repo)
+    (repo / "daily_work.txt").write_text("daytime work\n", encoding="utf-8")
+    git(repo, "add", "daily_work.txt")
+    git(repo, "commit", "-q", "-m", "daytime commit")
+
+    hermes_home = tmp_path / "hermes"
+    now = datetime(2026, 8, 30, 23, 55, tzinfo=MYT)
+    scheduled: list[dict] = []
+
+    result = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=now,
+        schedule_timeout=lambda **kwargs: scheduled.append(kwargs) or "timeout-sched",
+    )
+
+    assert result["status"] == "HOLD"
+    assert result["classification"]["category"] == "unresolved_end_of_day_residue"
+    assert result["classification"]["is_unresolved_residue"] is True
+    assert result["remediation"]["actions"] == [
+        {
+            "kind": "push_main",
+            "remote": "origin",
+            "branch": "main",
+            "expected_head": git(repo, "rev-parse", "HEAD"),
+            "expected_remote_head": git(repo, "rev-parse", "origin/main"),
+        }
+    ]
+    assert len(scheduled) == 1
+
+
+def test_three_way_classification_provenance_insufficient_no_auto_remediation(tmp_path: Path) -> None:
+    """When repo is ahead from prior days with no commits today and clean working tree, classify as provenance_insufficient without automatic push or timeout."""
+    repo, _origin, _upstream = make_repo(tmp_path)
+    add_gate_scripts(repo)
+    # Commit created yesterday
+    (repo / "old_work.txt").write_text("prior work\n", encoding="utf-8")
+    git(repo, "add", "old_work.txt")
+    env = os.environ.copy()
+    env["GIT_AUTHOR_DATE"] = "2026-08-29T15:00:00+08:00"
+    env["GIT_COMMITTER_DATE"] = "2026-08-29T15:00:00+08:00"
+    subprocess.run(["git", "commit", "-q", "-m", "prior commit"], cwd=str(repo), env=env, check=True)
+
+    hermes_home = tmp_path / "hermes"
+    now = datetime(2026, 8, 30, 23, 55, tzinfo=MYT)
+    scheduled: list[dict] = []
+
+    result = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=now,
+        schedule_timeout=lambda **kwargs: scheduled.append(kwargs) or "must-not-schedule",
+    )
+
+    assert result["status"] == "HOLD"
+    assert result["classification"]["category"] == "provenance_insufficient"
+    assert result["classification"]["is_unresolved_residue"] is None
+    assert result["remediation"]["actions"] == []
+    assert scheduled == []
+    assert not (hermes_home / "pending" / "nightly-git-remediation.json").exists()
+    assert "provenance insufficient" in result["holds"][0]
+    assert "Perlu satu pengesahan daripada anda:" in result["human_report"]
+    assert "Timer 30 minit tidak diaktifkan" in result["human_report"]
+
+
+def test_preview_mode_returns_null_run_id_and_no_mutation(tmp_path: Path) -> None:
+    """Preview mode run_audit returns mode='preview', run_id=None, and does not schedule or persist anything."""
+    repo, _origin, _upstream = make_repo(tmp_path)
+    add_gate_scripts(repo)
+    (repo / "feature.txt").write_text("feature\n", encoding="utf-8")
+    git(repo, "add", "feature.txt")
+    git(repo, "commit", "-q", "-m", "feature")
+
+    hermes_home = tmp_path / "hermes"
+    now = datetime(2026, 8, 30, 23, 55, tzinfo=MYT)
+
+    result = HYGIENE.preview_audit(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        mode="preview",
+        now=now,
+    )
+
+    assert result["mode"] == "preview"
+    assert result["run_id"] is None
+    assert result["remediation"]["run_id"] is None
+    assert result["remediation"]["status"] == "none"
+    assert not (hermes_home / "pending" / "nightly-git-remediation.json").exists()
+    assert "null (preview)" in result["human_report"]
