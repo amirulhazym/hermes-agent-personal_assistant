@@ -1025,3 +1025,45 @@ def test_preview_mode_returns_null_run_id_and_no_mutation(tmp_path: Path) -> Non
     assert result["remediation"]["status"] == "none"
     assert not (hermes_home / "pending" / "nightly-git-remediation.json").exists()
     assert "null (preview)" in result["human_report"]
+
+
+def test_natural_run_manifest_receipts_recognized_and_cleaned(tmp_path: Path) -> None:
+    """Natural run regression: generated manifest receipts are recognized as safe to clean, not treated as arbitrary dirty work."""
+    repo, hermes_home, now = _make_ahead_case(tmp_path)
+    _install_timeout_target(hermes_home)
+
+    # Add generated manifest receipts in working tree
+    receipts_dir = repo / "docs" / "reconciliation" / "manifest-receipts"
+    receipts_dir.mkdir(parents=True, exist_ok=True)
+    receipt_file = receipts_dir / "2fe48c3de252.json"
+    receipt_file.write_text('{"status": "REFRESHED"}\n', encoding="utf-8")
+
+    res = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=now,
+        schedule_timeout=lambda **kwargs: "timeout-receipts",
+    )
+
+    # Should NOT hold with "dirty work requires owner classification"
+    assert res["status"] == "HOLD"
+    assert res["remediation"]["status"] == "pending_confirmation"
+    action_kinds = [a["kind"] for a in res["remediation"]["actions"]]
+    assert "clean_generated_receipts" in action_kinds
+    assert "push_main" in action_kinds
+
+    # Execute timeout (no response after 30 min -> auto remediation executes)
+    timeout_res = HYGIENE.process_pending(
+        decision="timeout",
+        run_id=res["run_id"],
+        hermes_home=hermes_home,
+        now=now + timedelta(minutes=30),
+    )
+    assert timeout_res["status"] == "PASS"
+    assert "clean_generated_receipts" in timeout_res["actions_taken"]
+    assert "push_main" in timeout_res["actions_taken"]
+    # Verify receipt file was removed from working tree and archived
+    assert not receipt_file.exists()
+    backup_file = hermes_home / "backups" / "git-reconciliation" / now.strftime("%Y%m%d") / "receipts" / "2fe48c3de252.json"
+    assert backup_file.is_file()
+
