@@ -800,7 +800,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "d0a00020a5ebdc1ff928a0fa54d90b25967bee7ddff489133381ee8639ec92bd"
+      "source_sha256": "4e15cfb1d046979bdf693fe78e15ad70749b8094d0dedc58d1687aaaf819e8d4"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_timeout.sh",
@@ -4010,7 +4010,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_closure_workflow.py",
-      "source_sha256": "819d3974f26955857ecb81a1d4fe13832529f42164b80ed4b7a845a088eb51f1"
+      "source_sha256": "6a20ff558192a4444e8aa7f1cf33bfda33dff50318a733ca10df14101328f58e"
     },
     {
       "destination": null,
