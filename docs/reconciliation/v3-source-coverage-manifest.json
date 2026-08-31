@@ -344,7 +344,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "hooks/med-auto-confirm/handler.py",
-      "source_sha256": "47a8eb2780832da9c6efc2fd5d8af2376a0468a6a3cac982518b41d49e84479f"
+      "source_sha256": "3152703e23d52fdadfab1c239c3d1faed1a4cc74010c5ce3baadc8b55ec351e3"
     },
     {
       "destination": "/home/ubuntu/.hermes/hooks/med-auto-confirm/test_hook_chain.py",
@@ -878,7 +878,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/test_chain_adapter.py",
       "kind": "runtime-deploy",
       "source": "scripts/test_chain_adapter.py",
-      "source_sha256": "c6d6216a418a98eb46fb271078d54582c5ee5f4da870baaf6bdd132e32c0306a"
+      "source_sha256": "0337c942dd44b6686ad01b8f6d0a3e0f0dedab22c8d407df96bfe0d56f854f4b"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/test_chain_llm.py",
@@ -896,7 +896,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/test_effective_done.py",
-      "source_sha256": "7689f060684a008042440983aa47e9a55c25afe3a365487011c7a9479ccb0eb3"
+      "source_sha256": "87e26559ef6356a7b1494588f2cc6552207488561044473ef032a1cf2ced52bf"
     },
     {
       "destination": null,
