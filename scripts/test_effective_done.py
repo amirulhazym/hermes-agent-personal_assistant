@@ -1,5 +1,7 @@
-import json, os, shutil, subprocess, tempfile, unittest
+import json, os, shutil, subprocess, sys, tempfile, unittest
 from pathlib import Path
+
+from scripts.test_runtime_fixtures import write_runtime_fixtures
 
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
@@ -11,8 +13,7 @@ class TestEffectiveDone(unittest.TestCase):
         self.hermes = self.tmp / ".hermes"
         scripts = self.hermes / "scripts"
         shutil.copytree(BASE, scripts)
-        shutil.copy2(ROOT / "med-schedule.json", self.hermes / "med-schedule.json")
-        shutil.copy2(ROOT / "dexa_taper.json", self.hermes / "dexa_taper.json")
+        write_runtime_fixtures(self.hermes)
         (self.hermes / "chain-state.json").write_text("{}\n")
 
     def tearDown(self):
@@ -31,7 +32,7 @@ class TestEffectiveDone(unittest.TestCase):
         if frozen_now:
             env["CHAIN_CALC_NOW_MYT"] = frozen_now
         return subprocess.run(
-            ["python3", str(self.hermes / "scripts" / "chain_calc.py"), "--next"],
+            [sys.executable, str(self.hermes / "scripts" / "chain_calc.py"), "--next"],
             env=env, capture_output=True, text=True,
         )
 
@@ -41,7 +42,7 @@ class TestEffectiveDone(unittest.TestCase):
         if frozen_now:
             env["CHAIN_CALC_NOW_MYT"] = frozen_now
         code = "import chain_calc, json; print(json.dumps(chain_calc.calculate_chain()))"
-        r = subprocess.run(["python3", "-c", code], env=env,
+        r = subprocess.run([sys.executable, "-c", code], env=env,
                            cwd=str(self.hermes / "scripts"),
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -81,7 +82,7 @@ class TestEffectiveDone(unittest.TestCase):
     def test_is_effectively_done_predicate_false_for_missing(self):
         env = {**os.environ, "HOME": str(self.tmp)}
         code = "import chain_calc; print(chain_calc.is_effectively_done('B'))"
-        r = subprocess.run(["python3", "-c", code], env=env,
+        r = subprocess.run([sys.executable, "-c", code], env=env,
                            cwd=str(self.hermes / "scripts"),
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)

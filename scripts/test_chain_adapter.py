@@ -2,25 +2,24 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.test_runtime_fixtures import write_runtime_fixtures
+
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 
-_LIVE_FIXTURES = (ROOT / "med-schedule.json").exists()
 
-
-@unittest.skipUnless(_LIVE_FIXTURES, "live runtime fixtures not present (CI skips)")
 class TestChainAdapterRuntime(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="chain-adapter-"))
         self.hermes = self.tmp / ".hermes"
         scripts = self.hermes / "scripts"
         shutil.copytree(BASE, scripts)
-        shutil.copy2(ROOT / "med-schedule.json", self.hermes / "med-schedule.json")
-        shutil.copy2(ROOT / "dexa_taper.json", self.hermes / "dexa_taper.json")
+        write_runtime_fixtures(self.hermes)
         (self.hermes / "chain-state.json").write_text("{}\n")
 
     def tearDown(self):
@@ -41,7 +40,7 @@ class TestChainAdapterRuntime(unittest.TestCase):
         if frozen_now:
             env["CHAIN_CALC_NOW_MYT"] = frozen_now
         return subprocess.run(
-            ["python3", str(self.hermes / "scripts" / "chain_calc.py"), "--next"],
+            [sys.executable, str(self.hermes / "scripts" / "chain_calc.py"), "--next"],
             env=env, capture_output=True, text=True
         )
 
@@ -86,7 +85,7 @@ class TestChainAdapterRuntime(unittest.TestCase):
 
     def test_pending_reminder_cooldown_matches_polling_cadence(self):
         result = subprocess.run(
-            ["python3", "-c", "import chain_calc; print(chain_calc.get_cooldown_interval(1))"],
+            [sys.executable, "-c", "import chain_calc; print(chain_calc.get_cooldown_interval(1))"],
             env={**os.environ, "HOME": str(self.tmp)},
             cwd=str(self.hermes / "scripts"), capture_output=True, text=True,
         )
@@ -95,7 +94,7 @@ class TestChainAdapterRuntime(unittest.TestCase):
 
     def test_scheduled_window_can_emit_heads_up_before_dynamic_ready_time(self):
         result = subprocess.run(
-            ["python3", "-c", (
+            [sys.executable, "-c", (
                 "import chain_calc; "
                 "print(chain_calc.is_scheduled_heads_up('D', {'meds': {'D': {'time': '16:00'}}}, 16*60, '16:20'))"
             )],

@@ -14,21 +14,18 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-HERE = Path(__file__).resolve().parent
-LIVE = Path("/home/ubuntu/.hermes")
+from scripts.test_runtime_fixtures import write_runtime_fixtures
 
-_LIVE_SCHEDULE = LIVE / "med-schedule.json"
+HERE = Path(__file__).resolve().parent
 
 
 def _make_home() -> Path:
     tmp = Path(tempfile.mkdtemp(prefix="dexa-dataflow-"))
-    (tmp / ".hermes").mkdir()
-    for name in ("med-schedule.json", "dexa_taper.json"):
-        shutil.copy(LIVE / name, tmp / ".hermes" / name)
+    hermes_home = tmp / ".hermes"
+    write_runtime_fixtures(hermes_home)
     return tmp
 
 
-@unittest.skipUnless(_LIVE_SCHEDULE.exists(), "live runtime fixtures not present (CI skips)")
 class DexaDoseDataflowTest(unittest.TestCase):
     maxDiff = None
 
@@ -36,7 +33,7 @@ class DexaDoseDataflowTest(unittest.TestCase):
         self._home = _make_home()
         with mock.patch.dict(os.environ, {"HOME": str(self._home)}, clear=False):
             for mod in list(sys.modules):
-                if mod == "chain_calc" or mod.startswith("chain_calc."):
+                if mod in ("chain_calc", "dexa_taper_lookup") or mod.startswith(("chain_calc.", "dexa_taper_lookup.")):
                     del sys.modules[mod]
             if str(HERE) not in sys.path:
                 sys.path.insert(0, str(HERE))
@@ -48,8 +45,9 @@ class DexaDoseDataflowTest(unittest.TestCase):
 
     def tearDown(self):
         for mod in list(sys.modules):
-            if mod == "chain_calc" or mod.startswith("chain_calc."):
+            if mod in ("chain_calc", "dexa_taper_lookup") or mod.startswith(("chain_calc.", "dexa_taper_lookup.")):
                 del sys.modules[mod]
+        shutil.rmtree(self._home.parent, ignore_errors=True)
 
     def _pending(self, slot: str, date: str) -> list[dict]:
         with mock.patch.dict(os.environ, {"CHAIN_CALC_NOW_MYT": date + "T12:00:00+08:00"}, clear=False):

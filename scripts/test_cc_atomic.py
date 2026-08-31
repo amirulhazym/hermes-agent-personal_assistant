@@ -8,12 +8,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-BASE = Path(__file__).resolve().parent
-LIVE = Path('/home/ubuntu/.hermes')
+from scripts.test_runtime_fixtures import write_runtime_fixtures
 
-# Operational-artifact gate: these tests copy LIVE runtime fixtures. CI
-# runners have no /home/ubuntu/.hermes, so they skip; the VPS host runs them.
-_LIVE_SCHEDULE = LIVE / 'med-schedule.json'
+BASE = Path(__file__).resolve().parent
 
 
 def load_confirm(home: Path):
@@ -42,15 +39,12 @@ def load_confirm(home: Path):
         else:
             os.environ['HERMES_HOME'] = orig_hermes
 
-
-@unittest.skipUnless(_LIVE_SCHEDULE.exists(), "live runtime fixtures not present (CI skips)")
 class TestCCAtomicConfirmation(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.home = Path(self.tmp.name) / '.hermes'
         self.home.mkdir()
-        for name in ('med-schedule.json', 'med-supply.json'):
-            shutil.copy2(LIVE / name, self.home / name)
+        write_runtime_fixtures(self.home, include_supply=True)
         supply = json.loads((self.home / 'med-supply.json').read_text())
         supply['drugs']['calcium']['current'] = 10
         supply['drugs']['calcitriol']['current'] = 20
