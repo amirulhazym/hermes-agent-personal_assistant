@@ -127,7 +127,7 @@ ENV_RE = re.compile(r"^\s*\[[^\]]*\]\s*")
 # otherwise "jam 610" grabs only "61" and the trailing "0" is lost.
 TIME_RE = re.compile(
     r"(?:(?:\bpukul\b|\bjam\b|\bat\b|@|\bpada\b)\s*"
-    r"(?:(?P<ah>\d{1,2})[:.](?P<am>\d{2})"          # jam 4.25 / jam 12:15
+    r"(?:(?P<ah>\d{1,2})(?:[:.](?P<am>\d{2}))?"          # jam 4.25 / jam 12:15
     r"|(?P<bh>\d{1,2})(?P<bm>\d{2}))"              # jam 1215 / jam 610
     r"\s*(?P<ap1>am|pm)?)"
     r"|(?P<ch>\d{1,2})[:.](?P<cm>\d{2})\s*(?P<ap2>am|pm)?"   # 4.25pm / 12:15
@@ -199,7 +199,7 @@ def _parse_time(message: str, now: datetime):
             hour += 12
         elif ap == "am" and hour == 12:
             hour = 0
-    elif hour <= 12 and g.get("ah") is None and g.get("ch") is None and g.get("bh") is None and g.get("dh") is None:
+    elif hour <= 12 and g.get("bh") is None and g.get("dh") is None:
         # Only single-number forms without a separator (e.g. bare "8") reach
         # 12h ambiguity. Compact HHMM (bh/dh) and explicit H.MM (ah/ch) are
         # already 24h-clean by the time we get here.
