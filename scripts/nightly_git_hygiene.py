@@ -462,14 +462,29 @@ def _status_records(raw: str) -> list[dict[str, Any]]:
             path = line[2:].lstrip(" ")
         if " -> " in path and status[0] in {"R", "C"}:
             path = path.split(" -> ", 1)[1]
+        is_receipt = _is_generated_reconciliation_receipt(path)
         records.append({
             "status": status,
             "path": path,
-            "untracked": status == "??",
+            "untracked": status == "??" or status.endswith("?"),
             "deleted": "D" in status,
             "conflict": status in conflict_codes or "U" in status,
+            "is_generated_receipt": is_receipt,
         })
     return records
+
+
+def _is_generated_reconciliation_receipt(path: str) -> bool:
+    """Return True if path is a known generated manifest receipt under docs/reconciliation/manifest-receipts/."""
+    norm = path.replace("\\", "/").strip()
+    if not norm.startswith("docs/reconciliation/manifest-receipts/"):
+        return False
+    name = norm.rsplit("/", 1)[-1]
+    if name.endswith(".json"):
+        stem = name[:-5]
+        if (len(stem) in (12, 40)) and all(c in "0123456789abcdefABCDEF" for c in stem):
+            return True
+    return False
 
 
 def _temporary_worktree_index(repo: Path) -> tuple[Path, dict[str, str]]:
@@ -617,7 +632,7 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
     if not repo.is_dir():
         result["errors"].append(f"repository does not exist: {repo}")
         return result
-    rc, status = _workflow_git(repo, ["status", "--porcelain"])
+    rc, status = _workflow_git(repo, ["status", "--porcelain", "--untracked-files=all"])
     if rc != 0:
         result["errors"].append(f"git status failed: {status}")
         return result
@@ -744,6 +759,9 @@ def _classify_sync_state(snapshot: dict[str, Any]) -> dict[str, Any]:
     daily = snapshot.get("daily_delta", {}).get("commits", [])
     records = git_state.get("status_records", [])
 
+    # Separate arbitrary dirty files from recognized generated manifest receipts
+    arbitrary_records = [r for r in records if not r.get("is_generated_receipt")]
+
     if origin is None:
         return {
             "category": "provenance_insufficient",
@@ -755,7 +773,7 @@ def _classify_sync_state(snapshot: dict[str, Any]) -> dict[str, Any]:
     behind = origin.get("behind", 0)
 
     # 1. Fully in sync
-    if ahead == 0 and behind == 0 and not records:
+    if ahead == 0 and behind == 0 and not arbitrary_records:
         return {
             "category": "intentional_valid_state",
             "reason": "Local main is fully synchronized with origin/main and working tree is clean.",
@@ -763,7 +781,7 @@ def _classify_sync_state(snapshot: dict[str, Any]) -> dict[str, Any]:
         }
 
     # 2. Local is ahead
-    if ahead > 0 and behind == 0 and not records:
+    if ahead > 0 and behind == 0 and not arbitrary_records:
         # If commits were created today during normal working hours and remain unpushed at 23:55
         if daily:
             return {
@@ -779,7 +797,7 @@ def _classify_sync_state(snapshot: dict[str, Any]) -> dict[str, Any]:
         }
 
     # 3. Local is behind (fetched origin commits waiting for fast-forward)
-    if ahead == 0 and behind > 0 and not records:
+    if ahead == 0 and behind > 0 and not arbitrary_records:
         return {
             "category": "unresolved_end_of_day_residue",
             "reason": f"Local main is behind origin/main by {behind} commit(s) that can be safely fast-forwarded.",
@@ -787,7 +805,7 @@ def _classify_sync_state(snapshot: dict[str, Any]) -> dict[str, Any]:
         }
 
     # 4. Diverged (ahead > 0 and behind > 0)
-    if ahead > 0 and behind > 0 and not records:
+    if ahead > 0 and behind > 0 and not arbitrary_records:
         return {
             "category": "unresolved_end_of_day_residue",
             "reason": f"Local main has diverged from origin/main (ahead {ahead}, behind {behind}).",
@@ -827,13 +845,23 @@ def _build_actions(
     if branch != "main":
         holds.append(f"current branch is {branch or 'unknown'}, not main")
     records = git_state.get("status_records", [])
-    if records:
-        paths = ", ".join(sorted(record["path"] for record in records))
+    arbitrary_records = [r for r in records if not r.get("is_generated_receipt")]
+    receipt_records = [r for r in records if r.get("is_generated_receipt")]
+
+    if arbitrary_records:
+        paths = ", ".join(sorted(record["path"] for record in arbitrary_records))
         holds.append("dirty work requires owner classification; no automated commit: " + paths)
+    elif receipt_records:
+        # Generated manifest receipts can be safely archived/cleaned as part of remediation
+        actions.append({
+            "kind": "clean_generated_receipts",
+            "paths": [r["path"] for r in receipt_records],
+        })
+
     origin = snapshot["sync_state"].get("origin")
     if origin is None:
         holds.append("origin/main synchronization is unavailable")
-    elif branch == "main" and not records:
+    elif branch == "main" and not arbitrary_records:
         if classification["category"] == "unresolved_end_of_day_residue":
             if origin["ahead"] > 0 and origin["behind"] == 0:
                 actions.append({
@@ -878,7 +906,7 @@ def _build_actions(
                     f"provenance insufficient to determine if {origin['ahead']} unpushed commit(s) are intentional or leftover residue; no automatic push scheduled"
                 )
     for branch_info in snapshot["branches"].get("merged", []):
-        if records:
+        if arbitrary_records:
             holds.append(f"merged branch cleanup deferred while working tree is dirty: {branch_info['name']}")
         elif branch_info.get("safe_to_delete"):
             actions.append({
@@ -1051,6 +1079,8 @@ def _human_report(result: dict[str, Any]) -> str:
                 lines.append("- Merge origin/main into local main using the conflict-free forecast.")
             elif kind == "delete_merged_branch":
                 lines.append(f"- Delete merged local branch `{action.get('branch')}` only; no remote branch deletion.")
+            elif kind == "clean_generated_receipts":
+                lines.append(f"- Archive and clean {len(action.get('paths', []))} generated reconciliation manifest receipt(s) from working tree.")
         lines.append("- Why: selesaikan kerja Git yang tertinggal malam ini supaya tidak dibawa ke hari esok.")
         lines.append(f"- Proposed automatic-action deadline: **{remediation.get('deadline_at')}**.")
         lines.append(f"- Confirmation needed: hantar `/nightly approve {remediation.get('run_id')}` atau `/nightly reject {remediation.get('run_id')} <reason>`, atau teks biasa `APPROVE NIGHTLY {remediation.get('run_id')}`.")
@@ -1165,6 +1195,7 @@ def run_nightly(
                 "created_at": _iso_myt(current),
                 "deadline_at": _iso_myt(deadline),
                 "repo": str(repo),
+                "hermes_home": str(home),
                 "baseline": {
                     "head": head,
                     "branch": snapshot["git_state"].get("branch"),
@@ -1502,6 +1533,41 @@ def _delete_merged_branch_action(
     return "delete_merged_branch", None, _inspect_git(repo, now), gates
 
 
+def _clean_generated_receipts_action(
+    *,
+    state: dict[str, Any],
+    repo: Path,
+    now: datetime,
+    action: dict[str, Any],
+) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
+    paths = action.get("paths", [])
+    if not paths:
+        return "clean_generated_receipts", None, _inspect_git(repo, now), {}
+    import shutil
+    home = Path(state.get("hermes_home", HERMES_HOME)).expanduser().resolve()
+    backup_root = home / "backups" / "git-reconciliation" / _as_myt(now).strftime("%Y%m%d") / "receipts"
+    backup_root.mkdir(parents=True, exist_ok=True)
+    os.chmod(backup_root, 0o700)
+
+    for rel in paths:
+        norm = rel.replace("\\", "/").strip()
+        if not _is_generated_reconciliation_receipt(norm):
+            return None, f"refusing to auto-clean non-receipt path: {rel}", _inspect_git(repo, now), {}
+        p = repo / norm
+        if p.is_file():
+            dest = backup_root / p.name
+            try:
+                data = p.read_bytes()
+                dest.write_bytes(data)
+                os.chmod(dest, 0o600)
+                if dest.read_bytes() != data:
+                    return None, f"verification failed for archived receipt: {rel}", _inspect_git(repo, now), {}
+                p.unlink()
+            except OSError as exc:
+                return None, f"could not archive and clean receipt {rel}: {exc}", _inspect_git(repo, now), {}
+    return "clean_generated_receipts", None, _inspect_git(repo, now), {}
+
+
 def _execute_pending_actions(
     *,
     state: dict[str, Any],
@@ -1531,6 +1597,13 @@ def _execute_pending_actions(
             name, error, latest, latest_gates = _push_merged_main_action(state=state, repo=repo, now=now)
         elif kind == "delete_merged_branch":
             name, error, latest, latest_gates = _delete_merged_branch_action(
+                state=state,
+                repo=repo,
+                now=now,
+                action=action,
+            )
+        elif kind == "clean_generated_receipts":
+            name, error, latest, latest_gates = _clean_generated_receipts_action(
                 state=state,
                 repo=repo,
                 now=now,
