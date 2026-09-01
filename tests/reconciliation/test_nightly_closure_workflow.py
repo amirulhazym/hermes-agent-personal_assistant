@@ -644,6 +644,8 @@ def test_contract_test_failure_is_fail_closed_without_pending_plan(tmp_path: Pat
 
     assert result["status"] == "FAIL"
     assert result["gates"]["contract_tests"]["status"] == "FAIL"
+    assert result["gates"]["contract_tests"]["returncode"] == 7
+    assert "CONTRACT FAIL" in result["gates"]["contract_tests"].get("output_excerpt", "")
     assert result["remediation"]["actions"] == []
     assert not (tmp_path / "hermes" / "pending" / "nightly-git-remediation.json").exists()
     assert git(repo, "rev-parse", "HEAD") == before

@@ -509,13 +509,23 @@ def _temporary_worktree_index(repo: Path) -> tuple[Path, dict[str, str]]:
 def _run_gate(label: str, cmd: list[str], repo: Path, env: dict[str, str] | None = None) -> dict[str, Any]:
     rc, output = _workflow_run_cmd(cmd, cwd=repo, env=env)
     output_bytes = output.encode("utf-8", errors="replace")
-    return {
+    gate_data: dict[str, Any] = {
         "status": "PASS" if rc == 0 else "FAIL",
         "returncode": rc,
         "label": label,
         "output_sha256": hashlib.sha256(output_bytes).hexdigest() if output else None,
         "output_bytes": len(output_bytes),
     }
+    if rc != 0:
+        # Diagnostic hardening: capture sanitized error excerpt on failure
+        # to ensure failure root-cause is observable without leaking secrets/PII
+        clean_lines = []
+        for line in output.splitlines()[-40:]:
+            # Redact common token patterns if any accidentally surface
+            redacted = re.sub(r"(?:ghp|github_pat|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}", "[REDACTED_TOKEN]", line)
+            clean_lines.append(redacted)
+        gate_data["output_excerpt"] = "\n".join(clean_lines)
+    return gate_data
 
 
 def _daily_base(repo: Path, now: datetime, head: str) -> str:
