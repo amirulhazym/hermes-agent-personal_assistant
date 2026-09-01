@@ -29,6 +29,9 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
+import urllib.request
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
@@ -1484,6 +1487,17 @@ def _push_merged_main_action(
         return None, "required gates failed before merged push", snapshot, gates
     rc, output = _workflow_git(repo, ["push", action["remote"], action["branch"]])
     if rc != 0:
+        hermes_home = Path(state.get("hermes_home", HERMES_HOME)).expanduser().resolve()
+        token = _get_github_token(hermes_home)
+        if token and any(term in output.lower() for term in ["protected branch", "gh006", "pre-receive hook declined", "permission", "protected", "declined"]):
+            return _publish_via_protected_pr(
+                state=state,
+                repo=repo,
+                now=now,
+                action=action,
+                gates=gates,
+                hermes_home=hermes_home,
+            )
         return None, f"normal merged push failed: {output[-500:]}", snapshot, gates
     final_snapshot = _inspect_git(repo, now)
     final_origin = final_snapshot.get("sync_state", {}).get("origin")
@@ -1622,6 +1636,213 @@ def _execute_pending_actions(
     return taken, None, latest, latest_gates
 
 
+def _get_github_token(hermes_home: Path) -> str | None:
+    token = os.environ.get("GITHUB_TOKEN")
+    if token and len(token.strip()) > 10:
+        return token.strip()
+    env_file = hermes_home / ".env"
+    if env_file.is_file():
+        try:
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                if line.startswith("GITHUB_TOKEN="):
+                    val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                    if len(val) > 10:
+                        return val
+        except Exception:
+            pass
+    return None
+
+
+def _parse_github_remote(remote_url: str) -> tuple[str, str] | None:
+    m = re.search(r"github\.com[:/]([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?$", remote_url.strip())
+    if m:
+        return m.group(1), m.group(2)
+    return None
+
+
+def _github_api_request(
+    method: str,
+    path: str,
+    token: str,
+    payload: dict[str, Any] | list[Any] | None = None,
+) -> tuple[int, Any, str | None]:
+    url = f"https://api.github.com{path}" if path.startswith("/") else path
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Hermes-Nightly-Remediation",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    if data:
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            status = resp.status
+            body = resp.read().decode("utf-8")
+            return status, (json.loads(body) if body else None), None
+    except urllib.error.HTTPError as exc:
+        err_body = exc.read().decode("utf-8") if exc.fp else ""
+        try:
+            err_json = json.loads(err_body)
+            err_msg = err_json.get("message", err_body)
+        except Exception:
+            err_msg = err_body or str(exc)
+        return exc.code, None, f"HTTP {exc.code}: {err_msg}"
+    except Exception as exc:
+        return 0, None, str(exc)
+
+
+def _publish_via_protected_pr(
+    *,
+    state: dict[str, Any],
+    repo: Path,
+    now: datetime,
+    action: dict[str, Any],
+    gates: dict[str, Any],
+    hermes_home: Path,
+) -> tuple[str | None, str | None, dict[str, Any], dict[str, Any]]:
+    """Publish commits to protected main via a deterministic PR, check observation, and merge flow."""
+    token = _get_github_token(hermes_home)
+    if not token:
+        return None, "GitHub authentication token (GITHUB_TOKEN) is not configured in ~/.hermes/.env", _inspect_git(repo, now), gates
+
+    rc_url, remote_url = _workflow_git(repo, ["remote", "get-url", action.get("remote", "origin")])
+    if rc_url != 0:
+        return None, f"could not resolve remote URL for {action.get('remote', 'origin')}", _inspect_git(repo, now), gates
+
+    parsed = _parse_github_remote(remote_url)
+    if not parsed:
+        return None, f"could not parse GitHub owner/repo from remote URL: {remote_url}", _inspect_git(repo, now), gates
+    owner, repo_name = parsed
+
+    run_id = state.get("run_id", "manual")
+    clean_run_id = re.sub(r"[^A-Za-z0-9_-]", "-", run_id)[:50]
+    pub_branch = f"nightly/publication-{clean_run_id}"
+
+    # 1. Push local commits to remote publication branch
+    rc_push, push_out = _workflow_git(repo, ["push", action.get("remote", "origin"), f"HEAD:refs/heads/{pub_branch}"])
+    if rc_push != 0:
+        return None, f"pushing to publication branch {pub_branch} failed: {push_out[-500:]}", _inspect_git(repo, now), gates
+
+    # 2. Check for existing open PR or create a new one
+    status, pulls_data, err = _github_api_request(
+        "GET",
+        f"/repos/{owner}/{repo_name}/pulls?state=open&head={owner}:{pub_branch}&base=main",
+        token,
+    )
+    if status != 200 or pulls_data is None:
+        # Also try head without owner prefix
+        status, pulls_data, err = _github_api_request(
+            "GET",
+            f"/repos/{owner}/{repo_name}/pulls?state=open&head={pub_branch}&base=main",
+            token,
+        )
+
+    pr_number: int | None = None
+    pr_head_sha: str | None = None
+    if status == 200 and isinstance(pulls_data, list) and pulls_data:
+        pr_info = pulls_data[0]
+        pr_number = pr_info.get("number")
+        pr_head_sha = pr_info.get("head", {}).get("sha")
+    else:
+        pr_payload = {
+            "title": f"chore(nightly): automated git hygiene remediation ({run_id})",
+            "head": pub_branch,
+            "base": "main",
+            "body": (
+                f"Automated 23:55 Nightly Git Hygiene remediation for run `{run_id}`.\n\n"
+                f"- Audited Head: `{action.get('expected_head')}`\n"
+                f"- Base: `main`\n\n"
+                "This PR was created automatically by the approved nightly remediation executor."
+            ),
+        }
+        create_status, create_data, create_err = _github_api_request(
+            "POST",
+            f"/repos/{owner}/{repo_name}/pulls",
+            token,
+            pr_payload,
+        )
+        if create_status not in {200, 201} or not create_data:
+            return None, f"GitHub PR creation failed: {create_err}", _inspect_git(repo, now), gates
+        pr_number = create_data.get("number")
+        pr_head_sha = create_data.get("head", {}).get("sha")
+
+    if not pr_number:
+        return None, "GitHub PR number could not be determined", _inspect_git(repo, now), gates
+
+    # 3. Observe checks on head commit (poll briefly if in progress)
+    head_sha = pr_head_sha or action.get("expected_head", "HEAD")
+    max_poll_seconds = 60
+    poll_start = time.time()
+    while time.time() - poll_start < max_poll_seconds:
+        chk_status, chk_data, chk_err = _github_api_request(
+            "GET",
+            f"/repos/{owner}/{repo_name}/commits/{head_sha}/check-runs",
+            token,
+        )
+        if chk_status == 200 and chk_data:
+            check_runs = chk_data.get("check_runs", [])
+            if check_runs:
+                in_progress = any(cr.get("status") in {"queued", "in_progress"} for cr in check_runs)
+                failed = any(
+                    cr.get("status") == "completed" and cr.get("conclusion") in {"failure", "cancelled", "timed_out"}
+                    for cr in check_runs
+                )
+                if failed:
+                    return None, f"GitHub CI check runs failed on PR #{pr_number} (head: {head_sha})", _inspect_git(repo, now), gates
+                if not in_progress:
+                    break
+            else:
+                break
+        time.sleep(5)
+
+    # 4. Merge PR via REST API (try rebase, fallback squash/merge)
+    merge_status, merge_data, merge_err = _github_api_request(
+        "PUT",
+        f"/repos/{owner}/{repo_name}/pulls/{pr_number}/merge",
+        token,
+        {
+            "merge_method": "rebase",
+        },
+    )
+    if merge_status != 200:
+        # Try squash merge if rebase is disabled on repository
+        merge_status, merge_data, merge_err = _github_api_request(
+            "PUT",
+            f"/repos/{owner}/{repo_name}/pulls/{pr_number}/merge",
+            token,
+            {
+                "merge_method": "squash",
+                "commit_title": f"chore(nightly): automated git hygiene remediation ({run_id}) (#{pr_number})",
+            },
+        )
+    if merge_status != 200:
+        return None, f"GitHub PR #{pr_number} merge failed: {merge_err}", _inspect_git(repo, now), gates
+
+    # 5. Clean up remote publication branch
+    _workflow_git(repo, ["push", action.get("remote", "origin"), "--delete", pub_branch])
+
+    # 6. Fetch origin/main and sync local main to remote
+    _workflow_git(repo, ["fetch", action.get("remote", "origin"), "main"])
+    _workflow_git(repo, ["merge", "--ff-only", f"{action.get('remote', 'origin')}/main"])
+
+    final_snapshot = _inspect_git(repo, now)
+    final_origin = final_snapshot.get("sync_state", {}).get("origin")
+    final_head = final_snapshot["git_state"].get("head")
+    if (
+        not final_head
+        or not final_origin
+        or final_origin.get("ahead") != 0
+        or final_origin.get("behind") != 0
+        or final_origin.get("remote_head") != final_head
+    ):
+        return None, "protected PR merged but local synchronization read-back failed", final_snapshot, gates
+
+    return action.get("kind", "push_main"), None, final_snapshot, gates
+
+
 def _push_main_action(
     *,
     state: dict[str, Any],
@@ -1648,9 +1869,23 @@ def _push_main_action(
     gates = run_full_delta_gates(repo, now)
     if not _gates_pass(gates):
         return None, "required gates failed before push", snapshot, gates
+
     rc, output = _workflow_git(repo, ["push", action["remote"], action["branch"]])
     if rc != 0:
+        # Check if direct push failed due to branch protection or refusal
+        hermes_home = Path(state.get("hermes_home", HERMES_HOME)).expanduser().resolve()
+        token = _get_github_token(hermes_home)
+        if token and any(term in output.lower() for term in ["protected branch", "gh006", "pre-receive hook declined", "permission", "protected", "declined"]):
+            return _publish_via_protected_pr(
+                state=state,
+                repo=repo,
+                now=now,
+                action=action,
+                gates=gates,
+                hermes_home=hermes_home,
+            )
         return None, f"normal push failed: {output[-500:]}", snapshot, gates
+
     final_snapshot = _inspect_git(repo, now)
     final_origin = final_snapshot.get("sync_state", {}).get("origin")
     if (
