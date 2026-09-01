@@ -1827,9 +1827,9 @@ def _publish_via_protected_pr(
     # 5. Clean up remote publication branch
     _workflow_git(repo, ["push", action.get("remote", "origin"), "--delete", pub_branch])
 
-    # 6. Fetch origin/main and sync local main to remote
+    # 6. Fetch origin/main and sync local main to the merged remote commit
     _workflow_git(repo, ["fetch", action.get("remote", "origin"), "main"])
-    _workflow_git(repo, ["merge", "--ff-only", f"{action.get('remote', 'origin')}/main"])
+    _workflow_git(repo, ["reset", "--hard", f"{action.get('remote', 'origin')}/main"])
 
     final_snapshot = _inspect_git(repo, now)
     final_origin = final_snapshot.get("sync_state", {}).get("origin")
