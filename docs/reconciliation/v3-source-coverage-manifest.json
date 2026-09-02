@@ -800,7 +800,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "39b6a9847619296581f0e4e28d94ebeb910bb0e81adc7b5e95fd85996657f13b"
+      "source_sha256": "a52f5ebc259416df3b838da522c4527cd0d362a7caf7c66bd19dee14100222cf"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_timeout.sh",
