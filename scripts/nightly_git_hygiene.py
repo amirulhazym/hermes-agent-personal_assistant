@@ -1569,7 +1569,11 @@ def _clean_generated_receipts_action(
         return "clean_generated_receipts", None, _inspect_git(repo, now), {}
     import shutil
     home = Path(state.get("hermes_home", HERMES_HOME)).expanduser().resolve()
-    backup_root = home / "backups" / "git-reconciliation" / _as_myt(now).strftime("%Y%m%d") / "receipts"
+    # Use the plan creation date if available in baseline/state so the archive folder matches the run timestamp
+    archive_date_str = state.get("created_at", "").split("T")[0].replace("-", "") if state.get("created_at") else ""
+    if not archive_date_str or len(archive_date_str) != 8:
+        archive_date_str = _as_myt(now).strftime("%Y%m%d")
+    backup_root = home / "backups" / "git-reconciliation" / archive_date_str / "receipts"
     backup_root.mkdir(parents=True, exist_ok=True)
     os.chmod(backup_root, 0o700)
 
