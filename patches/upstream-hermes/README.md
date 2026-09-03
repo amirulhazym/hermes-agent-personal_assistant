@@ -81,3 +81,6 @@ hashes, test boundary, and historical-snapshot warning are recorded in
 `docs/reconciliation/core-live-source-closure-20260828.md`. The raw backup is
 not an active runtime input merely because it exists; only the hash-pinned lock
 series is authoritative.
+
+8. `2026-09-04_live_model_picker_refresh.patch` — live model picker refresh flag
+   passthrough for interactive slash-commands and picker listings.

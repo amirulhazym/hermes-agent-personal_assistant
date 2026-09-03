@@ -1,0 +1,1125 @@
+diff --git a/src/antigravity_provider/antigravity_client.py b/src/antigravity_provider/antigravity_client.py
+index 8d5dd84..5f3732a 100644
+--- a/src/antigravity_provider/antigravity_client.py
++++ b/src/antigravity_provider/antigravity_client.py
+@@ -12,7 +12,12 @@ ANTIGRAVITY_ENDPOINTS = [
+     "https://daily-cloudcode-pa.googleapis.com",
+     "https://daily-cloudcode-pa.sandbox.googleapis.com",
+ ]
++MODEL_CATALOG_ENDPOINTS = [
++    "https://cloudcode-pa.googleapis.com",
++    "https://daily-cloudcode-pa.googleapis.com",
++]
+ STREAM_PATH = "/v1internal:streamGenerateContent?alt=sse"
++MODEL_CATALOG_PATH = "/v1internal:fetchAvailableModels"
+
+
+ def _sse_json_lines(response: Iterable[bytes]) -> Iterable[dict[str, Any]]:
+@@ -64,6 +69,53 @@ class AntigravityClient:
+             "User-Agent": antigravity_user_agent(),
+         }
+
++    def fetch_available_models(
++        self,
++        *,
++        access_token: str,
++        project_id: str,
++        timeout: float = 30,
++    ) -> dict[str, Any]:
++        """Fetch the account/project's live Antigravity model entitlement catalog."""
++        body = {"project": project_id}
++        headers = self._headers(access_token)
++        headers.pop("Accept", None)
++        headers["X-Goog-Api-Client"] = "google-cloud-sdk vscode_cloudshelleditor/0.1"
++        last_error: Exception | None = None
++        for endpoint in MODEL_CATALOG_ENDPOINTS:
++            url = endpoint + MODEL_CATALOG_PATH
++            try:
++                if self.post_json is not None:
++                    data = self.post_json(url, body, headers)
++                else:
++                    req = urllib.request.Request(
++                        url,
++                        data=json.dumps(body).encode("utf-8"),
++                        headers=headers,
++                        method="POST",
++                    )
++                    with urllib.request.urlopen(req, timeout=timeout) as resp:
++                        data = json.loads(resp.read().decode("utf-8") or "{}")
++                if isinstance(data, dict):
++                    return data
++                return {}
++            except urllib.error.HTTPError as e:
++                detail = e.read().decode("utf-8", "replace")
++                if e.code == 401:
++                    raise TokenExpired() from e
++                last_error = ProxyError(
++                    f"Cloud Code Assist model catalog error ({e.code}): {detail}",
++                    status=e.code,
++                )
++            except urllib.error.URLError as e:
++                last_error = ProxyError(
++                    f"Cloud Code Assist model catalog connection failed: {e}",
++                    status=502,
++                )
++        if last_error:
++            raise last_error
++        return {}
++
+     def stream_generate(self, *, access_token: str, body: dict[str, Any]) -> Iterable[dict[str, Any]]:
+         payload = json.dumps(body).encode("utf-8")
+         headers = self._headers(access_token)
+diff --git a/src/antigravity_provider/catalog.py b/src/antigravity_provider/catalog.py
+new file mode 100644
+index 0000000..39d7bbf
+--- /dev/null
++++ b/src/antigravity_provider/catalog.py
+@@ -0,0 +1,23 @@
++from __future__ import annotations
++
++from typing import Any
++
++from .models import logical_model_id
++
++
++def logical_model_ids_from_catalog(payload: dict[str, Any]) -> list[str]:
++    """Return deduplicated Hermes model IDs from fetchAvailableModels output."""
++    models = payload.get("models") if isinstance(payload, dict) else None
++    if not isinstance(models, dict):
++        return []
++
++    result: list[str] = []
++    seen: set[str] = set()
++    for wire_id in models:
++        if not isinstance(wire_id, str):
++            continue
++        logical = logical_model_id(wire_id)
++        if logical and logical not in seen:
++            seen.add(logical)
++            result.append(logical)
++    return result
+diff --git a/src/antigravity_provider/cloudcode.py b/src/antigravity_provider/cloudcode.py
+index 2d432f1..52a3877 100644
+--- a/src/antigravity_provider/cloudcode.py
++++ b/src/antigravity_provider/cloudcode.py
+@@ -22,7 +22,7 @@ PROJECT_ONBOARD_INTERVAL_SECONDS = 2
+
+
+ def antigravity_user_agent() -> str:
+-    version = os.getenv("PI_AI_ANTIGRAVITY_VERSION") or "2.1.4"
++    version = os.getenv("PI_AI_ANTIGRAVITY_VERSION") or "2.11.0"
+     system = platform.system().lower()
+     os_name = "windows" if system.startswith("win") else ("darwin" if system == "darwin" else system or "linux")
+     machine = platform.machine().lower()
+diff --git a/src/antigravity_provider/hermes_plugin.py b/src/antigravity_provider/hermes_plugin.py
+index 1dfed59..237fb60 100644
+--- a/src/antigravity_provider/hermes_plugin.py
++++ b/src/antigravity_provider/hermes_plugin.py
+@@ -1,9 +1,18 @@
+ from __future__ import annotations
+
+ import argparse
++import re
+ from typing import Any
+
+-from .hermes_provider import DEFAULT_MODEL, PLACEHOLDER_API_KEY, PLACEHOLDER_API_KEY_ENV, PROVIDER_NAME, register_provider_profile
++from .hermes_provider import (
++    DEFAULT_MODEL,
++    DUMMY_BASE_URL,
++    PLACEHOLDER_API_KEY,
++    PLACEHOLDER_API_KEY_ENV,
++    PROVIDER_NAME,
++    register_provider_profile,
++)
++from .models import KNOWN_MODELS
+ from .runtime import ensure_provider_profile_files, generate_chat_completion, openai_completion_object
+
+
+@@ -64,15 +73,44 @@ def _setup_cli(parser: argparse.ArgumentParser) -> None:
+     select.add_argument("model", nargs="?", default=DEFAULT_MODEL)
+
+     sub.add_parser("status", help="show credential status")
++    sub.add_parser("quota", help="show live account quota and reset times")
+     sub.add_parser("logout", help="remove saved browser OAuth credentials")
+
+
++
+ def _select_model(model_id: str) -> None:
+     try:
+         from hermes_cli.config import load_config, save_config
+     except Exception as exc:
+         raise SystemExit(f"Hermes config helpers are not available: {exc}") from exc
+     config = load_config()
++    providers = config.get("providers")
++    if not isinstance(providers, dict):
++        providers = {}
++    antigravity = providers.get(PROVIDER_NAME)
++    if not isinstance(antigravity, dict):
++        antigravity = {}
++    antigravity.setdefault("name", "Google Antigravity")
++    antigravity["base_url"] = DUMMY_BASE_URL
++    antigravity["key_env"] = PLACEHOLDER_API_KEY_ENV
++    antigravity["default_model"] = model_id
++    catalog = list(KNOWN_MODELS)
++    try:
++        from .catalog import logical_model_ids_from_catalog
++        from .runtime import fetch_available_models
++
++        for live_model in logical_model_ids_from_catalog(fetch_available_models()):
++            if live_model not in catalog:
++                catalog.append(live_model)
++    except Exception:
++        pass
++    if model_id not in catalog:
++        catalog.insert(0, model_id)
++    antigravity["models"] = catalog
++    antigravity["discover_models"] = False
++    providers[PROVIDER_NAME] = antigravity
++    config["providers"] = providers
++
+     model_cfg = config.get("model")
+     if not isinstance(model_cfg, dict):
+         model_cfg = {"default": model_cfg} if model_cfg else {}
+@@ -123,9 +161,121 @@ def _handle_cli(args: argparse.Namespace) -> None:
+         CredentialStore.default().delete()
+         print("Saved Antigravity browser OAuth credentials removed.")
+         return
++    if command == "quota":
++        from .runtime import fetch_available_models
++
++        try:
++            raw = fetch_available_models()
++            models = raw.get("models") or {}
++        except Exception as exc:
++            print(f"Failed to fetch Antigravity quota: {exc}")
++            return
++        target_keys = [
++            ("gemini-3.7-flash", ("gemini-3.7-flash-tiered", "gemini-3.7-flash")),
++            ("gemini-3.6-flash", ("gemini-3.6-flash-tiered", "gemini-3.6-flash-high", "gemini-3.6-flash")),
++            ("gemini-3.1-pro", ("gemini-3.1-pro-high", "gemini-pro-agent", "gemini-3.1-pro")),
++            ("gemini-3.5-flash", ("gemini-3-flash-agent", "gemini-3.5-flash-low", "gemini-3.5-flash")),
++            ("claude-sonnet-4-6", ("claude-sonnet-4-6",)),
++            ("claude-opus-4-6", ("claude-opus-4-6-thinking", "claude-opus-4-6")),
++            ("gpt-oss-120b", ("openai/gpt-oss-120b-maas", "gpt-oss-120b-medium", "gpt-oss-120b")),
++        ]
++        print(f"{'MODEL':<20} | {'REMAINING':<10} | {'USED':<8} | {'RESET TIME (UTC)'}")
++        print("-" * 65)
++        for label, wire_keys in target_keys:
++
++            info: dict = {}
++            for k in wire_keys:
++                if k in models and isinstance(models[k], dict):
++                    info = models[k]
++                    break
++            q = info.get("quotaInfo") or {}
++            rem = q.get("remainingFraction")
++            reset = q.get("resetTime") or "-"
++            if isinstance(rem, (int, float)):
++                rem_str = f"{rem * 100:.1f}%"
++                used_str = f"{(1.0 - rem) * 100:.1f}%"
++            else:
++                rem_str = str(rem)
++                used_str = "-"
++            print(f"{label:<20} | {rem_str:<10} | {used_str:<8} | {reset}")
++        return
+     _status()
+
+
++
++def _format_quota_markdown(raw_models: dict[str, Any]) -> str:
++    from datetime import datetime, timezone
++    myt = timezone(datetime.now().astimezone().utcoffset() or timezone.utc.utcoffset(None))
++
++    target_keys = [
++        ("Gemini 3.7 Flash", ("gemini-3.7-flash-tiered", "gemini-3.7-flash")),
++        ("Gemini 3.6 Flash", ("gemini-3.6-flash-tiered", "gemini-3.6-flash-high", "gemini-3.6-flash")),
++        ("Gemini 3.1 Pro", ("gemini-3.1-pro-high", "gemini-pro-agent", "gemini-3.1-pro")),
++        ("Gemini 3.5 Flash", ("gemini-3-flash-agent", "gemini-3.5-flash-low", "gemini-3.5-flash")),
++        ("Claude Sonnet 4.6", ("claude-sonnet-4-6",)),
++        ("Claude Opus 4.6", ("claude-opus-4-6-thinking", "claude-opus-4-6")),
++        ("GPT-OSS 120B", ("openai/gpt-oss-120b-maas", "gpt-oss-120b-medium", "gpt-oss-120b")),
++    ]
++    lines = [
++        "📈 **Antigravity Live Account Quota**",
++        "Provider: `antigravity` (Google Cloud Code Assist)",
++        "",
++    ]
++    for label, wire_keys in target_keys:
++        info: dict = {}
++        for k in wire_keys:
++            if k in raw_models and isinstance(raw_models[k], dict):
++                info = raw_models[k]
++                break
++        q = info.get("quotaInfo") or {}
++        rem = q.get("remainingFraction")
++        reset_raw = q.get("resetTime")
++        if isinstance(rem, (int, float)):
++            rem_str = f"{rem * 100:.1f}%"
++            used_str = f"{(1.0 - rem) * 100:.1f}% used"
++        else:
++            rem_str = "N/A"
++            used_str = ""
++
++        if reset_raw:
++            try:
++                dt = datetime.fromisoformat(reset_raw.replace("Z", "+00:00")).astimezone(myt)
++                reset_str = dt.strftime("%d/%m %I:%M %p MYT")
++            except Exception:
++                reset_str = str(reset_raw)
++        else:
++            reset_str = "N/A"
++
++        used_part = f" ({used_str})" if used_str else ""
++        lines.append(f"• **{label}**: `{rem_str}` baki{used_part} • Reset: `{reset_str}`")
++
++    return "\n".join(lines)
++
++
++def _handle_chat_command(raw_args: str) -> str:
++    from .runtime import fetch_available_models
++
++    try:
++        raw = fetch_available_models()
++        models = raw.get("models") or {}
++        if not models:
++            return "Antigravity quota unavailable (empty model catalog returned)."
++        return _format_quota_markdown(models)
++    except Exception as exc:
++        return f"Failed to fetch Antigravity quota: {exc}"
++
++
++def _rewrite_usage_command(event: Any = None, **_kwargs: Any) -> dict[str, str] | None:
++    """Rewrite '/usage agy' or '/usage antigravity' to '/agy quota'."""
++    text = event if isinstance(event, str) else getattr(event, "text", None)
++    if not isinstance(text, str):
++        return None
++    cleaned = text.strip()
++    if re.fullmatch(r"^/usage\s+(agy|antigravity)\s*$", cleaned, re.IGNORECASE):
++        return {"action": "rewrite", "text": "/agy quota"}
++    return None
++
++
+ def register(ctx: Any) -> None:
+     register_provider_profile()
+     ctx.register_cli_command(
+@@ -135,4 +285,13 @@ def register(ctx: Any) -> None:
+         setup_fn=_setup_cli,
+         handler_fn=_handle_cli,
+     )
++    if hasattr(ctx, "register_command"):
++        ctx.register_command(
++            name="agy",
++            handler=_handle_chat_command,
++            description="Show Antigravity live account quota and reset schedule",
++            args_hint="[quota]",
++        )
++    if hasattr(ctx, "register_hook"):
++        ctx.register_hook("pre_gateway_dispatch", _rewrite_usage_command)
+     ctx.register_middleware("llm_execution", antigravity_llm_execution)
+diff --git a/src/antigravity_provider/hermes_provider.py b/src/antigravity_provider/hermes_provider.py
+index 48f5d1b..d188df4 100644
+--- a/src/antigravity_provider/hermes_provider.py
++++ b/src/antigravity_provider/hermes_provider.py
+@@ -2,7 +2,12 @@ from __future__ import annotations
+
+ from typing import Any
+
+-from .models import DEFAULT_MODEL, KNOWN_MODELS, clamp_reasoning_effort
++from .models import (
++    DEFAULT_MODEL,
++    KNOWN_MODELS,
++    VERIFIED_PICKER_SUPPLEMENTS,
++    clamp_reasoning_effort,
++)
+
+ PROVIDER_NAME = "antigravity"
+ PLACEHOLDER_API_KEY_ENV = "ANTIGRAVITY_HERMES_API_KEY"
+@@ -10,6 +15,31 @@ PLACEHOLDER_API_KEY = "hermes-plugin"
+ DUMMY_BASE_URL = "http://127.0.0.1:8765/v1"
+
+
++def fetch_picker_model_ids() -> list[str]:
++    """Return the live Antigravity catalog as stable logical picker IDs."""
++    try:
++        from .catalog import logical_model_ids_from_catalog
++        from .runtime import fetch_available_models
++
++        live = logical_model_ids_from_catalog(fetch_available_models())
++    except Exception:
++        return []
++    if not live:
++        return []
++
++    result: list[str] = []
++    seen: set[str] = set()
++    for model_id in [*live, *VERIFIED_PICKER_SUPPLEMENTS]:
++        if not isinstance(model_id, str) or not model_id.strip():
++            continue
++        model_id = model_id.strip()
++        key = model_id.casefold()
++        if key not in seen:
++            result.append(model_id)
++            seen.add(key)
++    return result
++
++
+ def _reasoning_effort(reasoning_config: dict | None, model: str | None = None) -> str | None:
+     if not isinstance(reasoning_config, dict):
+         return None
+@@ -48,12 +78,12 @@ def register_provider_profile() -> bool:
+             return KNOWN_MODELS.get(model or "") or KNOWN_MODELS.get(DEFAULT_MODEL)
+
+         def fetch_models(self, **kwargs: Any) -> list[str] | None:
+-            return list(KNOWN_MODELS)
++            return fetch_picker_model_ids() or list(KNOWN_MODELS)
+
+     register_provider(
+         AntigravityProfile(
+             name=PROVIDER_NAME,
+-            aliases=("google-antigravity",),
++            aliases=("google-antigravity", "antigravity"),
+             display_name="Google Antigravity",
+             description="Google Antigravity via Hermes in-process provider plugin",
+             env_vars=(PLACEHOLDER_API_KEY_ENV,),
+diff --git a/src/antigravity_provider/models.py b/src/antigravity_provider/models.py
+index 8a27e22..f1c03f4 100644
+--- a/src/antigravity_provider/models.py
++++ b/src/antigravity_provider/models.py
+@@ -1,17 +1,34 @@
+ from __future__ import annotations
+
++import re
++
+ ANTIGRAVITY_PREFIX = "google-antigravity/"
+-DEFAULT_MODEL = "google-antigravity/gemini-3.1-pro"
++DEFAULT_MODEL = "gemini-3.7-flash"
+
+ KNOWN_MODELS: dict[str, int] = {
+-    "google-antigravity/gemini-3.1-pro": 65535,
+-    "google-antigravity/gemini-3.5-flash": 65536,
+-    "google-antigravity/claude-sonnet-4-6": 64000,
+-    "google-antigravity/claude-opus-4-6": 64000,
+-    "google-antigravity/gpt-oss-120b": 65536,
++    "gemini-3.8-flash": 65536,
++    "gemini-3.7-flash": 65536,
++    "gemini-3.6-flash": 65536,
++    "gemini-3.1-pro": 65535,
++    "claude-sonnet-4-6": 64000,
++    "claude-opus-4-6": 64000,
++    "gpt-oss-120b": 65536,
++    "gemini-3-flash": 65536,
++    "gemini-2.5-flash": 65536,
+ }
+
++# Cloud Code's live entitlement catalog currently omits this documented,
++# directly callable Antigravity model. Keep the exception explicit and narrow.
++VERIFIED_PICKER_SUPPLEMENTS: tuple[str, ...] = (
++    "gemini-3.8-flash",
++)
++
+ WIRE_PROFILES: dict[str, dict[str, object]] = {
++    "gemini-3.8-flash-low": {"maxOutputTokens": 65536},
++    "gemini-3.8-flash-medium": {"maxOutputTokens": 65536},
++    "gemini-3.8-flash-high": {"maxOutputTokens": 65536},
++    "gemini-3.7-flash-tiered": {"maxOutputTokens": 65536},
++    "gemini-3.6-flash-tiered": {"maxOutputTokens": 65536},
+     "gemini-3.5-flash-extra-low": {"modelEnum": "MODEL_PLACEHOLDER_M187", "maxOutputTokens": 65536},
+     "gemini-3.5-flash-low": {"modelEnum": "MODEL_PLACEHOLDER_M20", "maxOutputTokens": 65536},
+     "gemini-3-flash-agent": {"modelEnum": "MODEL_PLACEHOLDER_M132", "maxOutputTokens": 65536},
+@@ -22,6 +39,28 @@ WIRE_PROFILES: dict[str, dict[str, object]] = {
+     "openai/gpt-oss-120b-maas": {"maxOutputTokens": 65536},
+ }
+
++LOGICAL_TO_WIRE: dict[str, str] = {
++    "gemini-3.7-flash": "gemini-3.7-flash-tiered",
++    "gemini-3.6-flash": "gemini-3.6-flash-tiered",
++}
++
++WIRE_TO_LOGICAL: dict[str, str] = {
++    "gemini-pro-agent": "gemini-3.1-pro",
++    "gemini-3.1-pro-low": "gemini-3.1-pro",
++    "gemini-3.1-pro-high": "gemini-3.1-pro",
++    "gemini-3.5-flash-extra-low": "gemini-3.5-flash",
++    "gemini-3.5-flash-low": "gemini-3.5-flash",
++    "gemini-3-flash-agent": "gemini-3.5-flash",
++    "gemini-3.6-flash-low": "gemini-3.6-flash",
++    "gemini-3.6-flash-medium": "gemini-3.6-flash",
++    "gemini-3.6-flash-high": "gemini-3.6-flash",
++    "gemini-3.6-flash-tiered": "gemini-3.6-flash",
++    "gemini-3.7-flash-tiered": "gemini-3.7-flash",
++    "claude-opus-4-6-thinking": "claude-opus-4-6",
++    "gpt-oss-120b-medium": "gpt-oss-120b",
++    "openai/gpt-oss-120b-maas": "gpt-oss-120b",
++}
++
+
+ def strip_provider_prefix(model: str) -> str:
+     model = (model or "").strip()
+@@ -32,9 +71,45 @@ def normalize_model_id(model: str) -> str:
+     model = (model or "").strip()
+     if not model:
+         return DEFAULT_MODEL
+-    if "/" not in model:
+-        return f"{ANTIGRAVITY_PREFIX}{model}"
+-    return model
++    return strip_provider_prefix(model)
++
++
++def logical_model_id(model: str) -> str | None:
++    """Convert an Antigravity wire/catalog ID to a picker-facing model ID.
++
++    ``fetchAvailableModels`` returns route variants (for example
++    ``gemini-3.7-flash-tiered``), while Hermes should expose one stable logical
++    model choice (``google-antigravity/gemini-3.7-flash``). Internal tab/chat
++    and image-only entries are excluded from the chat picker.
++    """
++    bare = strip_provider_prefix(model)
++    if not bare or bare.startswith(("chat_", "tab_")) or "image" in bare:
++        return None
++    bare = WIRE_TO_LOGICAL.get(bare, bare)
++    flash = re.fullmatch(
++        r"(gemini-\d+(?:\.\d+)?-flash)(?:-(?:extra-low|low|medium|high|tiered|thinking|agent))?",
++        bare,
++    )
++    pro = re.fullmatch(
++        r"(gemini-\d+(?:\.\d+)?-pro)(?:-(?:low|medium|high|thinking|agent))?",
++        bare,
++    )
++    claude = re.fullmatch(
++        r"(claude-(?:sonnet|opus)-\d+-\d+)(?:-thinking)?",
++        bare,
++    )
++    if flash:
++        bare = flash.group(1)
++    elif pro:
++        bare = pro.group(1)
++    elif claude:
++        bare = claude.group(1)
++    elif bare.startswith("gpt-oss-"):
++        bare = WIRE_TO_LOGICAL.get(bare, bare)
++    if not bare.startswith(("gemini-", "claude-")) and not bare.startswith("gpt-oss-"):
++        return None
++    return bare
++
+
+
+ def _effort(effort: str | None) -> str:
+@@ -53,6 +128,8 @@ def _effort(effort: str | None) -> str:
+ def clamp_reasoning_effort(model: str, reasoning_effort: str | None = None) -> str:
+     logical = strip_provider_prefix(normalize_model_id(model))
+     effort = _effort(reasoning_effort)
++    if logical == "gemini-3.8-flash" and effort == "off":
++        return "low"
+     if effort == "off":
+         return "off"
+     if logical == "gemini-3.1-pro":
+@@ -63,6 +140,8 @@ def clamp_reasoning_effort(model: str, reasoning_effort: str | None = None) -> s
+         if effort == "medium":
+             return "medium"
+         return "low"
++    if logical == "gemini-3.8-flash":
++        return effort if effort in {"low", "medium", "high"} else "low"
+     if logical in {"gpt-oss-120b", "openai/gpt-oss-120b-maas"}:
+         return "medium"
+     return effort
+@@ -71,6 +150,8 @@ def clamp_reasoning_effort(model: str, reasoning_effort: str | None = None) -> s
+ def resolve_wire_model_id(model: str, reasoning_effort: str | None = None) -> str:
+     logical = strip_provider_prefix(normalize_model_id(model))
+     effort = clamp_reasoning_effort(model, reasoning_effort)
++    if logical in LOGICAL_TO_WIRE:
++        return LOGICAL_TO_WIRE[logical]
+     if logical == "gemini-3.1-pro":
+         return "gemini-pro-agent" if effort == "high" else "gemini-3.1-pro-low"
+     if logical == "gemini-3.5-flash":
+@@ -79,6 +160,8 @@ def resolve_wire_model_id(model: str, reasoning_effort: str | None = None) -> st
+         if effort == "medium":
+             return "gemini-3.5-flash-low"
+         return "gemini-3.5-flash-extra-low"
++    if logical == "gemini-3.8-flash":
++        return f"gemini-3.8-flash-{effort}"
+     if logical == "claude-opus-4-6":
+         return "claude-opus-4-6-thinking"
+     if logical == "claude-sonnet-4-6":
+diff --git a/src/antigravity_provider/runtime.py b/src/antigravity_provider/runtime.py
+index 3d54cad..c89d655 100644
+--- a/src/antigravity_provider/runtime.py
++++ b/src/antigravity_provider/runtime.py
+@@ -76,6 +76,36 @@ def build_upstream_body(request: ChatRequest, *, store: Any | None = None) -> tu
+     return body, creds
+
+
++def fetch_available_models(
++    *,
++    client: Any | None = None,
++    store: Any | None = None,
++) -> dict[str, Any]:
++    """Fetch the live model entitlement catalog, refreshing OAuth once if needed."""
++    if client is None:
++        client = AntigravityClient()
++    if store is None:
++        store = CredentialStore.default()
++    creds = load_antigravity_credentials(store)
++    try:
++        return client.fetch_available_models(
++            access_token=creds["access_token"],
++            project_id=creds["project_id"],
++        )
++    except TokenExpired:
++        if not creds.get("refresh_token"):
++            raise
++        refreshed = refresh_access_token(creds["refresh_token"])
++        if creds.get("source") == "store":
++            saved = store.load()
++            saved.update(refreshed)
++            store.save(saved)
++        return client.fetch_available_models(
++            access_token=refreshed["access_token"],
++            project_id=creds["project_id"],
++        )
++
++
+ def generate_chat_completion(
+     payload: dict[str, Any],
+     *,
+@@ -139,6 +169,16 @@ def ensure_provider_profile_files(root: Path | None = None) -> Path:
+     plugin_dir = Path(root).expanduser() / "plugins" / "model-providers" / "antigravity"
+     plugin_dir.mkdir(parents=True, exist_ok=True)
+     (plugin_dir / "__init__.py").write_text(
++        "import sys\n"
++        "from pathlib import Path\n"
++        "\n"
++        "# Add the antigravity-provider plugin src to sys.path so the import works\n"
++        "_src = Path(__file__).resolve().parent.parent.parent / \"antigravity-provider\" / \"src\"\n"
++        "if not _src.exists():\n"
++        "    _src = Path.home() / \".hermes\" / \"plugins\" / \"antigravity-provider\" / \"src\"\n"
++        "if str(_src) not in sys.path:\n"
++        "    sys.path.insert(0, str(_src))\n"
++        "\n"
+         "from antigravity_provider.hermes_provider import register_provider_profile\n"
+         "register_provider_profile()\n",
+         encoding="utf-8",
+diff --git a/src/antigravity_provider/transform.py b/src/antigravity_provider/transform.py
+index 2c468cb..bf71d0c 100644
+--- a/src/antigravity_provider/transform.py
++++ b/src/antigravity_provider/transform.py
+@@ -77,7 +77,7 @@ def _parse_args(raw: Any) -> dict[str, Any]:
+     return {}
+
+
+-def _schema(schema: Any) -> dict[str, Any]:
++def _schema(schema: Any, *, claude_compat: bool = False, tool_name: str = "") -> dict[str, Any]:
+     if not isinstance(schema, dict):
+         return {"type": "object", "properties": {}}
+     banned = {"$schema", "$defs", "definitions", "additionalProperties", "patternProperties", "unevaluatedProperties"}
+@@ -91,10 +91,32 @@ def _schema(schema: Any) -> dict[str, Any]:
+     if "type" not in out:
+         out["type"] = "object"
+     out.setdefault("properties", {})
++    # Cloud Code Assist's Claude route rejects the union used by Hermes'
++    # terminal `notify` option (boolean or line-match list), even though it
++    # is valid JSON Schema.  Keep the full schema for Gemini; advertise the
++    # supported boolean form only on Claude so the whole tool list validates.
++    if claude_compat and tool_name == "terminal":
++        properties = out.get("properties")
++        notify = properties.get("notify") if isinstance(properties, dict) else None
++        variants = notify.get("anyOf") if isinstance(notify, dict) else None
++        if isinstance(notify, dict) and isinstance(variants, list):
++            boolean_variant = next(
++                (item for item in variants if isinstance(item, dict) and item.get("type") == "boolean"),
++                None,
++            )
++            array_variant = next(
++                (item for item in variants if isinstance(item, dict) and item.get("type") == "array"),
++                None,
++            )
++            if boolean_variant is not None and array_variant is not None:
++                replacement = dict(boolean_variant)
++                if notify.get("description"):
++                    replacement["description"] = notify["description"]
++                properties["notify"] = replacement
+     return out
+
+
+-def _tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
++def _tools(tools: list[dict[str, Any]], *, claude_compat: bool = False) -> list[dict[str, Any]] | None:
+     declarations = []
+     for tool in tools or []:
+         if not isinstance(tool, dict) or tool.get("type") != "function":
+@@ -106,7 +128,11 @@ def _tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+             {
+                 "name": fn["name"],
+                 "description": fn.get("description") or "",
+-                "parameters": _schema(fn.get("parameters")),
++                "parameters": _schema(
++                    fn.get("parameters"),
++                    claude_compat=claude_compat,
++                    tool_name=str(fn["name"]),
++                ),
+             }
+         )
+     return [{"functionDeclarations": declarations}] if declarations else None
+@@ -190,17 +216,36 @@ def build_generate_content_request(
+                 name = fn.get("name") if isinstance(fn, dict) else None
+                 if not name:
+                     continue
+-                if tool_call.get("id"):
+-                    call_names[str(tool_call["id"])] = name
+-                part = {"functionCall": {"name": name, "args": _parse_args(fn.get("arguments") if isinstance(fn, dict) else None)}}
++                call_id = tool_call.get("id") or tool_call.get("call_id")
++                if call_id:
++                    call_names[str(call_id)] = name
++                function_call = {
++                    "name": name,
++                    "args": _parse_args(fn.get("arguments") if isinstance(fn, dict) else None),
++                }
++                # Cloud Code's Claude adapter translates this part to an
++                # Anthropic tool_use block, which requires a stable ID. Hermes
++                # already persists one on every normal tool call; forward it.
++                if wire_model.startswith("claude-") and call_id:
++                    function_call["id"] = str(call_id)
++                part = {"functionCall": function_call}
+                 if wire_model.startswith("gemini-3") or wire_model.startswith("gemini-pro"):
+                     part["thoughtSignature"] = SKIP_THOUGHT_SIGNATURE
+                 parts.append(part)
+             if parts:
+                 contents.append({"role": "model", "parts": parts})
+         elif role == "tool":
+-            name = msg.get("name") or call_names.get(str(msg.get("tool_call_id") or "")) or "tool"
+-            part = {"functionResponse": {"name": name, "response": {"output": _content_text(msg.get("content"))}}}
++            tool_call_id = str(msg.get("tool_call_id") or "")
++            name = msg.get("name") or call_names.get(tool_call_id) or "tool"
++            function_response = {
++                "name": name,
++                "response": {"output": _content_text(msg.get("content"))},
++            }
++            # Claude's Cloud Code adapter maps this to an Anthropic
++            # tool_result, which must point back to the assistant tool_use ID.
++            if wire_model.startswith("claude-") and tool_call_id:
++                function_response["id"] = tool_call_id
++            part = {"functionResponse": function_response}
+             if contents and contents[-1].get("role") == "user" and any("functionResponse" in p for p in contents[-1].get("parts", [])):
+                 contents[-1]["parts"].append(part)
+             else:
+@@ -211,9 +256,21 @@ def build_generate_content_request(
+
+     profile = WIRE_PROFILES.get(wire_model, {})
+     cap = int(profile.get("maxOutputTokens") or 65535)
++
++    thinking_budget = _thinking_budget(logical, effort)
++    output_tokens = min(max_tokens, cap) if isinstance(max_tokens, int) and max_tokens > 0 else cap
++
++    # Claude on Vertex AI extended thinking invariant: maxOutputTokens must be > thinkingBudget
++    if "claude" in wire_model.lower() or "claude" in logical.lower():
++        if effort != "off":
++            if output_tokens <= thinking_budget:
++                # Guarantee headroom for output text
++                output_tokens = max(output_tokens, thinking_budget + 2048)
++                output_tokens = min(output_tokens, cap)
++
+     generation_config: dict[str, Any] = {
+-        "maxOutputTokens": min(max_tokens, cap) if isinstance(max_tokens, int) and max_tokens > 0 else cap,
+-        "thinkingConfig": {"includeThoughts": effort != "off", "thinkingBudget": _thinking_budget(logical, effort)},
++        "maxOutputTokens": output_tokens,
++        "thinkingConfig": {"includeThoughts": effort != "off", "thinkingBudget": thinking_budget},
+     }
+     if temperature is not None:
+         generation_config["temperature"] = temperature
+@@ -228,7 +285,7 @@ def build_generate_content_request(
+     }
+     if system_parts:
+         request["systemInstruction"] = {"role": "system", "parts": system_parts}
+-    converted_tools = _tools(tools or [])
++    converted_tools = _tools(tools or [], claude_compat=wire_model.startswith("claude-"))
+     if converted_tools:
+         request["tools"] = converted_tools
+     config = _tool_config(tools or [], tool_choice, wire_model)
+diff --git a/tests/test_antigravity_client.py b/tests/test_antigravity_client.py
+index badcf46..4a8c090 100644
+--- a/tests/test_antigravity_client.py
++++ b/tests/test_antigravity_client.py
+@@ -4,8 +4,27 @@ from antigravity_provider.antigravity_client import AntigravityClient
+
+
+ class AntigravityClientTests(unittest.TestCase):
++    def test_fetches_live_model_catalog(self):
++        calls = []
++
++        def fake_post(url, body, headers):
++            calls.append((url, body, headers))
++            return {"models": {"gemini-3.7-flash-tiered": {}}}
++
++        client = AntigravityClient(post_json=fake_post)
++        out = client.fetch_available_models(access_token="tok", project_id="proj")
++        self.assertIn("gemini-3.7-flash-tiered", out["models"])
++        self.assertTrue(calls[0][0].endswith("/v1internal:fetchAvailableModels"))
++        self.assertEqual(calls[0][1], {"project": "proj"})
++        self.assertEqual(calls[0][2]["Authorization"], "Bearer tok")
++        self.assertEqual(
++            calls[0][2]["X-Goog-Api-Client"],
++            "google-cloud-sdk vscode_cloudshelleditor/0.1",
++        )
++
+     def test_posts_with_bearer_token(self):
+         calls = []
++
+         def fake_post(url, body, headers):
+             calls.append((url, body, headers))
+             return {"candidates": [{"content": {"parts": [{"text": "pong"}]}, "finishReason": "STOP"}]}
+diff --git a/tests/test_catalog.py b/tests/test_catalog.py
+new file mode 100644
+index 0000000..bffd28f
+--- /dev/null
++++ b/tests/test_catalog.py
+@@ -0,0 +1,34 @@
++import unittest
++
++from antigravity_provider.catalog import logical_model_ids_from_catalog
++
++
++class LiveCatalogTests(unittest.TestCase):
++    def test_maps_wire_variants_and_deduplicates_families(self):
++        payload = {
++            "models": {
++                "gemini-3.7-flash-tiered": {},
++                "gemini-3.6-flash-low": {},
++                "gemini-3.6-flash-high": {},
++                "claude-opus-4-6-thinking": {},
++                "chat_23310": {},
++                "tab_flash_lite_preview": {},
++                "gemini-3.1-flash-image": {},
++            }
++        }
++        self.assertEqual(
++            logical_model_ids_from_catalog(payload),
++            [
++                "gemini-3.7-flash",
++                "gemini-3.6-flash",
++                "claude-opus-4-6",
++            ],
++        )
++
++    def test_invalid_catalog_is_empty(self):
++        self.assertEqual(logical_model_ids_from_catalog({}), [])
++        self.assertEqual(logical_model_ids_from_catalog({"models": []}), [])
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_cloudcode.py b/tests/test_cloudcode.py
+index de1879e..02e83cf 100644
+--- a/tests/test_cloudcode.py
++++ b/tests/test_cloudcode.py
+@@ -1,6 +1,11 @@
+ import unittest
+
+-from antigravity_provider.cloudcode import load_or_onboard_project, read_default_tier, read_project_id
++from antigravity_provider.cloudcode import (
++    antigravity_user_agent,
++    load_or_onboard_project,
++    read_default_tier,
++    read_project_id,
++)
+
+
+ class CloudCodeTests(unittest.TestCase):
+@@ -13,6 +18,15 @@ class CloudCodeTests(unittest.TestCase):
+         self.assertEqual(read_default_tier([{"id": "free"}, {"id": "pro", "isDefault": True}]), "pro")
+         self.assertEqual(read_default_tier([]), "legacy-tier")
+
++    def test_user_agent_defaults_to_current_supported_desktop_release(self):
++        import os
++        previous = os.environ.pop("PI_AI_ANTIGRAVITY_VERSION", None)
++        try:
++            self.assertIn("antigravity/hub/2.11.0", antigravity_user_agent())
++        finally:
++            if previous is not None:
++                os.environ["PI_AI_ANTIGRAVITY_VERSION"] = previous
++
+     def test_onboards_when_no_project(self):
+         calls = []
+         def fake_post(url, body, headers):
+diff --git a/tests/test_hermes_plugin.py b/tests/test_hermes_plugin.py
+index fd1ff2e..35222c5 100644
+--- a/tests/test_hermes_plugin.py
++++ b/tests/test_hermes_plugin.py
+@@ -9,11 +9,19 @@ from antigravity_provider.runtime import ensure_provider_profile_files, openai_c
+ class FakeCtx:
+     def __init__(self):
+         self.cli = {}
++        self.commands = {}
++        self.hooks = {}
+         self.middleware = []
+
+     def register_cli_command(self, **kwargs):
+         self.cli[kwargs["name"]] = kwargs
+
++    def register_command(self, name, handler, description, args_hint):
++        self.commands[name] = {"handler": handler, "description": description, "args_hint": args_hint}
++
++    def register_hook(self, event, callback):
++        self.hooks.setdefault(event, []).append(callback)
++
+     def register_middleware(self, kind, callback):
+         self.middleware.append((kind, callback))
+
+@@ -23,8 +31,35 @@ class HermesPluginTests(unittest.TestCase):
+         ctx = FakeCtx()
+         plugin.register(ctx)
+         self.assertIn("agy", ctx.cli)
++        self.assertIn("agy", ctx.commands)
++        self.assertIn("pre_gateway_dispatch", ctx.hooks)
+         self.assertEqual(ctx.middleware[0][0], "llm_execution")
+
++    def test_rewrite_usage_command(self):
++        class DummyEvent:
++            def __init__(self, text):
++                self.text = text
++
++        self.assertEqual(plugin._rewrite_usage_command(DummyEvent("/usage agy")), {"action": "rewrite", "text": "/agy quota"})
++        self.assertEqual(plugin._rewrite_usage_command(DummyEvent("/usage antigravity")), {"action": "rewrite", "text": "/agy quota"})
++        self.assertIsNone(plugin._rewrite_usage_command(DummyEvent("/usage")))
++        self.assertIsNone(plugin._rewrite_usage_command(DummyEvent("/usage reset")))
++
++    def test_format_quota_markdown(self):
++        raw = {
++            "gemini-3.7-flash-tiered": {
++                "quotaInfo": {
++                    "remainingFraction": 0.85,
++                    "resetTime": "2026-08-30T17:22:50Z"
++                }
++            }
++        }
++        res = plugin._format_quota_markdown(raw)
++        self.assertIn("Gemini 3.7 Flash", res)
++        self.assertIn("`85.0%` baki", res)
++        self.assertIn("(15.0% used)", res)
++        self.assertIn("MYT", res)
++
+     def test_middleware_passthrough_for_other_provider(self):
+         seen = []
+         out = plugin.antigravity_llm_execution(provider="openai", request={"model": "x"}, next_call=lambda req: seen.append(req) or "ok")
+diff --git a/tests/test_models.py b/tests/test_models.py
+index bd92656..a4cb8d4 100644
+--- a/tests/test_models.py
++++ b/tests/test_models.py
+@@ -1,11 +1,19 @@
+ import unittest
+
+-from antigravity_provider.models import KNOWN_MODELS, clamp_reasoning_effort, normalize_model_id, resolve_wire_model_id
++from antigravity_provider.models import (
++    KNOWN_MODELS,
++    WIRE_PROFILES,
++    clamp_reasoning_effort,
++    logical_model_id,
++    normalize_model_id,
++    resolve_wire_model_id,
++)
+
+
+ class ModelCatalogTests(unittest.TestCase):
+     def test_normalizes_bare_model(self):
+-        self.assertEqual(normalize_model_id("gemini-3.1-pro"), "google-antigravity/gemini-3.1-pro")
++        self.assertEqual(normalize_model_id("gemini-3.1-pro"), "gemini-3.1-pro")
++        self.assertEqual(normalize_model_id("google-antigravity/gemini-3.1-pro"), "gemini-3.1-pro")
+
+     def test_routes_pro_high_to_working_agent_wire_id(self):
+         self.assertEqual(resolve_wire_model_id("google-antigravity/gemini-3.1-pro", "high"), "gemini-pro-agent")
+@@ -20,8 +28,55 @@ class ModelCatalogTests(unittest.TestCase):
+         self.assertEqual(resolve_wire_model_id("google-antigravity/gemini-3.5-flash", "medium"), "gemini-3.5-flash-low")
+         self.assertEqual(resolve_wire_model_id("google-antigravity/gemini-3.5-flash", "xhigh"), "gemini-3-flash-agent")
+
+-    def test_includes_gpt_oss_120b_medium(self):
+-        self.assertIn("google-antigravity/gpt-oss-120b", KNOWN_MODELS)
++    def test_routes_gemini_37_flash_to_live_tiered_wire_id(self):
++        self.assertEqual(
++            resolve_wire_model_id("google-antigravity/gemini-3.7-flash", "low"),
++            "gemini-3.7-flash-tiered",
++        )
++
++    def test_routes_gemini_38_flash_to_live_reasoning_wire_variants(self):
++        self.assertEqual(
++            resolve_wire_model_id("google-antigravity/gemini-3.8-flash", "minimal"),
++            "gemini-3.8-flash-low",
++        )
++        self.assertEqual(
++            resolve_wire_model_id("google-antigravity/gemini-3.8-flash", "off"),
++            "gemini-3.8-flash-low",
++        )
++        self.assertEqual(
++            resolve_wire_model_id("google-antigravity/gemini-3.8-flash", "medium"),
++            "gemini-3.8-flash-medium",
++        )
++        self.assertEqual(
++            resolve_wire_model_id("google-antigravity/gemini-3.8-flash", "high"),
++            "gemini-3.8-flash-high",
++        )
++
++    def test_gemini_38_flash_has_documented_output_cap_on_every_live_wire_variant(self):
++        self.assertEqual(KNOWN_MODELS["gemini-3.8-flash"], 65536)
++        for wire_id in (
++            "gemini-3.8-flash-low",
++            "gemini-3.8-flash-medium",
++            "gemini-3.8-flash-high",
++        ):
++            self.assertEqual(WIRE_PROFILES[wire_id]["maxOutputTokens"], 65536)
++
++    def test_normalizes_live_wire_variants_to_logical_picker_ids(self):
++        self.assertEqual(
++            logical_model_id("gemini-3.7-flash-tiered"),
++            "gemini-3.7-flash",
++        )
++        self.assertEqual(
++            logical_model_id("gemini-3.6-flash-high"),
++            "gemini-3.6-flash",
++        )
++        self.assertIsNone(logical_model_id("chat_23310"))
++        self.assertIsNone(logical_model_id("gemini-3.1-flash-image"))
++
++    def test_includes_current_gemini_flash_models(self):
++        self.assertIn("gemini-3.7-flash", KNOWN_MODELS)
++        self.assertIn("gemini-3.6-flash", KNOWN_MODELS)
++        self.assertIn("gpt-oss-120b", KNOWN_MODELS)
+         self.assertEqual(clamp_reasoning_effort("google-antigravity/gpt-oss-120b", "high"), "medium")
+         self.assertEqual(resolve_wire_model_id("google-antigravity/gpt-oss-120b", "high"), "openai/gpt-oss-120b-maas")
+
+diff --git a/tests/test_openai_compat.py b/tests/test_openai_compat.py
+index 54478fd..47ea6df 100644
+--- a/tests/test_openai_compat.py
++++ b/tests/test_openai_compat.py
+@@ -10,7 +10,7 @@ class OpenAICompatTests(unittest.TestCase):
+             "reasoning_effort": "high",
+             "messages": [{"role": "user", "content": "ping"}],
+         })
+-        self.assertEqual(req.model, "google-antigravity/gemini-3.1-pro")
++        self.assertEqual(req.model, "gemini-3.1-pro")
+         self.assertEqual(req.reasoning_effort, "high")
+         self.assertEqual(req.messages[0]["content"], "ping")
+
+diff --git a/tests/test_picker_catalog.py b/tests/test_picker_catalog.py
+new file mode 100644
+index 0000000..23dd5bb
+--- /dev/null
++++ b/tests/test_picker_catalog.py
+@@ -0,0 +1,20 @@
++from unittest.mock import patch
++
++from antigravity_provider.hermes_provider import fetch_picker_model_ids
++
++
++def test_picker_catalog_uses_live_models_and_dedupes_wire_variants():
++    raw = {
++        "models": {
++            "gemini-3.7-flash-tiered": {},
++            "gemini-3.7-flash": {},
++            "gemini-2.5-pro": {},
++            "chat_internal": {},
++        }
++    }
++    with patch("antigravity_provider.runtime.fetch_available_models", return_value=raw):
++        assert fetch_picker_model_ids() == [
++            "gemini-3.7-flash",
++            "gemini-2.5-pro",
++            "gemini-3.8-flash",
++        ]
+diff --git a/tests/test_transform.py b/tests/test_transform.py
+index fe55ba4..7add485 100644
+--- a/tests/test_transform.py
++++ b/tests/test_transform.py
+@@ -56,6 +56,97 @@ class TransformTests(unittest.TestCase):
+         self.assertEqual(body["model"], "openai/gpt-oss-120b-maas")
+         self.assertEqual(body["request"]["generationConfig"]["thinkingConfig"]["thinkingBudget"], 8192)
+
++    def test_claude_tool_schema_flattens_terminal_notify_union(self):
++        body = build_generate_content_request(
++            model="claude-sonnet-4-6",
++            project_id="p",
++            messages=[{"role": "user", "content": "run a command"}],
++            tools=[{
++                "type": "function",
++                "function": {
++                    "name": "terminal",
++                    "description": "Run a command",
++                    "parameters": {
++                        "type": "object",
++                        "properties": {
++                            "command": {"type": "string"},
++                            "notify": {
++                                "description": "Notify on completion or matching lines",
++                                "anyOf": [
++                                    {"type": "boolean"},
++                                    {"type": "array", "items": {"type": "string"}},
++                                ],
++                            },
++                        },
++                        "required": ["command"],
++                    },
++                },
++            }],
++            reasoning_effort="off",
++        )
++        schema = body["request"]["tools"][0]["functionDeclarations"][0]["parameters"]
++        notify = schema["properties"]["notify"]
++        self.assertEqual(notify["type"], "boolean")
++        self.assertNotIn("anyOf", notify)
++
++    def test_gemini_tool_schema_keeps_terminal_notify_union(self):
++        body = build_generate_content_request(
++            model="gemini-3.7-flash",
++            project_id="p",
++            messages=[{"role": "user", "content": "run a command"}],
++            tools=[{
++                "type": "function",
++                "function": {
++                    "name": "terminal",
++                    "description": "Run a command",
++                    "parameters": {
++                        "type": "object",
++                        "properties": {
++                            "notify": {
++                                "anyOf": [
++                                    {"type": "boolean"},
++                                    {"type": "array", "items": {"type": "string"}},
++                                ],
++                            },
++                        },
++                    },
++                },
++            }],
++            reasoning_effort="off",
++        )
++        notify = body["request"]["tools"][0]["functionDeclarations"][0]["parameters"]["properties"]["notify"]
++        self.assertIn("anyOf", notify)
++
++    def test_claude_tool_history_preserves_tool_call_id(self):
++        body = build_generate_content_request(
++            model="claude-sonnet-4-6",
++            project_id="p",
++            messages=[
++                {"role": "user", "content": "Use the tool."},
++                {
++                    "role": "assistant",
++                    "tool_calls": [{
++                        "id": "call_history_123",
++                        "type": "function",
++                        "function": {"name": "get_time", "arguments": "{}"},
++                    }],
++                },
++                {"role": "tool", "tool_call_id": "call_history_123", "content": '{"time":"12:00"}'},
++            ],
++            tools=[{
++                "type": "function",
++                "function": {
++                    "name": "get_time",
++                    "parameters": {"type": "object", "properties": {}},
++                },
++            }],
++            reasoning_effort="off",
++        )
++        function_call = body["request"]["contents"][1]["parts"][0]["functionCall"]
++        function_response = body["request"]["contents"][2]["parts"][0]["functionResponse"]
++        self.assertEqual(function_call["id"], "call_history_123")
++        self.assertEqual(function_response["id"], "call_history_123")
++
+
+ if __name__ == "__main__":
+     unittest.main()

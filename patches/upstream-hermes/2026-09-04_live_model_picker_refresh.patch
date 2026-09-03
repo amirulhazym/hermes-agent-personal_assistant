@@ -1,0 +1,71 @@
+diff --git a/gateway/slash_commands.py b/gateway/slash_commands.py
+index 001d6b7469..4650d0b1da 100644
+--- a/gateway/slash_commands.py
++++ b/gateway/slash_commands.py
+@@ -1873,6 +1873,7 @@ class GatewaySlashCommandsMixin:
+                         custom_providers=custom_provs,
+                         max_models=50,
+                         include_moa=True,
++                        refresh=True,
+                         excluded_providers=excluded_provs,
+                     )
+                 except Exception:
+diff --git a/hermes_cli/model_switch.py b/hermes_cli/model_switch.py
+index 959e0ce8cd..d1f5689c00 100644
+--- a/hermes_cli/model_switch.py
++++ b/hermes_cli/model_switch.py
+@@ -3932,6 +3932,7 @@ def list_picker_providers(
+     current_model: str = "",
+     include_moa: bool = False,
+     excluded_providers: list | None = None,
++    refresh: bool = False,
+ ) -> List[dict]:
+     """Interactive-picker variant of :func:`list_authenticated_providers`.
+
+@@ -3962,6 +3963,7 @@ def list_picker_providers(
+         max_models=max_models,
+         current_model=current_model,
+         for_picker=True,
++        refresh=refresh,
+         excluded_providers=excluded_providers,
+     )
+     if include_moa:
+diff --git a/tests/gateway/test_model_command_async_offload.py b/tests/gateway/test_model_command_async_offload.py
+index c08e4b53f1..c8e992d862 100644
+--- a/tests/gateway/test_model_command_async_offload.py
++++ b/tests/gateway/test_model_command_async_offload.py
+@@ -115,7 +115,10 @@ async def test_picker_path_offloads_list_picker_providers(_isolated_config, monk
+     fake_providers = [{"slug": "openrouter", "name": "OpenRouter", "is_current": True,
+                        "models": ["gpt-x"], "total_models": 1}]
+
++    captured_picker_kwargs = {}
++
+     def _fake_list_picker_providers(**kwargs):
++        captured_picker_kwargs.update(kwargs)
+         return fake_providers
+
+     monkeypatch.setattr(
+@@ -138,5 +141,6 @@ async def test_picker_path_offloads_list_picker_providers(_isolated_config, monk
+         "list_picker_providers must be dispatched via asyncio.to_thread "
+         "(it was called inline on the event loop instead)"
+     )
++    assert captured_picker_kwargs["refresh"] is True
+
+
+diff --git a/tests/hermes_cli/test_list_picker_providers.py b/tests/hermes_cli/test_list_picker_providers.py
+index 508868c098..6360b042c8 100644
+--- a/tests/hermes_cli/test_list_picker_providers.py
++++ b/tests/hermes_cli/test_list_picker_providers.py
+@@ -82,6 +82,7 @@ def test_passthrough_kwargs_to_base(monkeypatch):
+         user_providers={"foo": {"api": "http://x"}},
+         custom_providers=[{"name": "bar", "base_url": "http://y"}],
+         max_models=12,
++        refresh=True,
+     )
+
+     assert captured["current_provider"] == "openrouter"
+@@ -90,6 +91,7 @@ def test_passthrough_kwargs_to_base(monkeypatch):
+     assert captured["user_providers"] == {"foo": {"api": "http://x"}}
+     assert captured["custom_providers"] == [{"name": "bar", "base_url": "http://y"}]
+     assert captured["max_models"] == 12
++    assert captured["refresh"] is True
