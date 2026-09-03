@@ -1,0 +1,4 @@
+name: git-workflow-guard
+version: 1.0.0
+description: "Deterministic pre_tool_call guard enforcing one personal Hermes development repository and preventing direct live runtime mutation"
+author: amirulhazym
