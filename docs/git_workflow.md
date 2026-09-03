@@ -59,7 +59,7 @@ GitHub PR (hermes-live → main)
 cd ~/
 git clone https://github.com/amirulhazym/hermes-agent-personal_assistant.git mjay
 cd mjay
-git config user.email "hermes@amirulhazym.framer.ai"
+git config user.email "hermes[at]local"
 git config user.name "Hermes Agent (VPS)"
 git checkout -b hermes-live
 
