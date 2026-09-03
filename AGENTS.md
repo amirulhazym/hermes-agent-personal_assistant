@@ -40,6 +40,15 @@ Evidence labels must identify provenance:
 
 **Hard Invariant:** All code modifications, bug fixes, testing, and branch creation MUST take place exclusively in `/home/ubuntu/hermes-agent-personal_assistant-work`.
 
+### Authoritative Git Workflow Rules (One Repository SSOT)
+1. **One Sole Personal Development Repository:** `/home/ubuntu/hermes-agent-personal_assistant-work` is the ONE and ONLY personal development repository for this Hermes system. All personal code, tests, integrations, patches, deployment logic, and versioned customizations belong here.
+2. **No Arbitrary Repos, Workspaces, or Worktrees:** Never execute `git init` to create another personal repo, `git clone` to build another personal development workspace, or `git worktree add` unless explicitly requested by the owner.
+3. **Main-Branch Lifecycle:** Normal personal development stays on `main`. Do not create arbitrary feature branches (`git checkout -b`, `git switch -c`, `git branch <name>`).
+4. **Protected Publication Exception:** Temporary publication branches (`nightly/publication-*`) are strictly reserved for the automated, deterministic protected-main publication executor and must be automatically pruned after merge or cleanup.
+5. **Dependencies Are Not Publication Targets:** External Git checkouts (`~/.hermes/hermes-agent`, `~/.hermes/plugins/antigravity-provider`, etc.) are runtime dependencies only. Never treat them as personal development repos or publication targets.
+6. **Provenance First:** Any required customization to a dependency must have authoritative source/patch representation in the personal repo before the task is complete. Direct live editing without representation is forbidden.
+7. **Task Completion Contract:** A code task is never Git-complete while personal changes remain uncommitted/unpushed or stale temporary branches/worktrees remain.
+
 ## 3. Owner-ratified source-preservation rule
 
 Every intentional human-authored Hermes customization created or changed on
