@@ -1065,7 +1065,11 @@ def _human_report(result: dict[str, Any]) -> str:
     if result.get("daily_delta", {}).get("commits"):
         lines.append(f"- Delta MYT hari ini mengandungi {len(result['daily_delta']['commits'])} commit.")
     lines.extend(["", "Healthy:"])
-    healthy = [name.replace("_", " ") for name, gate in result.get("gates", {}).items() if gate.get("status") == "PASS"]
+    healthy = [
+        name.replace("_", " ")
+        for name, gate in result.get("gates", {}).items()
+        if (gate.get("status") if isinstance(gate, dict) else gate) == "PASS"
+    ]
     lines.extend(f"- ✅ {name} passed." for name in healthy)
     if not healthy:
         lines.append("- Tiada tapisan kualiti/keselamatan direkodkan sebagai lulus.")
