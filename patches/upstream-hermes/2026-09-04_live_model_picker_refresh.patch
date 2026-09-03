@@ -21,7 +21,7 @@ index 959e0ce8cd..d1f5689c00 100644
 +    refresh: bool = False,
  ) -> List[dict]:
      """Interactive-picker variant of :func:`list_authenticated_providers`.
-
+ 
 @@ -3962,6 +3963,7 @@ def list_picker_providers(
          max_models=max_models,
          current_model=current_model,
@@ -37,21 +37,21 @@ index c08e4b53f1..c8e992d862 100644
 @@ -115,7 +115,10 @@ async def test_picker_path_offloads_list_picker_providers(_isolated_config, monk
      fake_providers = [{"slug": "openrouter", "name": "OpenRouter", "is_current": True,
                         "models": ["gpt-x"], "total_models": 1}]
-
+ 
 +    captured_picker_kwargs = {}
 +
      def _fake_list_picker_providers(**kwargs):
 +        captured_picker_kwargs.update(kwargs)
          return fake_providers
-
+ 
      monkeypatch.setattr(
 @@ -138,5 +141,6 @@ async def test_picker_path_offloads_list_picker_providers(_isolated_config, monk
          "list_picker_providers must be dispatched via asyncio.to_thread "
          "(it was called inline on the event loop instead)"
      )
 +    assert captured_picker_kwargs["refresh"] is True
-
-
+ 
+ 
 diff --git a/tests/hermes_cli/test_list_picker_providers.py b/tests/hermes_cli/test_list_picker_providers.py
 index 508868c098..6360b042c8 100644
 --- a/tests/hermes_cli/test_list_picker_providers.py
@@ -62,10 +62,13 @@ index 508868c098..6360b042c8 100644
          max_models=12,
 +        refresh=True,
      )
-
+ 
      assert captured["current_provider"] == "openrouter"
 @@ -90,6 +91,7 @@ def test_passthrough_kwargs_to_base(monkeypatch):
      assert captured["user_providers"] == {"foo": {"api": "http://x"}}
      assert captured["custom_providers"] == [{"name": "bar", "base_url": "http://y"}]
      assert captured["max_models"] == 12
 +    assert captured["refresh"] is True
+ 
+ 
+ 
