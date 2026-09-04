@@ -210,8 +210,12 @@ def format_report(report: dict) -> str:
     lines.append(f"Date-to-Date (%): {report['overall_compliance']}%")
     lines.append("")
     
+    # Chronological slot ordering for display (A 06:00, B 08:00, C 12:00, F 14:00, D 16:00, E 20:00)
+    slot_times = {"A": "06:00", "B": "08:00", "C": "12:00", "D": "16:00", "E": "20:00", "F": "14:00"}
+    display_slots = sorted(SLOTS, key=lambda s: slot_times.get(s, "00:00"))
+
     # Per-slot
-    for slot in SLOTS:
+    for slot in display_slots:
         stats = report["slot_stats"].get(slot, {})
         taken = stats.get("taken", 0)
         partial = stats.get("partial", 0)
@@ -234,7 +238,13 @@ def format_report(report: dict) -> str:
         today_str = now.strftime("%d/%m/%Y")
         parts = []
         t = report["today"]
-        for slot in SLOTS:
+        freq = report.get("taper", {}).get("freq", "TDS") if report.get("taper") else "TDS"
+        taper_data = load_json(TAPER_FILE)
+        active_slots_today = set(taper_data.get("active_slots_by_freq", {}).get(freq, display_slots))
+
+        for slot in display_slots:
+            if slot not in active_slots_today:
+                continue
             s = t.get(slot, {}).get("status", "")
             if s == "completed":
                 emoji = "✅"
