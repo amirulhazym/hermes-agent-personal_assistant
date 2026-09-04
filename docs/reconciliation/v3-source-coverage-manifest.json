@@ -2714,7 +2714,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "skills/operator/hermes-git-pr-flow/SKILL.md",
-      "source_sha256": "041906f874ca0a1a0013ce9c4e1038c6433b355e4ef23745247ea25e9bf86db8"
+      "source_sha256": "c298f9d32c22f952e9e545792f20afff3d4f0c03c981898d1182546d2ce73081"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/operator/hermes-live-audit/SKILL.md",
