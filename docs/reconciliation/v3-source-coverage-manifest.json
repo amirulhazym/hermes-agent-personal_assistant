@@ -314,7 +314,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "hermes_cli/models.py",
-      "source_sha256": "ce40e5488b65375a6f1aaec7d195db1ed7fe020a5ef241e7ba02310e38a8f245"
+      "source_sha256": "74cde2c10357a71306fdd515f22b1fda681e1b9b278baa7a047c121210b0ee41"
     },
     {
       "destination": null,
@@ -572,7 +572,7 @@
       "destination": "/home/ubuntu/.hermes/plugins/model-providers/opencode-zen/__init__.py",
       "kind": "runtime-deploy",
       "source": "plugins/model-providers/opencode-zen/__init__.py",
-      "source_sha256": "24d0f2c3b0f4b4ca2cf56fd56871c386644d23f82df83a859057c6cdce80427d"
+      "source_sha256": "2862b9ff8bc25ca0b00bb6f52aa68dd5f10b15682a7e86202cfa68e06ed225fa"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/model-providers/openrouter/__init__.py",
