@@ -37,18 +37,14 @@ COPILOT_REASONING_EFFORTS_O_SERIES = ["low", "medium", "high"]
 # decision, not an implementer fix. Do not edit without explicit
 # user instruction.
 D8_OPENCODE_ZEN_FREE_MODELS: tuple[str, ...] = (
-    # deepseek-v4-flash-free: DOWN upstream 2026-08-24 — HTTP 400 "Model is
-    # unavailable" on every request shape (plain/stream/reasoning_effort),
-    # live-probed twice. STILL listed in live /v1/models (19 entries), so this
-    # is an outage, not deprecation. Re-add when upstream recovers.
-    "mimo-v2.5-free",
-    # laguna-s-2.1-free: verified 200 OK 2026-08-24.
-    "laguna-s-2.1-free",
-    # big-pickle: in live catalog; probe hit FreeUsageLimitError 429 on
-    # 2026-08-24 (same class as mimo) — kept, availability is transient.
+    "muse-spark-1.3-contributor-free",
+    "muse-spark-1.2-contributor-free",
+    "nemotron-3.5-lightning-free",
     "big-pickle",
-    # ling-3.0-flash-free REMOVED 2026-08-24: HTTP 401 "Model is not
-    # supported" AND absent from live /v1/models — dead upstream.
+    "mimo-v2.5-free",
+    "ling-3.0-flash-fin-free",
+    "nemotron-3-ultra-free",
+    "laguna-s-2.1-free",
 )
 
 # Model IDs that are legacy aliases, deprecated upstream (removed from the
@@ -60,6 +56,28 @@ D8_OPENCODE_ZEN_FREE_MODELS: tuple[str, ...] = (
 # deepseek-v4-flash, but no longer appear in /v1/models).
 _DEPRECATED_MODEL_ALIASES: dict[str, frozenset[str]] = {
     "deepseek": frozenset({"deepseek-chat", "deepseek-reasoner"}),
+    "opencode-zen": frozenset({
+        "deepseek-v4-flash-free",
+        "x-preview-f-free",
+        "hy3-free",
+        "gpt-5.2-codex",
+        "gpt-5.1-codex",
+        "gpt-5.1-codex-max",
+        "gpt-5.1-codex-mini",
+        "gpt-5-codex",
+        "claude-opus-4.1",
+        "claude-sonnet-4",
+        "claude-haiku-3.5",
+        "gemini-3-pro",
+        "minimax-m2.5",
+        "minimax-m2.1",
+        "glm-5",
+        "glm-4.7",
+        "glm-4.6",
+        "kimi-k2.5",
+        "kimi-k2-thinking",
+        "kimi-k2",
+    }),
 }
 
 
