@@ -1,5 +1,5 @@
 diff --git a/src/antigravity_provider/antigravity_client.py b/src/antigravity_provider/antigravity_client.py
-index 8d5dd84..5f3732a 100644
+index 8d5dd8465fe590fd9894a9a9a5419e6bd6949726..5f3732a4939b2de5975a27a77d856ea1105acaeb 100644
 --- a/src/antigravity_provider/antigravity_client.py
 +++ b/src/antigravity_provider/antigravity_client.py
 @@ -12,7 +12,12 @@ ANTIGRAVITY_ENDPOINTS = [
@@ -12,13 +12,13 @@ index 8d5dd84..5f3732a 100644
 +]
  STREAM_PATH = "/v1internal:streamGenerateContent?alt=sse"
 +MODEL_CATALOG_PATH = "/v1internal:fetchAvailableModels"
-
-
+ 
+ 
  def _sse_json_lines(response: Iterable[bytes]) -> Iterable[dict[str, Any]]:
 @@ -64,6 +69,53 @@ class AntigravityClient:
              "User-Agent": antigravity_user_agent(),
          }
-
+ 
 +    def fetch_available_models(
 +        self,
 +        *,
@@ -71,7 +71,7 @@ index 8d5dd84..5f3732a 100644
          headers = self._headers(access_token)
 diff --git a/src/antigravity_provider/catalog.py b/src/antigravity_provider/catalog.py
 new file mode 100644
-index 0000000..39d7bbf
+index 0000000000000000000000000000000000000000..39d7bbf13fc1b96a49fb47e7c2a19187c24557c4
 --- /dev/null
 +++ b/src/antigravity_provider/catalog.py
 @@ -0,0 +1,23 @@
@@ -99,12 +99,12 @@ index 0000000..39d7bbf
 +            result.append(logical)
 +    return result
 diff --git a/src/antigravity_provider/cloudcode.py b/src/antigravity_provider/cloudcode.py
-index 2d432f1..52a3877 100644
+index 2d432f196e93031f9ffddd401bfee4e492d43123..52a38777c7c3e5d849bfad94ceaada12f694a9d5 100644
 --- a/src/antigravity_provider/cloudcode.py
 +++ b/src/antigravity_provider/cloudcode.py
 @@ -22,7 +22,7 @@ PROJECT_ONBOARD_INTERVAL_SECONDS = 2
-
-
+ 
+ 
  def antigravity_user_agent() -> str:
 -    version = os.getenv("PI_AI_ANTIGRAVITY_VERSION") or "2.1.4"
 +    version = os.getenv("PI_AI_ANTIGRAVITY_VERSION") or "2.11.0"
@@ -112,16 +112,16 @@ index 2d432f1..52a3877 100644
      os_name = "windows" if system.startswith("win") else ("darwin" if system == "darwin" else system or "linux")
      machine = platform.machine().lower()
 diff --git a/src/antigravity_provider/hermes_plugin.py b/src/antigravity_provider/hermes_plugin.py
-index 1dfed59..237fb60 100644
+index 1dfed598a228219417adc179bf3de3ed82064663..18ff193ab71a3c79aa36fbcd3ea0229a27287e40 100644
 --- a/src/antigravity_provider/hermes_plugin.py
 +++ b/src/antigravity_provider/hermes_plugin.py
 @@ -1,9 +1,18 @@
  from __future__ import annotations
-
+ 
  import argparse
 +import re
  from typing import Any
-
+ 
 -from .hermes_provider import DEFAULT_MODEL, PLACEHOLDER_API_KEY, PLACEHOLDER_API_KEY_ENV, PROVIDER_NAME, register_provider_profile
 +from .hermes_provider import (
 +    DEFAULT_MODEL,
@@ -133,16 +133,16 @@ index 1dfed59..237fb60 100644
 +)
 +from .models import KNOWN_MODELS
  from .runtime import ensure_provider_profile_files, generate_chat_completion, openai_completion_object
-
-
+ 
+ 
 @@ -64,15 +73,44 @@ def _setup_cli(parser: argparse.ArgumentParser) -> None:
      select.add_argument("model", nargs="?", default=DEFAULT_MODEL)
-
+ 
      sub.add_parser("status", help="show credential status")
 +    sub.add_parser("quota", help="show live account quota and reset times")
      sub.add_parser("logout", help="remove saved browser OAuth credentials")
-
-
+ 
+ 
 +
  def _select_model(model_id: str) -> None:
      try:
@@ -180,7 +180,7 @@ index 1dfed59..237fb60 100644
      model_cfg = config.get("model")
      if not isinstance(model_cfg, dict):
          model_cfg = {"default": model_cfg} if model_cfg else {}
-@@ -123,9 +161,121 @@ def _handle_cli(args: argparse.Namespace) -> None:
+@@ -123,9 +161,143 @@ def _handle_cli(args: argparse.Namespace) -> None:
          CredentialStore.default().delete()
          print("Saved Antigravity browser OAuth credentials removed.")
          return
@@ -223,55 +223,77 @@ index 1dfed59..237fb60 100644
 +            print(f"{label:<20} | {rem_str:<10} | {used_str:<8} | {reset}")
 +        return
      _status()
-
-
+ 
+ 
++
++def _quota_display_name(model_id: str) -> str:
++    normalized = re.sub(r"(?<=\d)-(?=\d(?:-|$))", ".", model_id)
++    if normalized.startswith("gpt-oss-"):
++        return "GPT-OSS " + normalized.removeprefix("gpt-oss-").upper()
++    return " ".join(part.capitalize() for part in normalized.split("-"))
++
 +
 +def _format_quota_markdown(raw_models: dict[str, Any]) -> str:
-+    from datetime import datetime, timezone
-+    myt = timezone(datetime.now().astimezone().utcoffset() or timezone.utc.utcoffset(None))
++    from datetime import datetime
++    from zoneinfo import ZoneInfo
 +
-+    target_keys = [
-+        ("Gemini 3.7 Flash", ("gemini-3.7-flash-tiered", "gemini-3.7-flash")),
-+        ("Gemini 3.6 Flash", ("gemini-3.6-flash-tiered", "gemini-3.6-flash-high", "gemini-3.6-flash")),
-+        ("Gemini 3.1 Pro", ("gemini-3.1-pro-high", "gemini-pro-agent", "gemini-3.1-pro")),
-+        ("Gemini 3.5 Flash", ("gemini-3-flash-agent", "gemini-3.5-flash-low", "gemini-3.5-flash")),
-+        ("Claude Sonnet 4.6", ("claude-sonnet-4-6",)),
-+        ("Claude Opus 4.6", ("claude-opus-4-6-thinking", "claude-opus-4-6")),
-+        ("GPT-OSS 120B", ("openai/gpt-oss-120b-maas", "gpt-oss-120b-medium", "gpt-oss-120b")),
-+    ]
++    from .models import VERIFIED_PICKER_SUPPLEMENTS, logical_model_id
++
++    myt = ZoneInfo("Asia/Kuala_Lumpur")
++
++    def quota_parts(info: dict[str, Any]) -> tuple[str, str, str, tuple[object, object]]:
++        quota_info = info.get("quotaInfo")
++        q = quota_info if isinstance(quota_info, dict) else {}
++        rem = q.get("remainingFraction")
++        reset_raw = q.get("resetTime")
++        if isinstance(rem, (int, float)):
++            rem_str = f"{rem * 100:.1f}%"
++            used_part = f" ({(1.0 - rem) * 100:.1f}% used)"
++        else:
++            rem_str = "N/A"
++            used_part = ""
++        if reset_raw:
++            try:
++                dt = datetime.fromisoformat(str(reset_raw).replace("Z", "+00:00")).astimezone(myt)
++                reset_str = dt.strftime("%d/%m %I:%M %p MYT")
++            except (TypeError, ValueError):
++                reset_str = str(reset_raw)
++        else:
++            reset_str = "N/A"
++        return rem_str, used_part, reset_str
++
++    rows: dict[str, list[tuple[str, dict[str, Any]]]] = {}
++    for wire_id in sorted(raw_models):
++        if not isinstance(wire_id, str):
++            continue
++        logical_id = logical_model_id(wire_id)
++        info = raw_models.get(wire_id)
++        if not logical_id or not isinstance(info, dict):
++            continue
++        rows.setdefault(logical_id, []).append((wire_id, info))
++
 +    lines = [
 +        "📈 **Antigravity Live Account Quota**",
 +        "Provider: `antigravity` (Google Cloud Code Assist)",
 +        "",
 +    ]
-+    for label, wire_keys in target_keys:
-+        info: dict = {}
-+        for k in wire_keys:
-+            if k in raw_models and isinstance(raw_models[k], dict):
-+                info = raw_models[k]
-+                break
-+        q = info.get("quotaInfo") or {}
-+        rem = q.get("remainingFraction")
-+        reset_raw = q.get("resetTime")
-+        if isinstance(rem, (int, float)):
-+            rem_str = f"{rem * 100:.1f}%"
-+            used_str = f"{(1.0 - rem) * 100:.1f}% used"
-+        else:
-+            rem_str = "N/A"
-+            used_str = ""
-+
-+        if reset_raw:
-+            try:
-+                dt = datetime.fromisoformat(reset_raw.replace("Z", "+00:00")).astimezone(myt)
-+                reset_str = dt.strftime("%d/%m %I:%M %p MYT")
-+            except Exception:
-+                reset_str = str(reset_raw)
-+        else:
-+            reset_str = "N/A"
-+
-+        used_part = f" ({used_str})" if used_str else ""
-+        lines.append(f"• **{label}**: `{rem_str}` baki{used_part} • Reset: `{reset_str}`")
-+
++    for logical_id in sorted(rows):
++        variants = rows[logical_id]
++        parts = [(wire_id, *quota_parts(info)) for wire_id, info in variants]
++        signatures = {(rem_str, used_part, reset_str) for _wire_id, rem_str, used_part, reset_str in parts}
++        label = _quota_display_name(logical_id)
++        if len(signatures) == 1:
++            _wire_id, rem_str, used_part, reset_str = parts[0]
++            lines.append(f"• **{label}**: `{rem_str}` baki{used_part} • Reset: `{reset_str}`")
++            continue
++        lines.append(f"• **{label}**: quota varies by route")
++        for wire_id, rem_str, used_part, reset_str in parts:
++            lines.append(f"  • `{wire_id}`: `{rem_str}` baki{used_part} • Reset: `{reset_str}`")
++    for model_id in sorted(VERIFIED_PICKER_SUPPLEMENTS):
++        if model_id not in rows:
++            lines.append(
++                f"• **{_quota_display_name(model_id)}**: quota unavailable — not returned by bound account live catalog"
++            )
 +    return "\n".join(lines)
 +
 +
@@ -302,7 +324,7 @@ index 1dfed59..237fb60 100644
  def register(ctx: Any) -> None:
      register_provider_profile()
      ctx.register_cli_command(
-@@ -135,4 +285,13 @@ def register(ctx: Any) -> None:
+@@ -135,4 +307,13 @@ def register(ctx: Any) -> None:
          setup_fn=_setup_cli,
          handler_fn=_handle_cli,
      )
@@ -317,13 +339,13 @@ index 1dfed59..237fb60 100644
 +        ctx.register_hook("pre_gateway_dispatch", _rewrite_usage_command)
      ctx.register_middleware("llm_execution", antigravity_llm_execution)
 diff --git a/src/antigravity_provider/hermes_provider.py b/src/antigravity_provider/hermes_provider.py
-index 48f5d1b..d188df4 100644
+index 48f5d1b1929f36df9003c5e18ceace9da20c4e25..d188df43aefcb24c8c32fcfbd7b9537d56a454ab 100644
 --- a/src/antigravity_provider/hermes_provider.py
 +++ b/src/antigravity_provider/hermes_provider.py
 @@ -2,7 +2,12 @@ from __future__ import annotations
-
+ 
  from typing import Any
-
+ 
 -from .models import DEFAULT_MODEL, KNOWN_MODELS, clamp_reasoning_effort
 +from .models import (
 +    DEFAULT_MODEL,
@@ -331,13 +353,13 @@ index 48f5d1b..d188df4 100644
 +    VERIFIED_PICKER_SUPPLEMENTS,
 +    clamp_reasoning_effort,
 +)
-
+ 
  PROVIDER_NAME = "antigravity"
  PLACEHOLDER_API_KEY_ENV = "ANTIGRAVITY_HERMES_API_KEY"
 @@ -10,6 +15,31 @@ PLACEHOLDER_API_KEY = "hermes-plugin"
  DUMMY_BASE_URL = "http://127.0.0.1:8765/v1"
-
-
+ 
+ 
 +def fetch_picker_model_ids() -> list[str]:
 +    """Return the live Antigravity catalog as stable logical picker IDs."""
 +    try:
@@ -368,11 +390,11 @@ index 48f5d1b..d188df4 100644
          return None
 @@ -48,12 +78,12 @@ def register_provider_profile() -> bool:
              return KNOWN_MODELS.get(model or "") or KNOWN_MODELS.get(DEFAULT_MODEL)
-
+ 
          def fetch_models(self, **kwargs: Any) -> list[str] | None:
 -            return list(KNOWN_MODELS)
 +            return fetch_picker_model_ids() or list(KNOWN_MODELS)
-
+ 
      register_provider(
          AntigravityProfile(
              name=PROVIDER_NAME,
@@ -382,18 +404,18 @@ index 48f5d1b..d188df4 100644
              description="Google Antigravity via Hermes in-process provider plugin",
              env_vars=(PLACEHOLDER_API_KEY_ENV,),
 diff --git a/src/antigravity_provider/models.py b/src/antigravity_provider/models.py
-index 8a27e22..f1c03f4 100644
+index 8a27e2235a8aaaa8e0ecde360f29f1618ddf4ed6..f1c03f44b1b30797efa447c564649fe7f4571ed3 100644
 --- a/src/antigravity_provider/models.py
 +++ b/src/antigravity_provider/models.py
 @@ -1,17 +1,34 @@
  from __future__ import annotations
-
+ 
 +import re
 +
  ANTIGRAVITY_PREFIX = "google-antigravity/"
 -DEFAULT_MODEL = "google-antigravity/gemini-3.1-pro"
 +DEFAULT_MODEL = "gemini-3.7-flash"
-
+ 
  KNOWN_MODELS: dict[str, int] = {
 -    "google-antigravity/gemini-3.1-pro": 65535,
 -    "google-antigravity/gemini-3.5-flash": 65536,
@@ -410,7 +432,7 @@ index 8a27e22..f1c03f4 100644
 +    "gemini-3-flash": 65536,
 +    "gemini-2.5-flash": 65536,
  }
-
+ 
 +# Cloud Code's live entitlement catalog currently omits this documented,
 +# directly callable Antigravity model. Keep the exception explicit and narrow.
 +VERIFIED_PICKER_SUPPLEMENTS: tuple[str, ...] = (
@@ -429,7 +451,7 @@ index 8a27e22..f1c03f4 100644
 @@ -22,6 +39,28 @@ WIRE_PROFILES: dict[str, dict[str, object]] = {
      "openai/gpt-oss-120b-maas": {"maxOutputTokens": 65536},
  }
-
+ 
 +LOGICAL_TO_WIRE: dict[str, str] = {
 +    "gemini-3.7-flash": "gemini-3.7-flash-tiered",
 +    "gemini-3.6-flash": "gemini-3.6-flash-tiered",
@@ -452,7 +474,7 @@ index 8a27e22..f1c03f4 100644
 +    "openai/gpt-oss-120b-maas": "gpt-oss-120b",
 +}
 +
-
+ 
  def strip_provider_prefix(model: str) -> str:
      model = (model or "").strip()
 @@ -32,9 +71,45 @@ def normalize_model_id(model: str) -> str:
@@ -501,8 +523,8 @@ index 8a27e22..f1c03f4 100644
 +        return None
 +    return bare
 +
-
-
+ 
+ 
  def _effort(effort: str | None) -> str:
 @@ -53,6 +128,8 @@ def _effort(effort: str | None) -> str:
  def clamp_reasoning_effort(model: str, reasoning_effort: str | None = None) -> str:
@@ -541,13 +563,13 @@ index 8a27e22..f1c03f4 100644
          return "claude-opus-4-6-thinking"
      if logical == "claude-sonnet-4-6":
 diff --git a/src/antigravity_provider/runtime.py b/src/antigravity_provider/runtime.py
-index 3d54cad..c89d655 100644
+index 3d54cad23478d8ca0b4e36c24ca497a007a32814..c89d65501ebc43d0a67248a99b89cfda7f3e4cab 100644
 --- a/src/antigravity_provider/runtime.py
 +++ b/src/antigravity_provider/runtime.py
 @@ -76,6 +76,36 @@ def build_upstream_body(request: ChatRequest, *, store: Any | None = None) -> tu
      return body, creds
-
-
+ 
+ 
 +def fetch_available_models(
 +    *,
 +    client: Any | None = None,
@@ -599,13 +621,13 @@ index 3d54cad..c89d655 100644
          "register_provider_profile()\n",
          encoding="utf-8",
 diff --git a/src/antigravity_provider/transform.py b/src/antigravity_provider/transform.py
-index 2c468cb..bf71d0c 100644
+index 2c468cbce7c08ce3f21705ddedaca93db7ae2ea9..bf71d0c657fa57b182cff6e6f81d3396ba7a050e 100644
 --- a/src/antigravity_provider/transform.py
 +++ b/src/antigravity_provider/transform.py
 @@ -77,7 +77,7 @@ def _parse_args(raw: Any) -> dict[str, Any]:
      return {}
-
-
+ 
+ 
 -def _schema(schema: Any) -> dict[str, Any]:
 +def _schema(schema: Any, *, claude_compat: bool = False, tool_name: str = "") -> dict[str, Any]:
      if not isinstance(schema, dict):
@@ -638,8 +660,8 @@ index 2c468cb..bf71d0c 100644
 +                    replacement["description"] = notify["description"]
 +                properties["notify"] = replacement
      return out
-
-
+ 
+ 
 -def _tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
 +def _tools(tools: list[dict[str, Any]], *, claude_compat: bool = False) -> list[dict[str, Any]] | None:
      declarations = []
@@ -701,7 +723,7 @@ index 2c468cb..bf71d0c 100644
                  contents[-1]["parts"].append(part)
              else:
 @@ -211,9 +256,21 @@ def build_generate_content_request(
-
+ 
      profile = WIRE_PROFILES.get(wire_model, {})
      cap = int(profile.get("maxOutputTokens") or 65535)
 +
@@ -734,12 +756,12 @@ index 2c468cb..bf71d0c 100644
          request["tools"] = converted_tools
      config = _tool_config(tools or [], tool_choice, wire_model)
 diff --git a/tests/test_antigravity_client.py b/tests/test_antigravity_client.py
-index badcf46..4a8c090 100644
+index badcf46bae457520ea5ce15de543f1176f3a41fb..4a8c090be7196127c52cc5ab4f221d410541c195 100644
 --- a/tests/test_antigravity_client.py
 +++ b/tests/test_antigravity_client.py
 @@ -4,8 +4,27 @@ from antigravity_provider.antigravity_client import AntigravityClient
-
-
+ 
+ 
  class AntigravityClientTests(unittest.TestCase):
 +    def test_fetches_live_model_catalog(self):
 +        calls = []
@@ -767,7 +789,7 @@ index badcf46..4a8c090 100644
              return {"candidates": [{"content": {"parts": [{"text": "pong"}]}, "finishReason": "STOP"}]}
 diff --git a/tests/test_catalog.py b/tests/test_catalog.py
 new file mode 100644
-index 0000000..bffd28f
+index 0000000000000000000000000000000000000000..bffd28fd3543e52d2f251e54af1035797f2a4697
 --- /dev/null
 +++ b/tests/test_catalog.py
 @@ -0,0 +1,34 @@
@@ -806,12 +828,12 @@ index 0000000..bffd28f
 +if __name__ == "__main__":
 +    unittest.main()
 diff --git a/tests/test_cloudcode.py b/tests/test_cloudcode.py
-index de1879e..02e83cf 100644
+index de1879ef21d6bce4633913948d44a881cf706130..02e83cf95fdb0515917b8b36d762b29de5466a26 100644
 --- a/tests/test_cloudcode.py
 +++ b/tests/test_cloudcode.py
 @@ -1,6 +1,11 @@
  import unittest
-
+ 
 -from antigravity_provider.cloudcode import load_or_onboard_project, read_default_tier, read_project_id
 +from antigravity_provider.cloudcode import (
 +    antigravity_user_agent,
@@ -819,13 +841,13 @@ index de1879e..02e83cf 100644
 +    read_default_tier,
 +    read_project_id,
 +)
-
-
+ 
+ 
  class CloudCodeTests(unittest.TestCase):
 @@ -13,6 +18,15 @@ class CloudCodeTests(unittest.TestCase):
          self.assertEqual(read_default_tier([{"id": "free"}, {"id": "pro", "isDefault": True}]), "pro")
          self.assertEqual(read_default_tier([]), "legacy-tier")
-
+ 
 +    def test_user_agent_defaults_to_current_supported_desktop_release(self):
 +        import os
 +        previous = os.environ.pop("PI_AI_ANTIGRAVITY_VERSION", None)
@@ -839,7 +861,7 @@ index de1879e..02e83cf 100644
          calls = []
          def fake_post(url, body, headers):
 diff --git a/tests/test_hermes_plugin.py b/tests/test_hermes_plugin.py
-index fd1ff2e..35222c5 100644
+index fd1ff2e9320e95332676ecb4d4c8c8b834866e79..66c305e5262038202aef2050df2f64602d3c101b 100644
 --- a/tests/test_hermes_plugin.py
 +++ b/tests/test_hermes_plugin.py
 @@ -9,11 +9,19 @@ from antigravity_provider.runtime import ensure_provider_profile_files, openai_c
@@ -849,10 +871,10 @@ index fd1ff2e..35222c5 100644
 +        self.commands = {}
 +        self.hooks = {}
          self.middleware = []
-
+ 
      def register_cli_command(self, **kwargs):
          self.cli[kwargs["name"]] = kwargs
-
+ 
 +    def register_command(self, name, handler, description, args_hint):
 +        self.commands[name] = {"handler": handler, "description": description, "args_hint": args_hint}
 +
@@ -861,15 +883,15 @@ index fd1ff2e..35222c5 100644
 +
      def register_middleware(self, kind, callback):
          self.middleware.append((kind, callback))
-
-@@ -23,8 +31,35 @@ class HermesPluginTests(unittest.TestCase):
+ 
+@@ -23,8 +31,108 @@ class HermesPluginTests(unittest.TestCase):
          ctx = FakeCtx()
          plugin.register(ctx)
          self.assertIn("agy", ctx.cli)
 +        self.assertIn("agy", ctx.commands)
 +        self.assertIn("pre_gateway_dispatch", ctx.hooks)
          self.assertEqual(ctx.middleware[0][0], "llm_execution")
-
+ 
 +    def test_rewrite_usage_command(self):
 +        class DummyEvent:
 +            def __init__(self, text):
@@ -895,16 +917,89 @@ index fd1ff2e..35222c5 100644
 +        self.assertIn("(15.0% used)", res)
 +        self.assertIn("MYT", res)
 +
++    def test_format_quota_markdown_renders_live_catalog_models(self):
++        raw = {
++            "gemini-3.8-flash-low": {
++                "quotaInfo": {
++                    "remainingFraction": 0.42,
++                    "resetTime": "2026-09-04T21:42:36Z",
++                }
++            },
++            "gemini-9.9-flash-low": {
++                "quotaInfo": {
++                    "remainingFraction": 0.80,
++                    "resetTime": "2026-09-04T21:42:36Z",
++                }
++            },
++        }
++        res = plugin._format_quota_markdown(raw)
++        self.assertIn("**Gemini 3.8 Flash**: `42.0%` baki (58.0% used)", res)
++        self.assertIn("**Gemini 9.9 Flash**: `80.0%` baki (20.0% used)", res)
++
++    def test_format_quota_markdown_marks_unreported_picker_supplement(self):
++        raw = {
++            "gemini-3.7-flash-tiered": {
++                "quotaInfo": {
++                    "remainingFraction": 0.85,
++                    "resetTime": "2026-09-04T21:42:36Z",
++                }
++            }
++        }
++        res = plugin._format_quota_markdown(raw)
++        self.assertIn(
++            "**Gemini 3.8 Flash**: quota unavailable — not returned by bound account live catalog",
++            res,
++        )
++        self.assertNotIn("**Gemini 3.8 Flash**: `", res)
++
++    def test_format_quota_markdown_preserves_variant_quota_truth(self):
++        equal_routes = {
++            "gemini-3.7-flash-high": {
++                "quotaInfo": {"remainingFraction": 0.80, "resetTime": "2026-09-04T21:42:36Z"}
++            },
++            "gemini-3.7-flash-low": {
++                "quotaInfo": {"remainingFraction": 0.80, "resetTime": "2026-09-04T21:42:36Z"}
++            },
++        }
++        equal_output = plugin._format_quota_markdown(equal_routes)
++        self.assertEqual(equal_output.count("**Gemini 3.7 Flash**"), 1)
++        self.assertNotIn("quota varies by route", equal_output)
++
++        conflicting_routes = {
++            "gemini-3.7-flash-high": {
++                "quotaInfo": {"remainingFraction": 0.80, "resetTime": "2026-09-04T21:42:36Z"}
++            },
++            "gemini-3.7-flash-low": {
++                "quotaInfo": {"remainingFraction": 0.20, "resetTime": "2026-09-04T22:42:36Z"}
++            },
++        }
++        conflicting_output = plugin._format_quota_markdown(conflicting_routes)
++        self.assertIn("**Gemini 3.7 Flash**: quota varies by route", conflicting_output)
++        self.assertIn("`gemini-3.7-flash-high`: `80.0%` baki", conflicting_output)
++        self.assertIn("`gemini-3.7-flash-low`: `20.0%` baki", conflicting_output)
++
++    def test_format_quota_markdown_tolerates_noncanonical_quota_values(self):
++        raw = {
++            "gemini-3.7-flash-high": {
++                "quotaInfo": {
++                    "remainingFraction": {"unexpected": 0.80},
++                    "resetTime": ["unexpected"],
++                }
++            }
++        }
++        res = plugin._format_quota_markdown(raw)
++        self.assertIn("**Gemini 3.7 Flash**: `N/A` baki", res)
++
      def test_middleware_passthrough_for_other_provider(self):
          seen = []
          out = plugin.antigravity_llm_execution(provider="openai", request={"model": "x"}, next_call=lambda req: seen.append(req) or "ok")
 diff --git a/tests/test_models.py b/tests/test_models.py
-index bd92656..a4cb8d4 100644
+index bd92656dbe081a55957ad3d7a0f15726cb7382db..a4cb8d427914db5fadc458ed6a3ce203af03d109 100644
 --- a/tests/test_models.py
 +++ b/tests/test_models.py
 @@ -1,11 +1,19 @@
  import unittest
-
+ 
 -from antigravity_provider.models import KNOWN_MODELS, clamp_reasoning_effort, normalize_model_id, resolve_wire_model_id
 +from antigravity_provider.models import (
 +    KNOWN_MODELS,
@@ -914,20 +1009,20 @@ index bd92656..a4cb8d4 100644
 +    normalize_model_id,
 +    resolve_wire_model_id,
 +)
-
-
+ 
+ 
  class ModelCatalogTests(unittest.TestCase):
      def test_normalizes_bare_model(self):
 -        self.assertEqual(normalize_model_id("gemini-3.1-pro"), "google-antigravity/gemini-3.1-pro")
 +        self.assertEqual(normalize_model_id("gemini-3.1-pro"), "gemini-3.1-pro")
 +        self.assertEqual(normalize_model_id("google-antigravity/gemini-3.1-pro"), "gemini-3.1-pro")
-
+ 
      def test_routes_pro_high_to_working_agent_wire_id(self):
          self.assertEqual(resolve_wire_model_id("google-antigravity/gemini-3.1-pro", "high"), "gemini-pro-agent")
 @@ -20,8 +28,55 @@ class ModelCatalogTests(unittest.TestCase):
          self.assertEqual(resolve_wire_model_id("google-antigravity/gemini-3.5-flash", "medium"), "gemini-3.5-flash-low")
          self.assertEqual(resolve_wire_model_id("google-antigravity/gemini-3.5-flash", "xhigh"), "gemini-3-flash-agent")
-
+ 
 -    def test_includes_gpt_oss_120b_medium(self):
 -        self.assertIn("google-antigravity/gpt-oss-120b", KNOWN_MODELS)
 +    def test_routes_gemini_37_flash_to_live_tiered_wire_id(self):
@@ -981,9 +1076,9 @@ index bd92656..a4cb8d4 100644
 +        self.assertIn("gpt-oss-120b", KNOWN_MODELS)
          self.assertEqual(clamp_reasoning_effort("google-antigravity/gpt-oss-120b", "high"), "medium")
          self.assertEqual(resolve_wire_model_id("google-antigravity/gpt-oss-120b", "high"), "openai/gpt-oss-120b-maas")
-
+ 
 diff --git a/tests/test_openai_compat.py b/tests/test_openai_compat.py
-index 54478fd..47ea6df 100644
+index 54478fd53c01d369375c6a6bea3a7d26e8bb48bb..47ea6dfb4e7335de307299684d231f2b2a27f407 100644
 --- a/tests/test_openai_compat.py
 +++ b/tests/test_openai_compat.py
 @@ -10,7 +10,7 @@ class OpenAICompatTests(unittest.TestCase):
@@ -994,10 +1089,10 @@ index 54478fd..47ea6df 100644
 +        self.assertEqual(req.model, "gemini-3.1-pro")
          self.assertEqual(req.reasoning_effort, "high")
          self.assertEqual(req.messages[0]["content"], "ping")
-
+ 
 diff --git a/tests/test_picker_catalog.py b/tests/test_picker_catalog.py
 new file mode 100644
-index 0000000..23dd5bb
+index 0000000000000000000000000000000000000000..23dd5bb133d28ad89d5447cdfbc610f273db0c3c
 --- /dev/null
 +++ b/tests/test_picker_catalog.py
 @@ -0,0 +1,20 @@
@@ -1022,13 +1117,13 @@ index 0000000..23dd5bb
 +            "gemini-3.8-flash",
 +        ]
 diff --git a/tests/test_transform.py b/tests/test_transform.py
-index fe55ba4..7add485 100644
+index fe55ba4312d7e6baddf50291fb8ce5607da28b48..7add48563d1c379a63608bbc8e309624de7d8e6f 100644
 --- a/tests/test_transform.py
 +++ b/tests/test_transform.py
 @@ -56,6 +56,97 @@ class TransformTests(unittest.TestCase):
          self.assertEqual(body["model"], "openai/gpt-oss-120b-maas")
          self.assertEqual(body["request"]["generationConfig"]["thinkingConfig"]["thinkingBudget"], 8192)
-
+ 
 +    def test_claude_tool_schema_flattens_terminal_notify_union(self):
 +        body = build_generate_content_request(
 +            model="claude-sonnet-4-6",
@@ -1120,6 +1215,6 @@ index fe55ba4..7add485 100644
 +        self.assertEqual(function_call["id"], "call_history_123")
 +        self.assertEqual(function_response["id"], "call_history_123")
 +
-
+ 
  if __name__ == "__main__":
      unittest.main()
