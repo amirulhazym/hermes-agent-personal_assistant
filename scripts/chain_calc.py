@@ -53,8 +53,10 @@ class TimingResolutionError(RuntimeError):
     pass
 
 
-def compute_slots_deterministic(fixed_slots: dict) -> dict:
-    """Resolve exact user times plus anchored/minimum-safe pending times."""
+def compute_slots_deterministic(fixed_slots: dict) -> tuple[dict, list[str]]:
+    """Resolve exact user times plus anchored/minimum-safe pending times.
+    Returns (resolved_times_dict, conflicts_list).
+    """
     try:
         from solve import solve, load_rules
         rules = load_rules(_os.path.join(_MED_CHAIN, "rules.json"))
@@ -64,14 +66,11 @@ def compute_slots_deterministic(fixed_slots: dict) -> dict:
                 hour, minute = str(value).split(":")
                 parsed[key] = time(int(hour), int(minute))
         result = solve(rules["constraints"], parsed)
-        if result["conflicts"]:
-            raise TimingResolutionError("; ".join(result["conflicts"]))
-        return {
+        resolved = {
             key: minutes_to_time_str(value.hour * 60 + value.minute)
             for key, value in result["slots"].items()
         }
-    except TimingResolutionError:
-        raise
+        return resolved, result.get("conflicts", [])
     except Exception as exc:
         raise TimingResolutionError(f"resolver failure: {type(exc).__name__}: {exc}") from exc
 
@@ -578,10 +577,11 @@ def calculate_chain() -> dict:
                 chain_times[slot] = actual
     
     try:
-        resolved_times = compute_slots_deterministic(chain_times)
-        timing_error = None
+        resolved_times, conflicts = compute_slots_deterministic(chain_times)
+        timing_error = "; ".join(conflicts) if conflicts else None
     except TimingResolutionError as exc:
         resolved_times = {}
+        conflicts = [str(exc)]
         timing_error = str(exc)
 
     # Step 1.5: A taper can deactivate a Dexa dose, not unrelated medicines
@@ -602,9 +602,10 @@ def calculate_chain() -> dict:
         confirmed = overall == 'completed'
         effectively_done = is_effectively_done(slot)
         actual = get_actual_time(slot)
+        slot_has_conflict = any(f"→{slot} " in c or f"{slot}→" in c or f" {slot} " in c for c in conflicts)
         ready = (
             calculate_ready_time(slot, schedule, chain_times, resolved_times)
-            if slot_active and timing_error is None else None
+            if slot_active and (timing_error is None or not slot_has_conflict) and resolved_times else None
         )
         pending_drugs = get_pending_required_drugs(slot) if not effectively_done and slot_active else []
         
@@ -658,9 +659,10 @@ def calculate_chain() -> dict:
     
     next_ready = slot_states[next_slot]['ready_time'] if next_slot else None
     
-    # Step 4: Build chain display string
+    # Step 4: Build chain display string (chronological order)
+    chronological_slots = sorted(SLOTS, key=lambda s: time_str_to_minutes(DEFAULT_TIMES.get(s, '00:00')))
     chain_parts = []
-    for slot in SLOTS:
+    for slot in chronological_slots:
         st = slot_states[slot]
         if not st.get('active', True):
             chain_parts.append(f'{slot} —')  # Inactive slot
@@ -688,60 +690,65 @@ def calculate_chain() -> dict:
     today_str = datetime.now(MYT).strftime('%Y-%m-%d')
     slot_overrides = chain_state.get('slot_overrides', {}).get(today_str, {})
     
-    # Step 7: Determine if a reminder should fire now. A timing error is a
-    # delivery suppression condition, never an excuse to use legacy maths.
+    # Step 7: Determine if a reminder should fire now.
+    # Timing conflicts only suppress reminders for slots that are directly involved
+    # in the conflict. Unaffected / independent slots (e.g. Slot E) must still fire.
     should_fire = False
     fire_reason = None
-    if timing_error is None:
-        for slot in SLOTS:
-            st = slot_states[slot]
-            if not st.get('active', True):
-                continue
-            if st['effectively_done']:
+    for slot in SLOTS:
+        st = slot_states[slot]
+        if not st.get('active', True):
+            continue
+        if st['effectively_done']:
+            continue
+
+        # If this specific slot has an unresolved timing conflict, suppress delivery for it
+        slot_has_conflict = any(f"→{slot} " in c or f"{slot}→" in c or f" {slot} " in c for c in conflicts)
+        if slot_has_conflict:
+            continue
+
+        heads_up = is_scheduled_heads_up(slot, schedule, now_min, st['ready_time'])
+        if st['status'] == 'waiting' and not heads_up:
+            continue
+
+        if slot in slot_overrides:
+            override = slot_overrides[slot]
+            suppress_until = override.get('suppress_until')
+            if suppress_until and now_min < time_str_to_minutes(suppress_until):
                 continue
 
-            heads_up = is_scheduled_heads_up(slot, schedule, now_min, st['ready_time'])
-            if st['status'] == 'waiting' and not heads_up:
+        if heads_up:
+            # Heads-up fires at most ONCE per slot per day so the 30-min
+            # pre-window cannot spam the same text twice. Once it has
+            # fired, the slot falls through to the real due branch when
+            # now >= ready_time (cooldown applies there as usual).
+            if reminder_counts.get(slot, 0) > 0:
                 continue
+            if is_within_cooldown(slot, reminder_counts, chain_state, now_min):
+                continue
+            should_fire = True
+            fire_reason = slot
+            break
 
-            if slot in slot_overrides:
-                override = slot_overrides[slot]
-                suppress_until = override.get('suppress_until')
-                if suppress_until and now_min < time_str_to_minutes(suppress_until):
+        if st['overall'] == 'partial':
+            if st['ready_time'] and now_min >= time_str_to_minutes(st['ready_time']):
+                if is_within_cooldown(slot, reminder_counts, chain_state, now_min, is_partial=True):
                     continue
+                should_fire = True
+                fire_reason = slot
+                break
 
-            if heads_up:
-                # Heads-up fires at most ONCE per slot per day so the 30-min
-                # pre-window cannot spam the same text twice. Once it has
-                # fired, the slot falls through to the real due branch when
-                # now >= ready_time (cooldown applies there as usual).
-                if reminder_counts.get(slot, 0) > 0:
+        if not st['confirmed'] and st['overall'] != 'partial':
+            if st['ready_time'] and now_min >= time_str_to_minutes(st['ready_time']):
+                if now_min >= time_str_to_minutes('22:00'):
+                    continue
+                if now_min < time_str_to_minutes('05:00'):
                     continue
                 if is_within_cooldown(slot, reminder_counts, chain_state, now_min):
                     continue
                 should_fire = True
                 fire_reason = slot
                 break
-
-            if st['overall'] == 'partial':
-                if st['ready_time'] and now_min >= time_str_to_minutes(st['ready_time']):
-                    if is_within_cooldown(slot, reminder_counts, chain_state, now_min, is_partial=True):
-                        continue
-                    should_fire = True
-                    fire_reason = slot
-                    break
-
-            if not st['confirmed'] and st['overall'] != 'partial':
-                if st['ready_time'] and now_min >= time_str_to_minutes(st['ready_time']):
-                    if now_min >= time_str_to_minutes('22:00'):
-                        continue
-                    if now_min < time_str_to_minutes('05:00'):
-                        continue
-                    if is_within_cooldown(slot, reminder_counts, chain_state, now_min):
-                        continue
-                    should_fire = True
-                    fire_reason = slot
-                    break
     
     # Step 7: Taper info
     taper = load_taper()
