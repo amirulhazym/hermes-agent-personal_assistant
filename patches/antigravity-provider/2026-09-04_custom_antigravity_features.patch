@@ -1,5 +1,5 @@
 diff --git a/src/antigravity_provider/antigravity_client.py b/src/antigravity_provider/antigravity_client.py
-index 8d5dd8465fe590fd9894a9a9a5419e6bd6949726..5f3732a4939b2de5975a27a77d856ea1105acaeb 100644
+index 8d5dd84..d198c0a 100644
 --- a/src/antigravity_provider/antigravity_client.py
 +++ b/src/antigravity_provider/antigravity_client.py
 @@ -12,7 +12,12 @@ ANTIGRAVITY_ENDPOINTS = [
@@ -7,8 +7,8 @@ index 8d5dd8465fe590fd9894a9a9a5419e6bd6949726..5f3732a4939b2de5975a27a77d856ea1
      "https://daily-cloudcode-pa.sandbox.googleapis.com",
  ]
 +MODEL_CATALOG_ENDPOINTS = [
-+    "https://cloudcode-pa.googleapis.com",
 +    "https://daily-cloudcode-pa.googleapis.com",
++    "https://cloudcode-pa.googleapis.com",
 +]
  STREAM_PATH = "/v1internal:streamGenerateContent?alt=sse"
 +MODEL_CATALOG_PATH = "/v1internal:fetchAvailableModels"
@@ -71,7 +71,7 @@ index 8d5dd8465fe590fd9894a9a9a5419e6bd6949726..5f3732a4939b2de5975a27a77d856ea1
          headers = self._headers(access_token)
 diff --git a/src/antigravity_provider/catalog.py b/src/antigravity_provider/catalog.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..39d7bbf13fc1b96a49fb47e7c2a19187c24557c4
+index 0000000..39d7bbf
 --- /dev/null
 +++ b/src/antigravity_provider/catalog.py
 @@ -0,0 +1,23 @@
@@ -99,7 +99,7 @@ index 0000000000000000000000000000000000000000..39d7bbf13fc1b96a49fb47e7c2a19187
 +            result.append(logical)
 +    return result
 diff --git a/src/antigravity_provider/cloudcode.py b/src/antigravity_provider/cloudcode.py
-index 2d432f196e93031f9ffddd401bfee4e492d43123..52a38777c7c3e5d849bfad94ceaada12f694a9d5 100644
+index 2d432f1..52a3877 100644
 --- a/src/antigravity_provider/cloudcode.py
 +++ b/src/antigravity_provider/cloudcode.py
 @@ -22,7 +22,7 @@ PROJECT_ONBOARD_INTERVAL_SECONDS = 2
@@ -112,7 +112,7 @@ index 2d432f196e93031f9ffddd401bfee4e492d43123..52a38777c7c3e5d849bfad94ceaada12
      os_name = "windows" if system.startswith("win") else ("darwin" if system == "darwin" else system or "linux")
      machine = platform.machine().lower()
 diff --git a/src/antigravity_provider/hermes_plugin.py b/src/antigravity_provider/hermes_plugin.py
-index 1dfed598a228219417adc179bf3de3ed82064663..18ff193ab71a3c79aa36fbcd3ea0229a27287e40 100644
+index 1dfed59..18ff193 100644
 --- a/src/antigravity_provider/hermes_plugin.py
 +++ b/src/antigravity_provider/hermes_plugin.py
 @@ -1,9 +1,18 @@
@@ -339,7 +339,7 @@ index 1dfed598a228219417adc179bf3de3ed82064663..18ff193ab71a3c79aa36fbcd3ea0229a
 +        ctx.register_hook("pre_gateway_dispatch", _rewrite_usage_command)
      ctx.register_middleware("llm_execution", antigravity_llm_execution)
 diff --git a/src/antigravity_provider/hermes_provider.py b/src/antigravity_provider/hermes_provider.py
-index 48f5d1b1929f36df9003c5e18ceace9da20c4e25..d188df43aefcb24c8c32fcfbd7b9537d56a454ab 100644
+index 48f5d1b..d188df4 100644
 --- a/src/antigravity_provider/hermes_provider.py
 +++ b/src/antigravity_provider/hermes_provider.py
 @@ -2,7 +2,12 @@ from __future__ import annotations
@@ -404,7 +404,7 @@ index 48f5d1b1929f36df9003c5e18ceace9da20c4e25..d188df43aefcb24c8c32fcfbd7b9537d
              description="Google Antigravity via Hermes in-process provider plugin",
              env_vars=(PLACEHOLDER_API_KEY_ENV,),
 diff --git a/src/antigravity_provider/models.py b/src/antigravity_provider/models.py
-index 8a27e2235a8aaaa8e0ecde360f29f1618ddf4ed6..f1c03f44b1b30797efa447c564649fe7f4571ed3 100644
+index 8a27e22..f1c03f4 100644
 --- a/src/antigravity_provider/models.py
 +++ b/src/antigravity_provider/models.py
 @@ -1,17 +1,34 @@
@@ -563,7 +563,7 @@ index 8a27e2235a8aaaa8e0ecde360f29f1618ddf4ed6..f1c03f44b1b30797efa447c564649fe7
          return "claude-opus-4-6-thinking"
      if logical == "claude-sonnet-4-6":
 diff --git a/src/antigravity_provider/runtime.py b/src/antigravity_provider/runtime.py
-index 3d54cad23478d8ca0b4e36c24ca497a007a32814..c89d65501ebc43d0a67248a99b89cfda7f3e4cab 100644
+index 3d54cad..c89d655 100644
 --- a/src/antigravity_provider/runtime.py
 +++ b/src/antigravity_provider/runtime.py
 @@ -76,6 +76,36 @@ def build_upstream_body(request: ChatRequest, *, store: Any | None = None) -> tu
@@ -621,7 +621,7 @@ index 3d54cad23478d8ca0b4e36c24ca497a007a32814..c89d65501ebc43d0a67248a99b89cfda
          "register_provider_profile()\n",
          encoding="utf-8",
 diff --git a/src/antigravity_provider/transform.py b/src/antigravity_provider/transform.py
-index 2c468cbce7c08ce3f21705ddedaca93db7ae2ea9..bf71d0c657fa57b182cff6e6f81d3396ba7a050e 100644
+index 2c468cb..bf71d0c 100644
 --- a/src/antigravity_provider/transform.py
 +++ b/src/antigravity_provider/transform.py
 @@ -77,7 +77,7 @@ def _parse_args(raw: Any) -> dict[str, Any]:
@@ -756,7 +756,7 @@ index 2c468cbce7c08ce3f21705ddedaca93db7ae2ea9..bf71d0c657fa57b182cff6e6f81d3396
          request["tools"] = converted_tools
      config = _tool_config(tools or [], tool_choice, wire_model)
 diff --git a/tests/test_antigravity_client.py b/tests/test_antigravity_client.py
-index badcf46bae457520ea5ce15de543f1176f3a41fb..4a8c090be7196127c52cc5ab4f221d410541c195 100644
+index badcf46..4a8c090 100644
 --- a/tests/test_antigravity_client.py
 +++ b/tests/test_antigravity_client.py
 @@ -4,8 +4,27 @@ from antigravity_provider.antigravity_client import AntigravityClient
@@ -789,7 +789,7 @@ index badcf46bae457520ea5ce15de543f1176f3a41fb..4a8c090be7196127c52cc5ab4f221d41
              return {"candidates": [{"content": {"parts": [{"text": "pong"}]}, "finishReason": "STOP"}]}
 diff --git a/tests/test_catalog.py b/tests/test_catalog.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..bffd28fd3543e52d2f251e54af1035797f2a4697
+index 0000000..bffd28f
 --- /dev/null
 +++ b/tests/test_catalog.py
 @@ -0,0 +1,34 @@
@@ -828,7 +828,7 @@ index 0000000000000000000000000000000000000000..bffd28fd3543e52d2f251e54af103579
 +if __name__ == "__main__":
 +    unittest.main()
 diff --git a/tests/test_cloudcode.py b/tests/test_cloudcode.py
-index de1879ef21d6bce4633913948d44a881cf706130..02e83cf95fdb0515917b8b36d762b29de5466a26 100644
+index de1879e..02e83cf 100644
 --- a/tests/test_cloudcode.py
 +++ b/tests/test_cloudcode.py
 @@ -1,6 +1,11 @@
@@ -861,7 +861,7 @@ index de1879ef21d6bce4633913948d44a881cf706130..02e83cf95fdb0515917b8b36d762b29d
          calls = []
          def fake_post(url, body, headers):
 diff --git a/tests/test_hermes_plugin.py b/tests/test_hermes_plugin.py
-index fd1ff2e9320e95332676ecb4d4c8c8b834866e79..66c305e5262038202aef2050df2f64602d3c101b 100644
+index fd1ff2e..66c305e 100644
 --- a/tests/test_hermes_plugin.py
 +++ b/tests/test_hermes_plugin.py
 @@ -9,11 +9,19 @@ from antigravity_provider.runtime import ensure_provider_profile_files, openai_c
@@ -994,7 +994,7 @@ index fd1ff2e9320e95332676ecb4d4c8c8b834866e79..66c305e5262038202aef2050df2f6460
          seen = []
          out = plugin.antigravity_llm_execution(provider="openai", request={"model": "x"}, next_call=lambda req: seen.append(req) or "ok")
 diff --git a/tests/test_models.py b/tests/test_models.py
-index bd92656dbe081a55957ad3d7a0f15726cb7382db..a4cb8d427914db5fadc458ed6a3ce203af03d109 100644
+index bd92656..a4cb8d4 100644
 --- a/tests/test_models.py
 +++ b/tests/test_models.py
 @@ -1,11 +1,19 @@
@@ -1078,7 +1078,7 @@ index bd92656dbe081a55957ad3d7a0f15726cb7382db..a4cb8d427914db5fadc458ed6a3ce203
          self.assertEqual(resolve_wire_model_id("google-antigravity/gpt-oss-120b", "high"), "openai/gpt-oss-120b-maas")
  
 diff --git a/tests/test_openai_compat.py b/tests/test_openai_compat.py
-index 54478fd53c01d369375c6a6bea3a7d26e8bb48bb..47ea6dfb4e7335de307299684d231f2b2a27f407 100644
+index 54478fd..47ea6df 100644
 --- a/tests/test_openai_compat.py
 +++ b/tests/test_openai_compat.py
 @@ -10,7 +10,7 @@ class OpenAICompatTests(unittest.TestCase):
@@ -1092,7 +1092,7 @@ index 54478fd53c01d369375c6a6bea3a7d26e8bb48bb..47ea6dfb4e7335de307299684d231f2b
  
 diff --git a/tests/test_picker_catalog.py b/tests/test_picker_catalog.py
 new file mode 100644
-index 0000000000000000000000000000000000000000..23dd5bb133d28ad89d5447cdfbc610f273db0c3c
+index 0000000..23dd5bb
 --- /dev/null
 +++ b/tests/test_picker_catalog.py
 @@ -0,0 +1,20 @@
@@ -1117,7 +1117,7 @@ index 0000000000000000000000000000000000000000..23dd5bb133d28ad89d5447cdfbc610f2
 +            "gemini-3.8-flash",
 +        ]
 diff --git a/tests/test_transform.py b/tests/test_transform.py
-index fe55ba4312d7e6baddf50291fb8ce5607da28b48..7add48563d1c379a63608bbc8e309624de7d8e6f 100644
+index fe55ba4..7add485 100644
 --- a/tests/test_transform.py
 +++ b/tests/test_transform.py
 @@ -56,6 +56,97 @@ class TransformTests(unittest.TestCase):
