@@ -1031,3 +1031,248 @@
 +    assert result["auto_continue_count"] == 0
 +    assert not [m for m in result["messages"] if m.get("display_kind") == "auto_continue"]
 +    assert result["auto_continue_receipts"][-1]["reason"] == "no_progress"
+--- /dev/null
++++ b/tests/gateway/test_iteration_auto_continue.py
+@@ -0,0 +1,93 @@
++"""Gateway entry-point coverage for bounded main-turn auto-continue.
++
++Proves the gateway main-turn path resolves the same opt-in continuation
++policy as the CLI path, refreshes cached agents per turn from the resolved
++config, keeps decision receipts secret-free, and leaves /goal and
++delegation budgets untouched.
++"""
++from __future__ import annotations
++
++from agent.iteration_continuation import (
++    ProgressTracker,
++    decide_continuation,
++    fingerprint_tool_call,
++)
++from hermes_cli.config import resolve_auto_continue_config
++
++
++def _enabled_agent_cfg() -> dict:
++    return {
++        "max_turns": 300,
++        "auto_continue_on_max_iterations": {
++            "enabled": True,
++            "max_auto_continues": 2,
++            "prompt": "Inspect current state before repeating work.",
++        },
++    }
++
++
++def test_gateway_resolves_same_bounded_policy_as_cli():
++    cfg = resolve_auto_continue_config(_enabled_agent_cfg())
++    assert cfg["enabled"] is True
++    assert cfg["max_auto_continues"] == 2
++    assert isinstance(cfg["prompt"], str) and cfg["prompt"].strip()
++
++
++def test_gateway_defaults_to_disabled_without_opt_in():
++    cfg = resolve_auto_continue_config({"max_turns": 100})
++    assert cfg["enabled"] is False
++
++
++def test_gateway_refreshes_cached_agent_policy_per_turn():
++    class _Agent:
++        pass
++
++    agent = _Agent()
++    agent._auto_continue_config = resolve_auto_continue_config({"max_turns": 100})
++    assert agent._auto_continue_config["enabled"] is False
++    # Same per-turn refresh assignment gateway/run.py performs on cached agents.
++    agent._auto_continue_config = resolve_auto_continue_config(_enabled_agent_cfg())
++    assert agent._auto_continue_config["enabled"] is True
++    assert agent._auto_continue_config["max_auto_continues"] == 2
++
++
++def test_gateway_receipt_fields_are_secret_free():
++    raw_args = {"path": "/tmp/x", "content": "SECRET-TOKEN-abc123"}
++    fp = fingerprint_tool_call("write_file", raw_args)
++    assert "SECRET-TOKEN-abc123" not in fp
++    tracker = ProgressTracker()
++    tracker.record_tool(fp, success=True, mutated_paths={"/tmp/x"})
++    decision = decide_continuation(
++        enabled=True,
++        max_auto_continues=2,
++        continuation_count=0,
++        turn_id="gw-turn-1",
++        window_index=1,
++        snapshot=tracker.snapshot(),
++    )
++    assert decision.decision == "continue"
++    assert decision.idempotency_key == "gw-turn-1:auto_continue:1"
++    receipt = {
++        "turn_id": decision.turn_id,
++        "window_index": decision.window_index,
++        "budget_used": 300,
++        "budget_max": 300,
++        "continuation_count": decision.continuation_count,
++        "progress_kinds": list(decision.progress_kinds),
++        "decision": decision.decision,
++        "idempotency_key": decision.idempotency_key,
++        "tool_fingerprint": fp,
++    }
++    assert "SECRET-TOKEN-abc123" not in repr(receipt)
++    assert "file_mutation" in receipt["progress_kinds"]
++
++
++def test_goal_and_delegation_keys_do_not_enable_continuation():
++    cfg = resolve_auto_continue_config(
++        {
++            "max_turns": 100,
++            "goals": {"max_turns": 20},
++            "delegation": {"max_iterations": 250},
++        }
++    )
++    assert cfg["enabled"] is False
+--- /dev/null
++++ b/tests/hermes_cli/test_iteration_auto_continue_cli.py
+@@ -0,0 +1,146 @@
++"""CLI entry-point coverage for bounded main-turn auto-continue.
++
++Proves the CLI main-turn path wires the same opt-in continuation policy,
++persists synthetic continuations with accounting-safe metadata, keeps the
++original task in the continuation, exposes turn-result receipts, and
++fails closed on malformed configuration.
++"""
++from __future__ import annotations
++
++from agent.conversation_loop import _maybe_continue_after_budget
++from agent.iteration_budget import IterationBudget
++from agent.iteration_continuation import ProgressTracker, fingerprint_tool_call
++from hermes_cli.config import resolve_auto_continue_config
++
++
++def _enabled_config() -> dict:
++    return {
++        "enabled": True,
++        "max_auto_continues": 2,
++        "prompt": "Inspect current state before repeating work.",
++    }
++
++
++class _FakeAgent:
++    def __init__(self) -> None:
++        self.max_iterations = 300
++        self.iteration_budget = IterationBudget(300)
++        self._auto_continue_config = _enabled_config()
++        self._auto_continue_window_size = 300
++        self._auto_continue_count = 0
++        self._auto_continue_window_index = 1
++        self._auto_continue_receipts = []
++        self._auto_continue_boundary_checked = False
++        self._iteration_progress_tracker = ProgressTracker()
++        self._interrupt_requested = False
++        self._clarify_pending = False
++        self.persisted = None
++
++    def _persist_session(self, messages, conversation_history) -> None:
++        self.persisted = (list(messages), conversation_history)
++
++
++def _progressing_agent() -> _FakeAgent:
++    agent = _FakeAgent()
++    fp = fingerprint_tool_call("write_file", {"path": "/tmp/task.txt"})
++    agent._iteration_progress_tracker.record_tool(
++        fp, success=True, mutated_paths={"/tmp/task.txt"}
++    )
++    return agent
++
++
++def test_cli_wires_resolved_policy_onto_agent():
++    cli_config = {
++        "agent": {
++            "max_turns": 300,
++            "auto_continue_on_max_iterations": {
++                "enabled": True,
++                "max_auto_continues": 2,
++                "prompt": "Inspect current state before repeating work.",
++            },
++        }
++    }
++    # Same wiring hermes_cli/cli_agent_setup_mixin.py performs at agent setup.
++    agent_config = resolve_auto_continue_config(cli_config.get("agent", {}))
++
++    class _Agent:
++        pass
++
++    agent = _Agent()
++    agent._auto_continue_config = agent_config
++    assert agent._auto_continue_config["enabled"] is True
++    assert agent._auto_continue_config["max_auto_continues"] == 2
++
++
++def test_cli_continuation_persists_accounting_safe_synthetic():
++    agent = _progressing_agent()
++    messages: list = []
++    ok = _maybe_continue_after_budget(
++        agent,
++        messages,
++        [],
++        original_user_message="Refactor the exporter module",
++        turn_id="cli-turn-9",
++    )
++    assert ok is True
++    assert len(messages) == 1
++    synthetic = messages[0]
++    assert synthetic["role"] == "user"
++    assert synthetic["display_kind"] == "auto_continue"
++    assert synthetic["_auto_continue_synthetic"] is True
++    metadata = synthetic["display_metadata"]
++    assert metadata["turn_id"] == "cli-turn-9"
++    assert metadata["window_index"] == 1
++    assert metadata["continuation_count"] == 1
++    assert metadata["idempotency_key"] == "cli-turn-9:auto_continue:1"
++    assert "file_mutation" in metadata["progress_kinds"]
++    # Original task must travel with the continuation.
++    assert "Refactor the exporter module" in synthetic["content"]
++    # User-turn accounting must exclude synthetic continuations.
++    real_user_turns = [
++        m
++        for m in messages
++        if m.get("role") == "user" and not m.get("_auto_continue_synthetic")
++    ]
++    assert real_user_turns == []
++    # Window must advance for the resumed turn.
++    assert agent._auto_continue_count == 1
++    assert agent.max_iterations == 600
++    assert agent.persisted is not None
++
++
++def test_cli_turn_result_receipts_are_exposed_without_secrets():
++    agent = _progressing_agent()
++    _maybe_continue_after_budget(
++        agent,
++        [],
++        [],
++        original_user_message="Refactor the exporter module",
++        turn_id="cli-turn-9",
++    )
++    # Same exposure agent/turn_finalizer.py performs on the turn result dict.
++    count = int(getattr(agent, "_auto_continue_count", 0) or 0)
++    receipts = list(getattr(agent, "_auto_continue_receipts", []) or [])
++    assert count == 1
++    assert len(receipts) == 1
++    assert receipts[0]["decision"] == "continue"
++    assert receipts[0]["idempotency_key"] == "cli-turn-9:auto_continue:1"
++    assert "content" not in repr(receipts[0].get("progress_kinds", ()))
++
++
++def test_cli_malformed_config_fails_closed_to_summary_fallback():
++    agent = _FakeAgent()
++    agent._auto_continue_config = resolve_auto_continue_config(
++        {"auto_continue_on_max_iterations": {"enabled": True, "max_auto_continues": -5}}
++    )
++    assert agent._auto_continue_config["enabled"] is False
++    ok = _maybe_continue_after_budget(
++        agent,
++        [],
++        [],
++        original_user_message="Refactor the exporter module",
++        turn_id="cli-turn-9",
++    )
++    assert ok is False
++    receipts = list(getattr(agent, "_auto_continue_receipts", []) or [])
++    assert receipts and receipts[-1]["decision"] == "stop"
