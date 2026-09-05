@@ -176,8 +176,8 @@ def run_audit(repo_root: Path = REPO_ROOT, dry_run: bool = False) -> dict[str, A
             audit["status"] = "FAIL"
 
     # 5. Fetch remotes & check sync
-    run_cmd(["git", "fetch", "origin"], cwd=repo_root)
-    run_cmd(["git", "fetch", "upstream", "main"], cwd=repo_root)
+    _fetch_remote_with_retry(repo_root, "origin", "main")
+    _fetch_remote_with_retry(repo_root, "upstream", "main")
 
     rc, ahead_behind = run_cmd(["git", "rev-list", "--left-right", "--count", "main...origin/main"], cwd=repo_root)
     if rc == 0 and ahead_behind:
@@ -442,6 +442,27 @@ def _workflow_run_cmd(
     return result.returncode, output[-4000:]
 
 
+def _fetch_remote_with_retry(repo: Path, remote: str, ref: str = "main", max_attempts: int = 3, backoff: float = 2.0) -> tuple[int, str]:
+    """Fetch remote with bounded retry on transient ref-update lock / race."""
+    transient_markers = (
+        "cannot lock ref",
+        "unable to update local ref",
+        "is at",
+        "lock failed",
+    )
+    last_rc = 0
+    last_out = ""
+    for attempt in range(1, max_attempts + 1):
+        last_rc, last_out = _workflow_git(repo, ["fetch", remote, ref])
+        if last_rc == 0:
+            return 0, last_out
+        is_transient = any(m in last_out.lower() for m in transient_markers)
+        if not is_transient or attempt >= max_attempts:
+            break
+        time.sleep(backoff * attempt)
+    return last_rc, last_out
+
+
 def _workflow_git(repo: Path, args: list[str], *, env: dict[str, str] | None = None) -> tuple[int, str]:
     return _workflow_run_cmd(["git", *args], cwd=repo, env=env)
 
@@ -485,6 +506,8 @@ def _is_generated_reconciliation_receipt(path: str) -> bool:
     name = norm.rsplit("/", 1)[-1]
     if name.endswith(".json"):
         stem = name[:-5]
+        if stem == "HEAD":
+            return True
         if (len(stem) in (12, 40)) and all(c in "0123456789abcdefABCDEF" for c in stem):
             return True
     return False
@@ -672,7 +695,7 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
     result["git_state"].update({"branch": branch, "head": head})
 
     for remote in ("origin", "upstream"):
-        fetch_rc, fetch_out = _workflow_git(repo, ["fetch", remote, "main"])
+        fetch_rc, fetch_out = _fetch_remote_with_retry(repo, remote, "main")
         if fetch_rc != 0:
             result["errors"].append(f"git fetch {remote} failed: {fetch_out}")
             continue
@@ -1846,7 +1869,7 @@ def _publish_via_protected_pr(
     _workflow_git(repo, ["push", action.get("remote", "origin"), "--delete", pub_branch])
 
     # 6. Fetch origin/main and sync local main to the merged remote commit
-    _workflow_git(repo, ["fetch", action.get("remote", "origin"), "main"])
+    _fetch_remote_with_retry(repo, str(action.get("remote", "origin")), "main")
     _workflow_git(repo, ["reset", "--hard", f"{action.get('remote', 'origin')}/main"])
 
     final_snapshot = _inspect_git(repo, now)

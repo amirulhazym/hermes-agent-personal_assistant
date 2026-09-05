@@ -35,7 +35,11 @@ def main() -> int:
         print("usage: manifest_recompute.py <manifest> <sha>", file=sys.stderr)
         return 2
     manifest_path = Path(sys.argv[1])
-    sha = sys.argv[2]
+    raw_ref = sys.argv[2]
+    try:
+        sha = _git("rev-parse", raw_ref).strip()
+    except subprocess.CalledProcessError:
+        sha = raw_ref
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     refreshed: list[dict] = []
     missing: list[str] = []
