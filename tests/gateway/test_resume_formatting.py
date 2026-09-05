@@ -83,8 +83,8 @@ async def test_resume_formatting_and_10_past_titled(tmp_path):
     assert "11. " in result
     assert "12. " not in result
 
-    # 2. Check 3-line format
+    # 2. Check 3-line format with 💬 and clean italic
     assert "\n   🏷️ " in result
-    assert "\n   > _" in result
+    assert "\n   💬 *" in result
 
     db.close()
