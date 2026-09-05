@@ -116,6 +116,13 @@ def test_active_runtime_overlays_are_ordered_and_hash_pinned():
             "sha256": "afa7cfdfc0c73b179543336496097e3193d2e8b3203031dfd9a29aed9d075eb3",
             "description": "Candidate hardening overlay: fail closed when auxiliary execution middleware raises; not live-applied.",
         },
+        {
+            "order": 4,
+            "id": "candidate-runtime-bounded-main-turn-auto-continue",
+            "path": "patches/upstream-hermes/2026-09-05_bounded-main-turn-auto-continue.patch",
+            "sha256": "1ce56b39a95ef1e412c2f685f08ef5b9ba91bb8d625317f7672b5a9511bb3bdc",
+            "description": "Candidate main CLI/gateway bounded progress-aware continuation after a 300-iteration window; not live-applied.",
+        },
     ]
 
 

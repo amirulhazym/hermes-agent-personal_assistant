@@ -1,0 +1,1033 @@
+--- /dev/null
++++ b/agent/iteration_continuation.py
+@@ -0,0 +1,169 @@
++"""Bounded progress-aware continuation policy for main agent turns."""
++
++from __future__ import annotations
++
++import hashlib
++import json
++from dataclasses import dataclass, field
++from typing import FrozenSet, Tuple
++
++
++
++
++def fingerprint_tool_call(function_name: str, function_args: object) -> str:
++    """Return a stable secret-free fingerprint for a tool call."""
++    payload = json.dumps(
++        {"name": function_name, "args": function_args},
++        sort_keys=True,
++        default=str,
++        ensure_ascii=False,
++        separators=(",", ":"),
++    ).encode("utf-8", "replace")
++    return hashlib.sha256(payload).hexdigest()
++
++
++@dataclass(frozen=True)
++class ProgressSnapshot:
++    """Secret-free, per-window evidence used by the continuation gate."""
++
++    successful_tool_calls: int = 0
++    call_fingerprints: FrozenSet[str] = field(default_factory=frozenset)
++    mutated_paths: FrozenSet[str] = field(default_factory=frozenset)
++    checkpoint_count: int = 0
++    repeated_call_streak: int = 0
++    unknown_effect_calls: int = 0
++    interrupted: bool = False
++    approval_pending: bool = False
++    provider_failed: bool = False
++    timed_out: bool = False
++
++    @property
++    def progress_kinds(self) -> Tuple[str, ...]:
++        kinds = []
++        if self.mutated_paths:
++            kinds.append("file_mutation")
++        if self.checkpoint_count > 0:
++            kinds.append("checkpoint")
++        if self.successful_tool_calls > 0 and self.call_fingerprints:
++            kinds.append("successful_tool")
++        return tuple(kinds)
++
++    @property
++    def has_forward_progress(self) -> bool:
++        if self.repeated_call_streak > 0:
++            return False
++        if (
++            not self.mutated_paths
++            and self.checkpoint_count == 0
++            and self.successful_tool_calls > len(self.call_fingerprints)
++        ):
++            return False
++        return bool(self.progress_kinds)
++
++
++
++
++class ProgressTracker:
++    """Mutable per-window accumulator fed by the canonical tool-result seam."""
++
++    def __init__(self) -> None:
++        self._successful_tool_calls = 0
++        self._call_fingerprints: set[str] = set()
++        self._mutated_paths: set[str] = set()
++        self._checkpoint_count = 0
++        self._repeated_call_streak = 0
++        self._last_fingerprint: str | None = None
++        self._unknown_effect_calls = 0
++
++    def record_tool(
++        self,
++        fingerprint: str,
++        *,
++        success: bool,
++        effect_disposition: str | None = None,
++        mutated_paths: set[str] | frozenset[str] | None = None,
++    ) -> None:
++        if success:
++            self._successful_tool_calls += 1
++        if effect_disposition == "unknown":
++            self._unknown_effect_calls += 1
++        if fingerprint == self._last_fingerprint:
++            self._repeated_call_streak += 1
++        else:
++            self._repeated_call_streak = 0
++        self._last_fingerprint = fingerprint
++        self._call_fingerprints.add(fingerprint)
++        self._mutated_paths.update(mutated_paths or ())
++
++    def record_checkpoint(self) -> None:
++        self._checkpoint_count += 1
++
++    def snapshot(self) -> ProgressSnapshot:
++        return ProgressSnapshot(
++            successful_tool_calls=self._successful_tool_calls,
++            call_fingerprints=frozenset(self._call_fingerprints),
++            mutated_paths=frozenset(self._mutated_paths),
++            checkpoint_count=self._checkpoint_count,
++            repeated_call_streak=self._repeated_call_streak,
++            unknown_effect_calls=self._unknown_effect_calls,
++        )
++
++@dataclass(frozen=True)
++class ContinuationDecision:
++    decision: str
++    reason: str
++    turn_id: str
++    window_index: int
++    continuation_count: int
++    idempotency_key: str
++    progress_kinds: Tuple[str, ...] = ()
++
++
++def decide_continuation(
++    *,
++    enabled: bool,
++    max_auto_continues: int,
++    continuation_count: int,
++    turn_id: str,
++    window_index: int,
++    snapshot: ProgressSnapshot,
++) -> ContinuationDecision:
++    """Return one deterministic continue/stop decision for a budget boundary."""
++    key = f"{turn_id}:auto_continue:{window_index}"
++
++    def stop(reason: str) -> ContinuationDecision:
++        return ContinuationDecision(
++            decision="stop",
++            reason=reason,
++            turn_id=turn_id,
++            window_index=window_index,
++            continuation_count=continuation_count,
++            idempotency_key=key,
++            progress_kinds=snapshot.progress_kinds,
++        )
++
++    if not enabled:
++        return stop("disabled")
++    if max_auto_continues <= 0 or continuation_count >= max_auto_continues:
++        return stop("max_auto_continues_exhausted")
++    if snapshot.interrupted:
++        return stop("interrupted")
++    if snapshot.approval_pending:
++        return stop("approval_pending")
++    if snapshot.provider_failed:
++        return stop("provider_failed")
++    if snapshot.timed_out:
++        return stop("timeout")
++    if snapshot.unknown_effect_calls:
++        return stop("unknown_effect")
++    if not snapshot.has_forward_progress:
++        return stop("no_progress")
++    return ContinuationDecision(
++        decision="continue",
++        reason="progress_detected",
++        turn_id=turn_id,
++        window_index=window_index,
++        continuation_count=continuation_count,
++        idempotency_key=key,
++        progress_kinds=snapshot.progress_kinds,
++    )
+--- a/agent/conversation_loop.py
++++ b/agent/conversation_loop.py
+@@ -24,6 +24,7 @@
+ import ssl
+ import sys
+ import time
++from dataclasses import asdict, replace
+ from typing import Any, Dict, List, Optional
+ 
+ from agent.codex_responses_adapter import _summarize_user_message_for_log
+@@ -39,6 +40,8 @@
+ from agent.context_engine import automatic_compaction_status_message
+ from agent.display import KawaiiSpinner
+ from agent.error_classifier import FailoverReason, classify_api_error
++from agent.iteration_budget import IterationBudget
++from agent.iteration_continuation import ProgressTracker, decide_continuation
+ from agent.message_metadata import append_message
+ from agent.turn_context import (
+     _compression_warrants_another_preflight_pass,
+@@ -1820,6 +1823,87 @@
+         )
+ 
+ 
++def _maybe_continue_after_budget(
++    agent: Any,
++    messages: list[dict[str, Any]],
++    conversation_history: list[dict[str, Any]],
++    *,
++    original_user_message: Any,
++    turn_id: str,
++) -> bool:
++    """Attempt one bounded continuation at the iteration-budget boundary."""
++    config = getattr(agent, "_auto_continue_config", None)
++    if not isinstance(config, dict):
++        config = {"enabled": False, "max_auto_continues": 0, "prompt": ""}
++    tracker = getattr(agent, "_iteration_progress_tracker", None)
++    if tracker is None:
++        tracker = ProgressTracker()
++        agent._iteration_progress_tracker = tracker
++    snapshot = tracker.snapshot()
++    snapshot = replace(
++        snapshot,
++        interrupted=bool(getattr(agent, "_interrupt_requested", False)),
++        approval_pending=bool(getattr(agent, "_clarify_pending", False)),
++    )
++    count = int(getattr(agent, "_auto_continue_count", 0) or 0)
++    window_index = int(getattr(agent, "_auto_continue_window_index", 1) or 1)
++    decision = decide_continuation(
++        enabled=bool(config.get("enabled", False)),
++        max_auto_continues=int(config.get("max_auto_continues", 0) or 0),
++        continuation_count=count,
++        turn_id=turn_id,
++        window_index=window_index,
++        snapshot=snapshot,
++    )
++    receipts = getattr(agent, "_auto_continue_receipts", None)
++    if receipts is None:
++        receipts = []
++        agent._auto_continue_receipts = receipts
++    receipts.append(asdict(decision))
++    if decision.decision != "continue":
++        return False
++
++    window_size = int(getattr(agent, "_auto_continue_window_size", 0) or 0)
++    if window_size <= 0 or window_size >= sys.maxsize:
++        receipts[-1]["decision"] = "stop"
++        receipts[-1]["reason"] = "unbounded_window_not_supported"
++        return False
++
++    prompt = str(config.get("prompt") or "Continue from the current state.").strip()
++    original = str(original_user_message or "").strip()
++    continuation_text = f"{prompt}\n\nOriginal task:\n{original}" if original else prompt
++    metadata = {
++        "turn_id": turn_id,
++        "window_index": window_index,
++        "continuation_count": count + 1,
++        "idempotency_key": decision.idempotency_key,
++        "progress_kinds": list(decision.progress_kinds),
++    }
++    append_message(
++        messages,
++        {
++            "role": "user",
++            "content": continuation_text,
++            "display_kind": "auto_continue",
++            "display_metadata": metadata,
++            "_auto_continue_synthetic": True,
++        },
++    )
++    agent._session_messages = messages
++    try:
++        agent._persist_session(messages, conversation_history)
++    except Exception:
++        logger.debug("auto-continue synthetic message persistence failed", exc_info=True)
++
++    agent._auto_continue_count = count + 1
++    agent._auto_continue_window_index = window_index + 1
++    agent.max_iterations += window_size
++    agent.iteration_budget = IterationBudget(agent.max_iterations)
++    agent._iteration_progress_tracker = ProgressTracker()
++    agent._auto_continue_boundary_checked = False
++    return True
++
++
+ def run_conversation(
+     agent,
+     user_message: Any,
+@@ -2015,7 +2099,31 @@
+             should_review_memory=_should_review_memory,
+         )
+ 
+-    while (api_call_count < agent.max_iterations and agent.iteration_budget.remaining > 0) or agent._budget_grace_call:
++    while (
++        (api_call_count < agent.max_iterations and agent.iteration_budget.remaining > 0)
++        or agent._budget_grace_call
++        or (
++            api_call_count >= agent.max_iterations
++            and not getattr(agent, "_auto_continue_boundary_checked", False)
++        )
++    ):
++        if (
++            api_call_count >= agent.max_iterations
++            and not getattr(agent, "_auto_continue_boundary_checked", False)
++        ):
++            agent._auto_continue_boundary_checked = True
++            if _maybe_continue_after_budget(
++                agent,
++                messages,
++                conversation_history,
++                original_user_message=original_user_message,
++                turn_id=turn_id,
++            ):
++                _turn_exit_reason = "auto_continue"
++                continue
++            _turn_exit_reason = "budget_exhausted"
++            break
++
+         _redirect_text = agent._drain_pending_redirect()
+         if _redirect_text:
+             _apply_active_turn_redirect(agent, messages, _redirect_text)
+--- a/agent/agent_init.py
++++ b/agent/agent_init.py
+@@ -1016,6 +1016,11 @@
+     # models to "give up" prematurely on complex tasks (#7915).
+     agent._budget_exhausted_injected = False
+     agent._budget_grace_call = False
++    agent._auto_continue_config = {
++        "enabled": False,
++        "max_auto_continues": 0,
++        "prompt": "",
++    }
+ 
+     # Optional wall-clock run budget (seconds per run_conversation turn).
+     # Explicit constructor arg wins; else resolved from config.yaml
+--- a/agent/tool_executor.py
++++ b/agent/tool_executor.py
+@@ -33,6 +33,7 @@
+     _detect_tool_failure,
+ )
+ from agent.message_sanitization import coalesce_tool_call_id
++from agent.iteration_continuation import fingerprint_tool_call
+ from agent.tool_dispatch_helpers import (
+     _NEVER_PARALLEL_TOOLS,
+     _is_destructive_command,
+@@ -59,6 +60,32 @@
+ def _pairing_tool_call_id(tool_call: Any) -> str:
+     """Return the canonical id used by the persisted assistant message."""
+     return coalesce_tool_call_id(tool_call)
++
++
++def _record_iteration_progress(
++    agent,
++    function_name: str,
++    function_args: object,
++    *,
++    success: bool,
++    blocked: bool,
++    effect_disposition: str | None,
++) -> None:
++    """Feed canonical tool completion evidence into the continuation tracker."""
++    if blocked:
++        return
++    tracker = getattr(agent, "_iteration_progress_tracker", None)
++    if tracker is None:
++        return
++    try:
++        tracker.record_tool(
++            fingerprint_tool_call(function_name, function_args),
++            success=success,
++            effect_disposition=effect_disposition,
++            mutated_paths=set(getattr(agent, "_turn_file_mutation_paths", set()) or set()),
++        )
++    except Exception:
++        logger.debug("iteration progress bookkeeping failed", exc_info=True)
+ 
+ 
+ def _record_persisted_path_for_stub(agent, tool_call_id: str, function_result) -> None:
+@@ -1805,6 +1832,15 @@
+                     )
+                 except Exception as _ver_err:
+                     logging.debug("file-mutation verifier record failed: %s", _ver_err)
++
++            _record_iteration_progress(
++                agent,
++                function_name,
++                function_args,
++                success=not is_error,
++                blocked=blocked,
++                effect_disposition=effect_disposition,
++            )
+ 
+             if agent.verbose_logging:
+                 logging.debug("Tool %s completed in %.2fs", function_name, tool_duration)
+@@ -2727,6 +2763,15 @@
+             except Exception as _ver_err:
+                 logging.debug("file-mutation verifier record failed: %s", _ver_err)
+ 
++        _record_iteration_progress(
++            agent,
++            function_name,
++            function_args,
++            success=not _is_error_result and not _execution_timed_out,
++            blocked=_execution_blocked,
++            effect_disposition="unknown" if _execution_timed_out else None,
++        )
++
+         agent._current_tool = None
+         _status_suffix = " (error)" if _is_error_result else ""
+         agent._touch_activity(f"tool completed: {function_name} ({tool_duration:.1f}s){_status_suffix}")
+--- a/agent/turn_context.py
++++ b/agent/turn_context.py
+@@ -40,6 +40,7 @@
+ )
+ from agent.context_engine import automatic_compaction_status_message
+ from agent.iteration_budget import IterationBudget
++from agent.iteration_continuation import ProgressTracker
+ from agent.memory_manager import build_memory_context_block
+ from agent.memory_provider import is_trivial_prompt
+ from agent.message_metadata import append_message, stamp_message_timestamp
+@@ -630,6 +631,12 @@
+ 
+     # NOTE: _turns_since_memory and _iters_since_skill are NOT reset here.
+     agent.iteration_budget = IterationBudget(agent.max_iterations)
++    agent._iteration_progress_tracker = ProgressTracker()
++    agent._auto_continue_window_size = agent.max_iterations
++    agent._auto_continue_count = 0
++    agent._auto_continue_window_index = 1
++    agent._auto_continue_receipts = []
++    agent._auto_continue_boundary_checked = False
+ 
+     # Wall-clock run budget: per-run_conversation clock. Only stamped when a
+     # budget is configured so the default path stays clock-free; the wrap-up
+--- a/agent/turn_finalizer.py
++++ b/agent/turn_finalizer.py
+@@ -734,6 +734,8 @@
+             (getattr(agent, "request_overrides", {}) or {}).get("extra_body") or {}
+         ).get("service_tier"),
+         "session_id": agent.session_id,
++        "auto_continue_count": int(getattr(agent, "_auto_continue_count", 0) or 0),
++        "auto_continue_receipts": list(getattr(agent, "_auto_continue_receipts", []) or []),
+     }
+     if agent._tool_guardrail_halt_decision is not None:
+         result["guardrail"] = agent._tool_guardrail_halt_decision.to_metadata()
+--- a/hermes_cli/config.py
++++ b/hermes_cli/config.py
+@@ -3133,6 +3133,49 @@
+ #     value, and
+ #   - is large enough that no real conversation will ever reach it (a turn
+ #     takes seconds; 9.2e18 turns would take ~10^11 years).
++
++
++def resolve_auto_continue_config(agent_cfg: Any) -> Dict[str, Any]:
++    """Normalize the bounded main-turn auto-continuation policy.
++
++    The feature is deliberately fail-closed: malformed or non-positive bounds
++    disable the policy and return the safe built-in bound/prompt. This helper
++    only normalizes configuration; it does not decide whether a live turn has
++    made progress.
++    """
++    default = {
++        "enabled": False,
++        "max_auto_continues": 2,
++        "prompt": (
++            "Continue from the current state. Do not repeat completed work. "
++            "Stop if blocked, approval is required, or before destructive "
++            "or externally visible actions."
++        ),
++    }
++    if not isinstance(agent_cfg, dict):
++        return default
++    raw = agent_cfg.get("auto_continue_on_max_iterations")
++    if not isinstance(raw, dict):
++        return default
++    try:
++        bound = int(raw.get("max_auto_continues", default["max_auto_continues"]))
++    except (TypeError, ValueError):
++        return default
++    prompt = raw.get("prompt", default["prompt"])
++    if bound <= 0 or not isinstance(prompt, str) or not prompt.strip():
++        return default
++    enabled = raw.get("enabled", False)
++    if isinstance(enabled, str):
++        enabled = enabled.strip().lower() in {"1", "true", "yes", "on"}
++    elif not isinstance(enabled, bool):
++        enabled = False
++    return {
++        "enabled": enabled,
++        "max_auto_continues": bound,
++        "prompt": prompt.strip(),
++    }
++
++
+ TURN_LIMIT_UNLIMITED = sys.maxsize
+ 
+ # String spellings that mean "no limit".  Lowercased, whitespace-stripped
+--- a/hermes_cli/config_defaults.py
++++ b/hermes_cli/config_defaults.py
+@@ -48,6 +48,17 @@
+         # positive integer to cap, or use "none"/"unlimited"/"inf"/0/-1 —
+         # all normalized by hermes_cli.config.resolve_turn_limit.
+         "max_turns": None,
++        # Main-turn max-iteration continuation is opt-in. The active profile
++        # may enable it explicitly after the bounded policy is proven.
++        "auto_continue_on_max_iterations": {
++            "enabled": False,
++            "max_auto_continues": 2,
++            "prompt": (
++                "Continue from the current state. Do not repeat completed work. "
++                "Stop if blocked, approval is required, or before destructive "
++                "or externally visible actions."
++            ),
++        },
+         # Optional wall-clock budget in seconds per conversation run.
+         # null/absent = feature fully off (zero behavior change). When set,
+         # the agent gets a one-time wrap-up notice at 80% elapsed and
+--- a/hermes_cli/cli_agent_setup_mixin.py
++++ b/hermes_cli/cli_agent_setup_mixin.py
+@@ -344,7 +344,7 @@
+         Returns:
+             bool: True if successful, False otherwise
+         """
+-        from cli import AIAgent, ChatConsole, _DIM, _RST, _accent_hex, _cprint, _prepare_deferred_agent_startup, logger
++        from cli import AIAgent, CLI_CONFIG, ChatConsole, _DIM, _RST, _accent_hex, _cprint, _prepare_deferred_agent_startup, logger
+         if self.agent is not None:
+             return True
+ 
+@@ -542,6 +542,10 @@
+                 notice_clear_callback=self._on_notice_clear,
+                 reaction_callback=self._on_reaction,
+             )
++            from hermes_cli.config import resolve_auto_continue_config
++            self.agent._auto_continue_config = resolve_auto_continue_config(
++                CLI_CONFIG.get("agent", {})
++            )
+             # Store reference for atexit memory provider shutdown.
+             # NOTE: this MUST write to the ``cli`` module's global, not a
+             # local module global. ``_run_cleanup`` (in cli.py) reads
+--- a/gateway/run.py
++++ b/gateway/run.py
+@@ -5394,6 +5394,12 @@
+             combined_ephemeral = (combined_ephemeral + "\n\n" + cfg_channel_prompt).strip()
+ 
+         max_iterations = _current_max_iterations()
++        from hermes_cli.config import resolve_auto_continue_config
++        auto_continue_config = resolve_auto_continue_config(
++            (ctx.user_config or {}).get("agent", {})
++            if isinstance(ctx.user_config, dict)
++            else {}
++        )
+ 
+         try:
+             model, runtime_kwargs = self._runner._resolve_session_agent_runtime(
+@@ -5801,6 +5807,10 @@
+                     )
+                     self._runner._enforce_agent_cache_cap()
+             logger.debug("Created new agent for session %s (sig=%s)", ctx.session_key, _sig)
++
++        # The continuation policy is config-authoritative per turn, even when
++        # the AIAgent instance is reused from the gateway cache.
++        agent._auto_continue_config = auto_continue_config
+ 
+         # Per-message state — callbacks and reasoning config change every
+         # turn and must not be baked into the cached agent constructor.
+--- /dev/null
++++ b/tests/hermes_cli/test_iteration_auto_continue_config.py
+@@ -0,0 +1,46 @@
++from __future__ import annotations
++
++from hermes_cli.config import resolve_auto_continue_config
++from hermes_cli.config_defaults import DEFAULT_CONFIG
++
++
++def test_default_policy_is_disabled_and_bounded():
++    cfg = resolve_auto_continue_config(DEFAULT_CONFIG["agent"])
++    assert cfg == {
++        "enabled": False,
++        "max_auto_continues": 2,
++        "prompt": cfg["prompt"],
++    }
++    assert cfg["prompt"]
++
++
++def test_explicit_policy_preserves_two_window_bound():
++    cfg = resolve_auto_continue_config(
++        {
++            "auto_continue_on_max_iterations": {
++                "enabled": True,
++                "max_auto_continues": 2,
++                "prompt": "Continue from current state.",
++            }
++        }
++    )
++    assert cfg == {
++        "enabled": True,
++        "max_auto_continues": 2,
++        "prompt": "Continue from current state.",
++    }
++
++
++def test_malformed_or_non_positive_bound_falls_back_to_safe_disabled_policy():
++    cfg = resolve_auto_continue_config(
++        {
++            "auto_continue_on_max_iterations": {
++                "enabled": True,
++                "max_auto_continues": 0,
++                "prompt": "unsafe",
++            }
++        }
++    )
++    assert cfg["enabled"] is False
++    assert cfg["max_auto_continues"] == 2
++    assert cfg["prompt"] != "unsafe"
+--- /dev/null
++++ b/tests/run_agent/test_iteration_continuation_policy.py
+@@ -0,0 +1,117 @@
++from __future__ import annotations
++
++from agent.iteration_continuation import (
++    ContinuationDecision,
++    ProgressSnapshot,
++    ProgressTracker,
++    decide_continuation,
++    fingerprint_tool_call,
++)
++
++
++
++
++def test_tool_fingerprint_is_stable_and_does_not_expose_arguments():
++    first = fingerprint_tool_call("terminal", {"command": "echo secret-value"})
++    second = fingerprint_tool_call("terminal", {"command": "echo secret-value"})
++    other = fingerprint_tool_call("terminal", {"command": "echo other-value"})
++    assert first == second
++    assert first != other
++    assert "secret-value" not in first
++
++
++def test_progressing_window_is_eligible_with_deterministic_idempotency_key():
++    snapshot = ProgressSnapshot(
++        successful_tool_calls=2,
++        call_fingerprints=frozenset({"read:a", "write:b"}),
++        mutated_paths=frozenset({"src/app.py"}),
++    )
++    decision = decide_continuation(
++        enabled=True,
++        max_auto_continues=2,
++        continuation_count=0,
++        turn_id="turn-123",
++        window_index=1,
++        snapshot=snapshot,
++    )
++    assert isinstance(decision, ContinuationDecision)
++    assert decision.decision == "continue"
++    assert decision.reason == "progress_detected"
++    assert decision.idempotency_key == "turn-123:auto_continue:1"
++    assert "file_mutation" in decision.progress_kinds
++
++
++def test_repeated_noop_window_is_denied():
++    snapshot = ProgressSnapshot(
++        successful_tool_calls=4,
++        call_fingerprints=frozenset({"read:same"}),
++        repeated_call_streak=4,
++    )
++    decision = decide_continuation(
++        enabled=True,
++        max_auto_continues=2,
++        continuation_count=0,
++        turn_id="turn-123",
++        window_index=1,
++        snapshot=snapshot,
++    )
++    assert decision.decision == "stop"
++    assert decision.reason == "no_progress"
++
++
++def test_unknown_effect_and_interrupt_are_denied():
++    for snapshot, reason in [
++        (ProgressSnapshot(successful_tool_calls=1, unknown_effect_calls=1), "unknown_effect"),
++        (ProgressSnapshot(successful_tool_calls=1, interrupted=True), "interrupted"),
++        (ProgressSnapshot(successful_tool_calls=1, approval_pending=True), "approval_pending"),
++        (ProgressSnapshot(successful_tool_calls=1, provider_failed=True), "provider_failed"),
++    ]:
++        decision = decide_continuation(
++            enabled=True,
++            max_auto_continues=2,
++            continuation_count=0,
++            turn_id="turn-123",
++            window_index=1,
++            snapshot=snapshot,
++        )
++        assert decision.decision == "stop"
++        assert decision.reason == reason
++
++
++def test_bound_and_disabled_policy_are_denied():
++    snapshot = ProgressSnapshot(
++        successful_tool_calls=1,
++        call_fingerprints=frozenset({"terminal:test"}),
++    )
++    for enabled, count, reason in [
++        (False, 0, "disabled"),
++        (True, 2, "max_auto_continues_exhausted"),
++    ]:
++        decision = decide_continuation(
++            enabled=enabled,
++            max_auto_continues=2,
++            continuation_count=count,
++            turn_id="turn-123",
++            window_index=count + 1,
++            snapshot=snapshot,
++        )
++        assert decision.decision == "stop"
++        assert decision.reason == reason
++
++
++def test_tracker_converts_canonical_tool_outcomes_into_progress_snapshot():
++    tracker = ProgressTracker()
++    tracker.record_tool("read:a", success=True)
++    tracker.record_tool("read:a", success=True)
++    tracker.record_tool("write:b", success=True, mutated_paths={"src/app.py"})
++    tracker.record_tool("send:c", success=False, effect_disposition="unknown")
++    tracker.record_checkpoint()
++
++    snapshot = tracker.snapshot()
++    assert snapshot.successful_tool_calls == 3
++    assert snapshot.unknown_effect_calls == 1
++    assert snapshot.mutated_paths == frozenset({"src/app.py"})
++    assert snapshot.checkpoint_count == 1
++    assert snapshot.repeated_call_streak == 0
++    assert "file_mutation" in snapshot.progress_kinds
++    assert "checkpoint" in snapshot.progress_kinds
+--- /dev/null
++++ b/tests/agent/test_iteration_progress_tool_seam.py
+@@ -0,0 +1,48 @@
++from types import SimpleNamespace
++
++from agent.iteration_continuation import ProgressTracker
++from agent.tool_executor import _record_iteration_progress
++
++
++def test_tool_executor_records_success_and_mutation_without_raw_arguments():
++    tracker = ProgressTracker()
++    agent = SimpleNamespace(
++        _iteration_progress_tracker=tracker,
++        _turn_file_mutation_paths={"src/app.py"},
++    )
++
++    _record_iteration_progress(
++        agent,
++        "write_file",
++        {"path": "src/app.py", "content": "secret-value"},
++        success=True,
++        blocked=False,
++        effect_disposition=None,
++    )
++
++    snapshot = tracker.snapshot()
++    assert snapshot.successful_tool_calls == 1
++    assert snapshot.mutated_paths == frozenset({"src/app.py"})
++    assert snapshot.call_fingerprints
++    assert "secret-value" not in " ".join(snapshot.call_fingerprints)
++
++
++def test_blocked_tool_does_not_count_as_progress():
++    tracker = ProgressTracker()
++    agent = SimpleNamespace(
++        _iteration_progress_tracker=tracker,
++        _turn_file_mutation_paths=set(),
++    )
++
++    _record_iteration_progress(
++        agent,
++        "terminal",
++        {"command": "dangerous"},
++        success=False,
++        blocked=True,
++        effect_disposition="none",
++    )
++
++    snapshot = tracker.snapshot()
++    assert snapshot.successful_tool_calls == 0
++    assert snapshot.call_fingerprints == frozenset()
+--- a/tests/agent/test_turn_context.py
++++ b/tests/agent/test_turn_context.py
+@@ -15,6 +15,7 @@
+ import pytest
+ 
+ from agent.context_compressor import ContextCompressor
++from agent.iteration_continuation import ProgressTracker
+ from agent.turn_context import TurnContext, build_turn_context
+ from hermes_state import SessionDB
+ 
+@@ -292,6 +293,7 @@
+     assert agent._tool_guardrails.reset_called is True
+     assert agent._vision_supported is True
+     assert agent._user_turn_count == 1
++    assert isinstance(agent._iteration_progress_tracker, ProgressTracker)
+     # Crash-resilience persistence fired once.
+     assert agent._persist_calls == 1
+     # task/turn ids assigned on the agent.
+--- /dev/null
++++ b/tests/run_agent/test_iteration_budget_auto_continue.py
+@@ -0,0 +1,237 @@
++import json
++from types import SimpleNamespace
++
++
++def _tool_call(name="read_file", arguments=None, call_id="call-1"):
++    return SimpleNamespace(
++        id=call_id,
++        type="function",
++        function=SimpleNamespace(name=name, arguments=arguments or {"path": "README.md"}),
++    )
++
++
++class _FakeChatCompletions:
++    def __init__(self):
++        self.calls = []
++
++    def create(self, **kwargs):
++        self.calls.append(kwargs)
++        if len(self.calls) == 1:
++            return SimpleNamespace(
++                choices=[
++                    SimpleNamespace(
++                        message=SimpleNamespace(
++                            content=None,
++                            reasoning=None,
++                            tool_calls=[_tool_call()],
++                        ),
++                        finish_reason="tool_calls",
++                    )
++                ],
++                usage=None,
++            )
++        return SimpleNamespace(
++            choices=[
++                SimpleNamespace(
++                    message=SimpleNamespace(content="done", reasoning=None, tool_calls=[]),
++                    finish_reason="stop",
++                )
++            ],
++            usage=None,
++        )
++
++
++
++
++class _FakeClient:
++    def __init__(self):
++        self.chat = SimpleNamespace(completions=_FakeChatCompletions())
++
++
++class _TwoToolChatCompletions:
++    def __init__(self):
++        self.calls = []
++
++    def create(self, **kwargs):
++        self.calls.append(kwargs)
++        if len(self.calls) <= 2:
++            return SimpleNamespace(
++                choices=[
++                    SimpleNamespace(
++                        message=SimpleNamespace(
++                            content=None,
++                            reasoning=None,
++                            tool_calls=[_tool_call(call_id=f"call-{len(self.calls)}")],
++                        ),
++                        finish_reason="tool_calls",
++                    )
++                ],
++                usage=None,
++            )
++        return SimpleNamespace(
++            choices=[
++                SimpleNamespace(
++                    message=SimpleNamespace(content="done", reasoning=None, tool_calls=[]),
++                    finish_reason="stop",
++                )
++            ],
++            usage=None,
++        )
++
++
++class _TwoToolClient:
++    def __init__(self):
++        self.chat = SimpleNamespace(completions=_TwoToolChatCompletions())
++def test_progressing_budget_boundary_resumes_same_main_turn(monkeypatch, tmp_path):
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
++    from run_agent import AIAgent
++
++    client = _FakeClient()
++    monkeypatch.setattr("run_agent.OpenAI", lambda **kwargs: client)
++    monkeypatch.setattr(
++        "run_agent.get_tool_definitions",
++        lambda *args, **kwargs: [{"function": {"name": "read_file"}}],
++    )
++    monkeypatch.setattr(
++        "run_agent.handle_function_call",
++        lambda name, args, task_id=None, **kwargs: json.dumps({"ok": True, "path": args["path"]}),
++    )
++
++    agent = AIAgent(
++        model="test-model",
++        api_key="test-key",
++        base_url="http://localhost:8080/v1",
++        platform="cli",
++        max_iterations=1,
++        quiet_mode=True,
++        skip_memory=True,
++    )
++    agent._disable_streaming = True
++    agent._auto_continue_config = {
++        "enabled": True,
++        "max_auto_continues": 1,
++        "prompt": "Continue from current state.",
++    }
++
++    result = agent.run_conversation("continue the task")
++
++    assert result["final_response"].startswith("done")
++    assert len(client.chat.completions.calls) == 2
++    synthetic = [
++        message for message in result["messages"]
++        if message.get("display_kind") == "auto_continue"
++    ]
++    assert len(synthetic) == 1
++    assert "Continue from current state." in synthetic[0]["content"]
++    assert result["auto_continue_count"] == 1
++
++
++def test_auto_continue_bound_stops_before_third_window(monkeypatch, tmp_path):
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
++    from run_agent import AIAgent
++
++    client = _TwoToolClient()
++    monkeypatch.setattr("run_agent.OpenAI", lambda **kwargs: client)
++    monkeypatch.setattr(
++        "run_agent.get_tool_definitions",
++        lambda *args, **kwargs: [{"function": {"name": "read_file"}}],
++    )
++    monkeypatch.setattr(
++        "run_agent.handle_function_call",
++        lambda name, args, task_id=None, **kwargs: json.dumps({"ok": True, "path": args["path"]}),
++    )
++
++    agent = AIAgent(
++        model="test-model",
++        api_key="test-key",
++        base_url="http://localhost:8080/v1",
++        platform="cli",
++        max_iterations=1,
++        quiet_mode=True,
++        skip_memory=True,
++    )
++    agent._disable_streaming = True
++    agent._auto_continue_config = {
++        "enabled": True,
++        "max_auto_continues": 1,
++        "prompt": "Continue from current state.",
++    }
++
++    result = agent.run_conversation("continue the task")
++
++    assert result["auto_continue_count"] == 1
++    assert len(client.chat.completions.calls) == 3
++    assert len([m for m in result["messages"] if m.get("display_kind") == "auto_continue"]) == 1
++    assert result["auto_continue_receipts"][-1]["reason"] == "max_auto_continues_exhausted"
++
++
++def test_disabled_policy_preserves_existing_summary_fallback(monkeypatch, tmp_path):
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
++    from run_agent import AIAgent
++
++    client = _FakeClient()
++    monkeypatch.setattr("run_agent.OpenAI", lambda **kwargs: client)
++    monkeypatch.setattr(
++        "run_agent.get_tool_definitions",
++        lambda *args, **kwargs: [{"function": {"name": "read_file"}}],
++    )
++    monkeypatch.setattr(
++        "run_agent.handle_function_call",
++        lambda name, args, task_id=None, **kwargs: json.dumps({"ok": True, "path": args["path"]}),
++    )
++
++    agent = AIAgent(
++        model="test-model",
++        api_key="test-key",
++        base_url="http://localhost:8080/v1",
++        platform="cli",
++        max_iterations=1,
++        quiet_mode=True,
++        skip_memory=True,
++    )
++    agent._disable_streaming = True
++
++    result = agent.run_conversation("continue the task")
++
++    assert result["auto_continue_count"] == 0
++    assert not [m for m in result["messages"] if m.get("display_kind") == "auto_continue"]
++    assert result["auto_continue_receipts"][-1]["reason"] == "disabled"
++
++
++def test_no_progress_is_denied_even_when_policy_enabled(monkeypatch, tmp_path):
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
++    from run_agent import AIAgent
++
++    client = _FakeClient()
++    monkeypatch.setattr("run_agent.OpenAI", lambda **kwargs: client)
++    monkeypatch.setattr(
++        "run_agent.get_tool_definitions",
++        lambda *args, **kwargs: [{"function": {"name": "read_file"}}],
++    )
++    monkeypatch.setattr(
++        "run_agent.handle_function_call",
++        lambda name, args, task_id=None, **kwargs: json.dumps({"ok": True, "path": args["path"]}),
++    )
++    monkeypatch.setattr("agent.tool_executor._record_iteration_progress", lambda *args, **kwargs: None)
++
++    agent = AIAgent(
++        model="test-model",
++        api_key="test-key",
++        base_url="http://localhost:8080/v1",
++        platform="cli",
++        max_iterations=1,
++        quiet_mode=True,
++        skip_memory=True,
++    )
++    agent._disable_streaming = True
++    agent._auto_continue_config = {
++        "enabled": True,
++        "max_auto_continues": 1,
++        "prompt": "Continue from current state.",
++    }
++
++    result = agent.run_conversation("continue the task")
++
++    assert result["auto_continue_count"] == 0
++    assert not [m for m in result["messages"] if m.get("display_kind") == "auto_continue"]
++    assert result["auto_continue_receipts"][-1]["reason"] == "no_progress"

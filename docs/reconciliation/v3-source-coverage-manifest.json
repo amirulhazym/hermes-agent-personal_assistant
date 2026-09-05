@@ -13,6 +13,30 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": ".scratch/bounded-main-turn-auto-continue/issues/01-main-turn-progress-policy.md",
+      "source_sha256": "3d9b025e7056004b84faf86d8982c91bcd617e494a92edc4c53640f03619c61c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/bounded-main-turn-auto-continue/issues/02-main-turn-continuation-seam.md",
+      "source_sha256": "26dd150622afc8edea71fad176d053973561a1e08154acdcc8afc0e43056be69"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/bounded-main-turn-auto-continue/issues/03-cli-gateway-persistence-and-regression.md",
+      "source_sha256": "6a15246b85047808e6304c853f941aed866ddc1ab8cdea9c26b40a9614bf9b27"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/bounded-main-turn-auto-continue/spec.md",
+      "source_sha256": "c27302f7ed008c6818979cc629a36c58423525107d68bd91714db30b50e01854"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "AGENTS.md",
       "source_sha256": "0c1ba6dbceb5aad31637187bc4762da6fd22a92793b80678d0a131ca656ae73a"
     },
@@ -242,13 +266,13 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-source-lock.json",
-      "source_sha256": "3148f8e09f9c942047032e7e6d2e86fe1d4c071ea224dfa0d4084759718acdc9"
+      "source_sha256": "55a36fa108bb516177d12eb95a800963a1e6a2605f2ac36a179ff1606948fbb7"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-tree-manifest.json",
-      "source_sha256": "a9966667418eb169482a4d3f0d23880162963d93fce8ba2e21b54904b23b5c34"
+      "source_sha256": "61b27e1a172559ee952185df70c4a88c41149639e3533186c212326265f109a0"
     },
     {
       "destination": null,
@@ -291,6 +315,12 @@
       "kind": "source-only",
       "source": "docs/superpowers/plans/2026-08-28-single-repo-and-nightly-git-flow.md",
       "source_sha256": "412673fd7337736451f723c000b9d3b89f69d1e8883580b78e6eab3c5993c447"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "docs/superpowers/plans/2026-09-05-bounded-main-turn-auto-continue.md",
+      "source_sha256": "3e827d7ad0c52424c1dc5821265d6058a7a21945ffc7628dc1cc6e9fbc3a8185"
     },
     {
       "destination": null,
@@ -405,6 +435,18 @@
       "kind": "source-only",
       "source": "patches/upstream-hermes/2026-08-11_a4-model-purge-and-test-stability.patch",
       "source_sha256": "c79ab7b83790182fc997726a650868a5c3238a87bf407d485a4bcd64b96e8177"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "patches/upstream-hermes/2026-09-05_bounded-main-turn-auto-continue.patch",
+      "source_sha256": "1ce56b39a95ef1e412c2f685f08ef5b9ba91bb8d625317f7672b5a9511bb3bdc"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "patches/upstream-hermes/README.md",
+      "source_sha256": "61a434a2bbe3d3f7391f87486d9595e0c941cb557a85fa3937b38204c1462d3e"
     },
     {
       "destination": null,
@@ -4004,7 +4046,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_hermes_runtime_reconstruction.py",
-      "source_sha256": "5144befef1623801b8a564fb0019896cf87081884d83605c22772f29816b14ee"
+      "source_sha256": "25b3a147b295ddf1591fc927ec75531d4028f6a82f9278d064c48f71fad6ea39"
     },
     {
       "destination": null,

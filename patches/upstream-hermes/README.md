@@ -84,3 +84,7 @@ series is authoritative.
 
 8. `2026-09-04_live_model_picker_refresh.patch` — live model picker refresh flag
    passthrough for interactive slash-commands and picker listings.
+9. `2026-09-05_bounded-main-turn-auto-continue.patch` — candidate main
+   CLI/gateway bounded progress-aware continuation after a 300-iteration window;
+   max two additional windows; not live-applied. SHA-256:
+   `1ce56b39a95ef1e412c2f685f08ef5b9ba91bb8d625317f7672b5a9511bb3bdc`.
