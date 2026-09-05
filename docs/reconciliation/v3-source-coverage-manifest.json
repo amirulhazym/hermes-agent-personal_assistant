@@ -224,7 +224,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "config/config.yaml.template",
-      "source_sha256": "541337644e22749613264e5e82d8a114ad6fc4183be959a3dc03d2e9007dd92f"
+      "source_sha256": "ebbe4b30fa46ef7e906dcf3c495c83e06c33e63a3bb58d262d8b809e677780d8"
     },
     {
       "destination": null,
