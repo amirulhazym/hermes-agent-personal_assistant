@@ -166,3 +166,93 @@ def test_watchdog_recovers_transient_fetch_primary_failure(tmp_path: Path):
     assert w_res["secondary_result"] == "RECOVERED"
     assert "TRANSIENT" in w_res["secondary_recovery"]
     assert w_res["final_repo_state"] == "CLEAN+SYNCED"
+
+
+def test_watchdog_completed_remediation_verifies_only(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    (repo / "feature.txt").write_text("feature\n", encoding="utf-8")
+    HYGIENE._workflow_git(repo, ["add", "feature.txt"])
+    HYGIENE._workflow_git(repo, ["commit", "-m", "feature"])
+    pending = HYGIENE.run_nightly(
+        repo_root=repo, hermes_home=hermes_home, now=now,
+        schedule_timeout=lambda **kw: "dummy-timeout-job",
+    )
+    assert pending["status"] == "HOLD"
+    done = HYGIENE.process_pending(
+        decision="approve", run_id=pending["run_id"],
+        hermes_home=hermes_home, now=now + timedelta(minutes=5),
+    )
+    assert done["status"] == "PASS"
+    n_branches_before = HYGIENE._workflow_git(repo, ["branch", "-a"])[1]
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
+    assert w_res["secondary_result"] == "PASS"
+    assert w_res["secondary_recovery"] == "NONE"
+    assert w_res["primary_remediation"] == "COMPLETE"
+    assert HYGIENE._workflow_git(repo, ["branch", "-a"])[1] == n_branches_before
+
+
+def test_watchdog_rejected_remediation_preserved(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    (repo / "feature.txt").write_text("feature\n", encoding="utf-8")
+    HYGIENE._workflow_git(repo, ["add", "feature.txt"])
+    HYGIENE._workflow_git(repo, ["commit", "-m", "feature"])
+    pending = HYGIENE.run_nightly(
+        repo_root=repo, hermes_home=hermes_home, now=now,
+        schedule_timeout=lambda **kw: "dummy-timeout-job",
+    )
+    HYGIENE.process_pending(
+        decision="reject", run_id=pending["run_id"],
+        hermes_home=hermes_home, now=now + timedelta(minutes=5),
+    )
+    before_head = HYGIENE._workflow_git(repo, ["rev-parse", "HEAD"])[1]
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
+    assert w_res["owner_decision"] == "REJECT"
+    assert w_res["secondary_result"] == "HOLD"
+    assert w_res["secondary_recovery"] == "NONE"
+    assert HYGIENE._workflow_git(repo, ["rev-parse", "HEAD"])[1] == before_head
+
+
+def test_watchdog_continuation_window_open_no_duplicate(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    (repo / "feature.txt").write_text("feature\n", encoding="utf-8")
+    HYGIENE._workflow_git(repo, ["add", "feature.txt"])
+    HYGIENE._workflow_git(repo, ["commit", "-m", "feature"])
+    pending = HYGIENE.run_nightly(
+        repo_root=repo, hermes_home=hermes_home, now=now,
+        schedule_timeout=lambda **kw: "dummy-timeout-job",
+    )
+    assert pending["status"] == "HOLD"
+    before_head = HYGIENE._workflow_git(repo, ["rev-parse", "HEAD"])[1]
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(minutes=10))
+    assert w_res["continuation_state"] == "IN PROGRESS"
+    assert w_res["secondary_result"] == "HOLD"
+    assert w_res["secondary_recovery"] == "NONE"
+    assert HYGIENE._workflow_git(repo, ["rev-parse", "HEAD"])[1] == before_head
+
+
+def test_watchdog_gate_failure_not_bypassed(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    paths = HYGIENE._runtime_paths(hermes_home)
+    run_id = "20260905T155500Z-watchdog-gatefail"
+    HYGIENE._atomic_json(paths.history_dir / f"{run_id}.json", {
+        "run_id": run_id, "date": now.strftime("%Y-%m-%d"), "status": "FAIL",
+        "errors": ["contract tests failed: 1 failed"], "remediation": {"status": "none"},
+    })
+    before_head = HYGIENE._workflow_git(repo, ["rev-parse", "HEAD"])[1]
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
+    assert w_res["secondary_result"] == "FAIL"
+    assert w_res["secondary_recovery"] == "NONE"
+    assert HYGIENE._workflow_git(repo, ["rev-parse", "HEAD"])[1] == before_head
+
+
+def test_watchdog_ambiguous_hold_preserved(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    paths = HYGIENE._runtime_paths(hermes_home)
+    run_id = "20260905T155500Z-watchdog-ambiguous"
+    HYGIENE._atomic_json(paths.history_dir / f"{run_id}.json", {
+        "run_id": run_id, "date": now.strftime("%Y-%m-%d"), "status": "HOLD",
+        "errors": [], "holds": ["provenance insufficient"], "remediation": {"status": "blocked"},
+    })
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
+    assert w_res["secondary_result"] == "HOLD"
+    assert w_res["secondary_recovery"] == "NONE"

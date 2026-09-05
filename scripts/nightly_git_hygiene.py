@@ -1735,6 +1735,108 @@ def _github_api_request(
         return 0, None, str(exc)
 
 
+PUBLISH_RESUME_ERROR_MARKERS = (
+    "publication branch",
+    "/pulls",
+    "pull request",
+    "merge failed",
+    "cleanup",
+    "synchronization",
+    "remediation crashed",
+)
+
+
+def _publication_branch_for_run(run_id: str) -> str:
+    clean_run_id = re.sub(r"[^A-Za-z0-9_-]", "-", run_id)[:50]
+    return f"nightly/publication-{clean_run_id}"
+
+
+def _failed_state_is_publish_resumable(state: dict[str, Any]) -> bool:
+    """True when a failed/blocked plan died inside publication and may resume."""
+    if state.get("status") not in {"failed", "blocked"}:
+        return False
+    haystacks = [str(e) for e in state.get("errors", [])] + [str(h) for h in state.get("holds", [])]
+    text = " ".join(haystacks).lower()
+    if not any(m in text for m in PUBLISH_RESUME_ERROR_MARKERS):
+        return False
+    return any(
+        a.get("kind") == "push_main" and a.get("expected_head")
+        for a in state.get("actions", [])
+    )
+
+
+def _resume_failed_publication(
+    *,
+    state: dict[str, Any],
+    repo: Path,
+    now: datetime,
+    hermes_home: Path,
+) -> tuple[list[str], str | None, dict[str, Any], dict[str, Any]]:
+    """Bounded same-run resume for a failed publication chain.
+
+    Reuses the deterministic publication branch name and any existing open
+    PR (never creates a second chain). If the merge already landed, performs
+    only the missing cleanup/sync. Returns the (taken, error, snapshot,
+    gates) tuple shaped like the normal execution tail.
+    """
+    action = next(
+        (
+            a
+            for a in state.get("actions", [])
+            if a.get("kind") == "push_main" and a.get("expected_head")
+        ),
+        None,
+    )
+    if action is None:
+        return [], "resume refused: no push_main action with expected head", _inspect_git(repo, now), {}
+    expected_head = action["expected_head"]
+    remote = action.get("remote", "origin")
+    pub_branch = _publication_branch_for_run(state["run_id"])
+    snapshot = _inspect_git(repo, now)
+    if snapshot.get("git_state", {}).get("head") != expected_head:
+        return [], "resume refused: local HEAD changed after failure", snapshot, {}
+    frc, frout = _fetch_remote_with_retry(repo, remote, "main")
+    if frc != 0:
+        return [], f"resume blocked: remote fetch failed: {frout[-200:]}", _inspect_git(repo, now), {}
+    mrg = _workflow_git(repo, ["merge-base", "--is-ancestor", expected_head, f"{remote}/main"])
+    if mrg[0] == 0:
+        # Already merged: only the missing cleanup/sync may run. No second merge.
+        taken: list[str] = []
+        brc, brout = _workflow_git(repo, ["ls-remote", "--heads", remote, pub_branch])
+        if brc == 0 and brout.strip():
+            drc, dout = _workflow_git(repo, ["push", remote, "--delete", pub_branch])
+            if drc != 0:
+                return taken, f"resume blocked: cleanup delete failed: {dout[-300:]}", _inspect_git(repo, now), {}
+            taken.append("resume_cleanup_branch")
+        _workflow_git(repo, ["fetch", remote, "main"])
+        _workflow_git(repo, ["reset", "--hard", f"{remote}/main"])
+        final = _inspect_git(repo, now)
+        fin = final.get("sync_state", {}).get("origin", {})
+        if (
+            fin.get("ahead") == 0
+            and fin.get("behind") == 0
+            and final.get("git_state", {}).get("head")
+        ):
+            taken.append("resume_sync")
+            return taken, None, final, {}
+        return taken, "resume blocked: post-cleanup sync read-back failed", final, {}
+    token = _get_github_token(hermes_home)
+    if not token:
+        return [], "resume blocked: GitHub token unavailable to verify PR state", _inspect_git(repo, now), {}
+    # Not merged: delegate to the idempotent publish path, which re-pushes
+    # the identical HEAD (no-op) and reuses any existing open PR.
+    name, error, final_snapshot, gates = _publish_via_protected_pr(
+        state=state,
+        repo=repo,
+        now=now,
+        action=action,
+        gates={},
+        hermes_home=hermes_home,
+    )
+    taken = [f"resume_{name}"] if name else []
+    return taken, error, final_snapshot, gates
+
+
 def _publish_via_protected_pr(
     *,
     state: dict[str, Any],
@@ -1759,8 +1861,7 @@ def _publish_via_protected_pr(
     owner, repo_name = parsed
 
     run_id = state.get("run_id", "manual")
-    clean_run_id = re.sub(r"[^A-Za-z0-9_-]", "-", run_id)[:50]
-    pub_branch = f"nightly/publication-{clean_run_id}"
+    pub_branch = _publication_branch_for_run(run_id)
 
     # 1. Push local commits to remote publication branch
     rc_push, push_out = _workflow_git(repo, ["push", action.get("remote", "origin"), f"HEAD:refs/heads/{pub_branch}"])
@@ -1865,8 +1966,10 @@ def _publish_via_protected_pr(
     if merge_status != 200:
         return None, f"GitHub PR #{pr_number} merge failed: {merge_err}", _inspect_git(repo, now), gates
 
-    # 5. Clean up remote publication branch
-    _workflow_git(repo, ["push", action.get("remote", "origin"), "--delete", pub_branch])
+    # 5. Clean up remote publication branch (failure is resumable, not silent)
+    del_rc, del_out = _workflow_git(repo, ["push", action.get("remote", "origin"), "--delete", pub_branch])
+    if del_rc != 0:
+        return None, f"publication cleanup failed for {pub_branch}: {del_out[-300:]}", _inspect_git(repo, now), gates
 
     # 6. Fetch origin/main and sync local main to the merged remote commit
     _fetch_remote_with_retry(repo, str(action.get("remote", "origin")), "main")
@@ -1957,6 +2060,73 @@ def process_pending(
     decision = decision.strip().lower()
     if decision not in {"approve", "reject", "timeout"}:
         raise ValueError("decision must be approve, reject, or timeout")
+    if decision in {"approve", "timeout"} and _is_valid_run_id(run_id):
+        # Optimistic same-run publication resume (lock-free read; the outcome
+        # is applied only after re-verifying state under the lock, so network
+        # and Git work never hold the state-file lock).
+        peek = _load_pending(paths)
+        if (
+            peek
+            and peek.get("run_id") == run_id
+            and peek.get("status") in {"failed", "blocked"}
+            and _failed_state_is_publish_resumable(peek)
+            and Path(peek["repo"]).is_dir()
+        ):
+            taken, rerror, rsnapshot, rgates = _resume_failed_publication(
+                state=peek,
+                repo=Path(peek["repo"]).expanduser().resolve(),
+                now=current,
+                hermes_home=paths.hermes_home,
+            )
+            with _pending_lock(paths):
+                fresh = _load_pending(paths)
+                if (
+                    not fresh
+                    or fresh.get("run_id") != run_id
+                    or fresh.get("status") not in {"failed", "blocked"}
+                ):
+                    repo = Path(peek["repo"])
+                    snapshot = _inspect_git(repo, current)
+                    result = _result_from_state(
+                        state=peek,
+                        status="HOLD",
+                        remediation_status=str(peek.get("status")),
+                        snapshot=snapshot,
+                        gates={},
+                        holds=["pending remediation changed during resume; no outcome applied"],
+                        now=current,
+                    )
+                    result["_silent"] = decision == "timeout"
+                    _write_workflow_outputs(result, paths)
+                    return result
+                if rerror is None:
+                    fresh["status"] = "completed"
+                    fresh["actions_taken"] = list(fresh.get("actions_taken", [])) + taken
+                    fresh["errors"] = []
+                    fresh["holds"] = []
+                    final_status = "PASS"
+                elif rerror.startswith("resume blocked") or rerror.startswith("resume refused"):
+                    fresh["holds"] = [rerror]
+                    final_status = "HOLD"
+                else:
+                    fresh["status"] = "failed"
+                    fresh["errors"] = [rerror]
+                    final_status = "FAIL"
+                _atomic_json(paths.pending_path, fresh)
+            result = _result_from_state(
+                state=fresh,
+                status=final_status,
+                remediation_status=fresh["status"],
+                snapshot=rsnapshot,
+                gates=rgates,
+                actions_taken=fresh.get("actions_taken", []),
+                holds=fresh.get("holds", []),
+                errors=fresh.get("errors", []),
+                now=current,
+            )
+            result["_silent"] = decision == "timeout"
+            _write_workflow_outputs(result, paths)
+            return result
     with _pending_lock(paths):
         state = _load_pending(paths)
         if not state:
@@ -2226,11 +2396,21 @@ def process_pending(
         gates: dict[str, Any] = {}
         final_status = "FAIL"
     else:
-        action_taken_list, error, snapshot, gates = _execute_pending_actions(
-            state=state,
-            repo=repo,
-            now=current,
-        )
+        try:
+            action_taken_list, error, snapshot, gates = _execute_pending_actions(
+                state=state,
+                repo=repo,
+                now=current,
+            )
+        except Exception as exc:
+            # Never leave a plan stuck in "executing" after the process died:
+            # persist a failed terminal state so the same run can be resumed.
+            action_taken_list, error, snapshot, gates = (
+                [],
+                f"remediation crashed: {type(exc).__name__}: {exc}",
+                _inspect_git(repo, current),
+                {},
+            )
         if error:
             state["status"] = "failed" if ("gates failed" in error or "push failed" in error or "commit failed" in error) else "blocked"
             state["actions_taken"] = action_taken_list

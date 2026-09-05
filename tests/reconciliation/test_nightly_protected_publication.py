@@ -196,3 +196,118 @@ def test_protected_main_publication_stops_on_failing_ci_checks(tmp_path: Path, m
     assert result["status"] == "HOLD"
     assert result["actions_taken"] == []
     assert any("GitHub CI check runs failed" in h for h in result["holds"])
+
+
+def _origin_branches(tmp_path: Path) -> str:
+    result = subprocess.run(
+        ["git", "--git-dir", str(tmp_path / "origin.git"), "branch"],
+        check=True, capture_output=True, text=True,
+    )
+    return result.stdout
+
+
+def _rehearsal_api(origin: Path, repo: Path, state: dict) -> Any:
+    def mock_api_request(method: str, path: str, token: str, payload: Any = None) -> tuple[int, Any, str | None]:
+        state["calls"].append((method, path))
+        if method == "GET" and "/pulls?state=open" in path:
+            return 200, list(state["open_prs"]), None
+        if method == "POST" and path.endswith("/pulls"):
+            pr = {"number": 42, "head": {"sha": git(repo, "rev-parse", "HEAD")}}
+            state["open_prs"].append(pr)
+            return 201, pr, None
+        if method == "GET" and "/check-runs" in path:
+            return 200, {"check_runs": [{"status": "completed", "conclusion": "success"}]}, None
+        if method == "PUT" and "/merge" in path:
+            head_sha = git(repo, "rev-parse", "HEAD")
+            subprocess.run(["git", "--git-dir", str(origin), "update-ref", "refs/heads/main", head_sha], check=True)
+            state["open_prs"].clear()
+            return 200, {"merged": True, "sha": head_sha}, None
+        return 200, {}, None
+    return mock_api_request
+
+
+def _rehearsal_git(monkeypatch: Any, fail_delete_once: bool = False) -> dict[str, int]:
+    real_workflow_git = HYGIENE._workflow_git
+    counts = {"pub_push": 0, "delete": 0}
+
+    def mock_workflow_git(r: Path, cmd: list[str], env: dict[str, str] | None = None) -> tuple[int, str]:
+        if cmd[:3] == ["push", "origin", "main"]:
+            return 1, "remote: error: GH006: Protected branch hook declined"
+        if len(cmd) >= 4 and cmd[0] == "push" and cmd[2].startswith("HEAD:refs/heads/nightly/publication-"):
+            counts["pub_push"] += 1
+        if cmd[:2] == ["push", "origin"] and "--delete" in cmd:
+            counts["delete"] += 1
+            if fail_delete_once and counts["delete"] <= 1:
+                return 1, "simulated delete failure"
+        if cmd[:2] == ["remote", "get-url"]:
+            return 0, "https://github.com/amirulhazym/hermes-agent-personal_assistant.git"
+        return real_workflow_git(r, cmd, env=env)
+
+    monkeypatch.setattr(HYGIENE, "_workflow_git", mock_workflow_git)
+    return counts
+
+
+def _post_put_counts(state: dict) -> tuple[int, int]:
+    posts = len([c for c in state["calls"] if c[0] == "POST" and c[1].endswith("/pulls")])
+    puts = len([c for c in state["calls"] if c[0] == "PUT" and "/merge" in c[1]])
+    return posts, puts
+
+
+def test_crash_during_publication_reuses_branch_and_pr(tmp_path: Path, monkeypatch: Any) -> None:
+    """G: crash mid-publish persists failed state; same run reuses branch+PR."""
+    repo, hermes_home, now = _make_ahead_case(tmp_path)
+    origin = tmp_path / "origin.git"
+    state: dict[str, Any] = {"calls": [], "open_prs": []}
+    real_api = _rehearsal_api(origin, repo, state)
+
+    def crashing_api(method: str, path: str, token: str, payload: Any = None) -> tuple[int, Any, str | None]:
+        if method == "PUT" and "/merge" in path:
+            raise RuntimeError("simulated crash before merge completion")
+        return real_api(method, path, token, payload)
+
+    monkeypatch.setattr(HYGIENE, "_github_api_request", crashing_api)
+    _rehearsal_git(monkeypatch)
+    pending = HYGIENE.run_nightly(
+        repo_root=repo, hermes_home=hermes_home, now=now,
+        schedule_timeout=lambda **kwargs: "timeout-rehearsal",
+    )
+    first = HYGIENE.process_pending(
+        decision="approve", run_id=pending["run_id"],
+        hermes_home=hermes_home, now=now + timedelta(minutes=5),
+    )
+    assert first["status"] == "HOLD"  # crash persisted, never stuck executing
+    assert "nightly/publication-" in _origin_branches(tmp_path)
+    assert _post_put_counts(state) == (1, 0)
+    monkeypatch.setattr(HYGIENE, "_github_api_request", _rehearsal_api(origin, repo, state))
+    second = HYGIENE.process_pending(
+        decision="approve", run_id=pending["run_id"],
+        hermes_home=hermes_home, now=now + timedelta(hours=2),
+    )
+    assert second["status"] == "PASS"
+    assert _post_put_counts(state) == (1, 1)
+    assert "nightly/publication-" not in _origin_branches(tmp_path)
+
+
+def test_merged_cleanup_only_no_second_merge(tmp_path: Path, monkeypatch: Any) -> None:
+    """H: merged-but-cleanup-failed resumes with cleanup only; one merge total."""
+    repo, hermes_home, now = _make_ahead_case(tmp_path)
+    origin = tmp_path / "origin.git"
+    state: dict[str, Any] = {"calls": [], "open_prs": []}
+    monkeypatch.setattr(HYGIENE, "_github_api_request", _rehearsal_api(origin, repo, state))
+    _rehearsal_git(monkeypatch, fail_delete_once=True)
+    pending = HYGIENE.run_nightly(
+        repo_root=repo, hermes_home=hermes_home, now=now,
+        schedule_timeout=lambda **kwargs: "timeout-rehearsal",
+    )
+    HYGIENE.process_pending(
+        decision="approve", run_id=pending["run_id"],
+        hermes_home=hermes_home, now=now + timedelta(minutes=5),
+    )
+    assert "nightly/publication-" in _origin_branches(tmp_path)
+    second = HYGIENE.process_pending(
+        decision="approve", run_id=pending["run_id"],
+        hermes_home=hermes_home, now=now + timedelta(hours=2),
+    )
+    assert second["status"] == "PASS"
+    assert _post_put_counts(state) == (1, 1)
+    assert "nightly/publication-" not in _origin_branches(tmp_path)
