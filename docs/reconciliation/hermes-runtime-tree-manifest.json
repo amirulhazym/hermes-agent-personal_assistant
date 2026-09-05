@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8",
-  "patch_series_digest": "be74187b7fe800c9add0bf86658a4fdd3d1390edfb68d862588a8bc11a0e22f0",
+  "patch_series_digest": "77681d6d7cf4d1d4976de3a4ffda58dfb04b8f4ab3e35b5b90903f5dca20ab5d",
   "destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "entries": [
     {
@@ -487,7 +487,7 @@
     {
       "source": "agent/agent_init.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/agent_init.py",
-      "sha256": "883168664a89bcf8954bbe486b672ab01c96fc0c06c88acdaf21559905a60276",
+      "sha256": "4a6f4dd6dce709308dcc41dc107abbf05463f6a174c680f4d89ca7212287bf1f",
       "mode": "0644"
     },
     {
@@ -655,7 +655,7 @@
     {
       "source": "agent/conversation_loop.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/conversation_loop.py",
-      "sha256": "93a3e29b301b14b4d6e814e1b67eb77b6329e338d3b68055f6e77cb3c1c12319",
+      "sha256": "938b073870420737bed7d719de58333acf4b32b8bfd5e3f789808e0988122759",
       "mode": "0644"
     },
     {
@@ -807,6 +807,12 @@
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/iteration_budget.py",
       "sha256": "d0d5b192b6cf555678a5507937a32f043cec8523250fec0fa26b09457f895047",
       "mode": "0644"
+    },
+    {
+      "source": "agent/iteration_continuation.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/agent/iteration_continuation.py",
+      "sha256": "d584699dd2527d51363632271daedc83415ea119df33e25f6ce2ce4298b8feb7",
+      "mode": "0664"
     },
     {
       "source": "agent/jiter_preload.py",
@@ -1465,7 +1471,7 @@
     {
       "source": "agent/tool_executor.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/tool_executor.py",
-      "sha256": "2f3386ee7b596332ec2d66d224727dae0312f2f7f87a62b32d92ec0211be7d8d",
+      "sha256": "d5a479461023e6e3e656a1acba1a69b244239e5c68ed6e464424c70f55bd9380",
       "mode": "0644"
     },
     {
@@ -1585,13 +1591,13 @@
     {
       "source": "agent/turn_context.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/turn_context.py",
-      "sha256": "8afeaf98642fa26e677c0ebb3ca98421342204de53d85ab9434e0749df29bdc1",
+      "sha256": "8700563ff04f3bc77a0134ccd4275bc48e3d84055855f6ce0197d5e01410bd8c",
       "mode": "0644"
     },
     {
       "source": "agent/turn_finalizer.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/turn_finalizer.py",
-      "sha256": "8813b19c1f211f49859395c1c2548b6c814bc42e2910a6bbb5400fa5ef3dd143",
+      "sha256": "b7367426a76dfef4d63a9cbaf38b1a19c50294fbefdbb9b72341d54e555939f7",
       "mode": "0644"
     },
     {
@@ -20935,7 +20941,7 @@
     {
       "source": "gateway/run.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/gateway/run.py",
-      "sha256": "8b8def1d9cb8088d4de7dd3d920d31fb0d959f4d6ffffadf6dd8f8320da5e00b",
+      "sha256": "e36c51b53dc6df99f0c6abc5b23d6d84c8ff4b333dee5e7f6a42009f7a8a469b",
       "mode": "0644"
     },
     {
@@ -21259,7 +21265,7 @@
     {
       "source": "hermes_cli/cli_agent_setup_mixin.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/cli_agent_setup_mixin.py",
-      "sha256": "a7d849b4321474ccb5a37aff5cc6b5b21220964dd3ab4c3934574dccd21f08fa",
+      "sha256": "c6ecedb043f21bb42d70f631f29f480e0287a8fb458eafee257dce8bd99d0d3a",
       "mode": "0644"
     },
     {
@@ -21325,13 +21331,13 @@
     {
       "source": "hermes_cli/config.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/config.py",
-      "sha256": "ffae3271120cf53eb8a7f574f76758eac3ea172f9ddc22c1056277e37d8d392c",
+      "sha256": "d69b240273b22cb8a4a740bb88ff26d825e166e44b151e3d00881b82a6c13bc1",
       "mode": "0644"
     },
     {
       "source": "hermes_cli/config_defaults.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/config_defaults.py",
-      "sha256": "3fa2c9f02a76d77602f9b09b7b01f72ca45a40eea92dbac33cc3a1fc5071bff8",
+      "sha256": "32186cc2a9d638dbcb3d8e1b3c12d579b6905e4ce69defb40957932da80b4e72",
       "mode": "0644"
     },
     {
@@ -33905,6 +33911,12 @@
       "mode": "0644"
     },
     {
+      "source": "tests/agent/test_iteration_progress_tool_seam.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/agent/test_iteration_progress_tool_seam.py",
+      "sha256": "e3c9dd8264a4ff771ae6f85b4f6600ec8d9d0b0e44f28eba2c9a50d9e135d5d3",
+      "mode": "0664"
+    },
+    {
       "source": "tests/agent/test_jiter_preload.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/agent/test_jiter_preload.py",
       "sha256": "8b7f810171ba1b9c7047633a5a78b4b2adaddb492ba87162ae4b041872962500",
@@ -34999,7 +35011,7 @@
     {
       "source": "tests/agent/test_turn_context.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/agent/test_turn_context.py",
-      "sha256": "449c8fb6e3f72bcb2caea7984c031fc2918bb15bb4402e1d7cbbc286cb730e8b",
+      "sha256": "3ed98fa1f155634ccf1666b1140bc1b4e0902969e4bfb59b17b96e02dcc8ba3b",
       "mode": "0644"
     },
     {
@@ -42689,6 +42701,12 @@
       "mode": "0644"
     },
     {
+      "source": "tests/hermes_cli/test_iteration_auto_continue_config.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_iteration_auto_continue_config.py",
+      "sha256": "fee65574b984bc94279608b187bf034cfbd9435e721ad793ef6816fb007c5a31",
+      "mode": "0664"
+    },
+    {
       "source": "tests/hermes_cli/test_jobs_json_utf8_bom.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_jobs_json_utf8_bom.py",
       "sha256": "182174e261a37c7b8197d253d3a30e09f4fba8d875d797b11d1a9e7874dcf6f1",
@@ -47243,10 +47261,22 @@
       "mode": "0644"
     },
     {
+      "source": "tests/run_agent/test_iteration_budget_auto_continue.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/run_agent/test_iteration_budget_auto_continue.py",
+      "sha256": "2cec2daaf6cf7f2ac9d8e6e39931de9c372f410499dff38a8ccd88ff7cf349f0",
+      "mode": "0664"
+    },
+    {
       "source": "tests/run_agent/test_iteration_budget_race.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/run_agent/test_iteration_budget_race.py",
       "sha256": "351a844652c28335ca68955039e86f1d1c381750f6dbeaf409179075d9abca25",
       "mode": "0644"
+    },
+    {
+      "source": "tests/run_agent/test_iteration_continuation_policy.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/run_agent/test_iteration_continuation_policy.py",
+      "sha256": "5e992aa59a558041c50c69802f50cb759c94a76626707f3d1f75e49a8c7a834e",
+      "mode": "0664"
     },
     {
       "source": "tests/run_agent/test_jsondecodeerror_retryable.py",
@@ -62927,5 +62957,5 @@
       "mode": "0644"
     }
   ],
-  "tree_sha256": "22779f183fac36ccc2caaf56699267ecb986e3ab6a754cf26a601ccfe057f746"
+  "tree_sha256": "15d366bc06270b4c589a9b5f6c05c6df4251c627b5f341b96a84f766340f844a"
 }
