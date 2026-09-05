@@ -266,13 +266,13 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-source-lock.json",
-      "source_sha256": "55a36fa108bb516177d12eb95a800963a1e6a2605f2ac36a179ff1606948fbb7"
+      "source_sha256": "e5b95f5a138f0f96f54e6593f186d530a08b6dda05f42af475da65dffc64e129"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-tree-manifest.json",
-      "source_sha256": "61b27e1a172559ee952185df70c4a88c41149639e3533186c212326265f109a0"
+      "source_sha256": "96b276f1e1dd9bdb02d491fbdc41f701021aa549506ac5909069580286fb7be9"
     },
     {
       "destination": null,
@@ -440,13 +440,13 @@
       "destination": null,
       "kind": "source-only",
       "source": "patches/upstream-hermes/2026-09-05_bounded-main-turn-auto-continue.patch",
-      "source_sha256": "1ce56b39a95ef1e412c2f685f08ef5b9ba91bb8d625317f7672b5a9511bb3bdc"
+      "source_sha256": "dd6db0f5690297e236d23697cfa27e2b54c09ecc363f894a208446e1933165a8"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "patches/upstream-hermes/README.md",
-      "source_sha256": "61a434a2bbe3d3f7391f87486d9595e0c941cb557a85fa3937b38204c1462d3e"
+      "source_sha256": "6b28de2f6b3dcf741ad3a11bf2515797a4d0533d5e7db06d6fee0b0b1ddb3cdd"
     },
     {
       "destination": null,
@@ -4046,7 +4046,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_hermes_runtime_reconstruction.py",
-      "source_sha256": "25b3a147b295ddf1591fc927ec75531d4028f6a82f9278d064c48f71fad6ea39"
+      "source_sha256": "cac5cb0afd998684a4a56df274bf4c0afdb197fdebdcbceaa7ac114a4502766b"
     },
     {
       "destination": null,

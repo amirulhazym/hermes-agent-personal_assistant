@@ -87,4 +87,4 @@ series is authoritative.
 9. `2026-09-05_bounded-main-turn-auto-continue.patch` — candidate main
    CLI/gateway bounded progress-aware continuation after a 300-iteration window;
    max two additional windows; not live-applied. SHA-256:
-   `1ce56b39a95ef1e412c2f685f08ef5b9ba91bb8d625317f7672b5a9511bb3bdc`.
+   `dd6db0f5690297e236d23697cfa27e2b54c09ecc363f894a208446e1933165a8`.

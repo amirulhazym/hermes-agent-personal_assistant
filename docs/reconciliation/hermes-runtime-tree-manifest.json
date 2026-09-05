@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8",
-  "patch_series_digest": "77681d6d7cf4d1d4976de3a4ffda58dfb04b8f4ab3e35b5b90903f5dca20ab5d",
+  "patch_series_digest": "df0e1a312373d9faaadba7efc20b01e674a4e0559311b46d511cbfcd23dc1f94",
   "destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "entries": [
     {
@@ -38657,6 +38657,12 @@
       "mode": "0644"
     },
     {
+      "source": "tests/gateway/test_iteration_auto_continue.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/gateway/test_iteration_auto_continue.py",
+      "sha256": "eac2df45428125c1a85008b805b657ce97dc78aae95362667aaf52c1d23991c5",
+      "mode": "0664"
+    },
+    {
       "source": "tests/gateway/test_kanban_auto_decompose_live.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/gateway/test_kanban_auto_decompose_live.py",
       "sha256": "4bf61ed174d2be49a982f3b9f3bdf4e2ae8879aeb807d908ea3e6b28f4a421aa",
@@ -42699,6 +42705,12 @@
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_inventory_reasoning_caps.py",
       "sha256": "843280456d9493b3d4b068bc8ea7582d1216bf97a5030b8f53917f1a30ac9ac2",
       "mode": "0644"
+    },
+    {
+      "source": "tests/hermes_cli/test_iteration_auto_continue_cli.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_iteration_auto_continue_cli.py",
+      "sha256": "cfb37ff8af7026377d2384a821534418328239499b02111215b6fa8a7c253116",
+      "mode": "0664"
     },
     {
       "source": "tests/hermes_cli/test_iteration_auto_continue_config.py",
@@ -62957,5 +62969,5 @@
       "mode": "0644"
     }
   ],
-  "tree_sha256": "15d366bc06270b4c589a9b5f6c05c6df4251c627b5f341b96a84f766340f844a"
+  "tree_sha256": "005dcdfade4cfe313f0429e7b2f6dd8ef6d31258f4c766423581c83ad1f185fb"
 }
