@@ -1,0 +1,128 @@
+diff --git a/gateway/slash_commands.py b/gateway/slash_commands.py
+index 001d6b7469..c91dd19b70 100644
+--- a/gateway/slash_commands.py
++++ b/gateway/slash_commands.py
+@@ -1873,6 +1873,7 @@ class GatewaySlashCommandsMixin:
+                         custom_providers=custom_provs,
+                         max_models=50,
+                         include_moa=True,
++                        refresh=True,
+                         excluded_providers=excluded_provs,
+                     )
+                 except Exception:
+@@ -4927,37 +4928,99 @@ class GatewaySlashCommandsMixin:
+         async def _list_titled_sessions() -> list[dict]:
+             user_source = source.platform.value if source.platform else None
+             widen = allow_all and self._resume_caller_is_admin(source)
++            # Fetch candidates ordered by most recent activity
+             sessions = await self._session_db.list_sessions_rich(
+                 source=user_source,
+                 session_key=None if widen else session_key,
+-                limit=10,
++                limit=50,
++                order_by_last_active=True,
++                min_message_count=0,
+             )
+-            return [s for s in sessions if s.get("title")][:10]
++            # Visible rows
++            visible_rows = [
++                s for s in sessions
++                if await self._resume_row_visible(source, s, allow_all)
++            ]
++            # Identify current active session
++            cur_id = getattr(current_entry, "session_id", None) if "current_entry" in locals() else None
++            if not cur_id:
++                try:
++                    c_entry = await self.async_session_store.get_or_create_session(source)
++                    cur_id = c_entry.session_id if c_entry else None
++                except Exception:
++                    cur_id = None
++
++            cur_session = None
++            past_titled: list[dict] = []
++            for s in visible_rows:
++                sid = s.get("id")
++                if cur_id and sid == cur_id:
++                    # Include current session if it has a title or has conversation messages
++                    if s.get("title") or (s.get("message_count", 0) or 0) > 0:
++                        cur_session = s
++                elif s.get("title"):
++                    past_titled.append(s)
++
++            result_sessions: list[dict] = []
++            if cur_session:
++                result_sessions.append(cur_session)
++            result_sessions.extend(past_titled[:10])
++            return result_sessions
+ 
+         if not name:
+             # List recent titled sessions for this user/platform
+             try:
+                 titled = await _list_titled_sessions()
+-                titled = [
+-                    s for s in titled
+-                    if await self._resume_row_visible(source, s, allow_all)
+-                ]
+                 if not titled:
+                     if source.platform == Platform.MATRIX and not allow_all:
+                         return t("gateway.resume.matrix_no_named_sessions")
+                     return t("gateway.resume.no_named_sessions")
+-                lines = [t("gateway.resume.list_header")]
+-                for idx, s in enumerate(titled[:10], start=1):
+-                    title = s["title"]
++
++                cur_id = getattr(current_entry, "session_id", None) if "current_entry" in locals() else None
++                if not cur_id:
++                    try:
++                        c_entry = await self.async_session_store.get_or_create_session(source)
++                        cur_id = c_entry.session_id if c_entry else None
++                    except Exception:
++                        cur_id = None
++
++                tag_map = {
++                    "telegram": "[TG]",
++                    "whatsapp": "[WA]",
++                    "discord": "[DC]",
++                    "slack": "[SL]",
++                    "signal": "[SG]",
++                    "matrix": "[MX]",
++                }
++
++                header = t("gateway.resume.list_header").strip()
++                footer = t("gateway.resume.list_footer_numbered").strip()
++                items = []
++                for idx, s in enumerate(titled, start=1):
++                    sid = str(s.get("id") or "")
++                    is_active = (cur_id is not None and sid == cur_id)
++                    active_label = "(active) " if is_active else ""
++
++                    src_str = str(s.get("source") or "").lower()
++                    tag = tag_map.get(src_str, f"[{src_str[:2].upper()}]") if src_str else ""
++                    tag_suffix = f" {tag}" if tag else ""
++
++                    raw_title = s.get("title")
++                    title_display = raw_title if raw_title else "(no title set yet)"
+                     if source.platform == Platform.MATRIX and allow_all:
+-                        origin = self._gateway_session_origin_for_id(str(s.get("id") or ""))
++                        origin = self._gateway_session_origin_for_id(sid)
+                         if origin:
+-                            title = f"{title} — {origin.chat_name or origin.chat_id}"
+-                    preview = s.get("preview", "")[:40]
+-                    preview_part = t("gateway.resume.list_preview_suffix", preview=preview) if preview else ""
+-                    lines.append(t("gateway.resume.list_item_numbered", index=idx, title=title, preview_part=preview_part))
+-                lines.append(t("gateway.resume.list_footer_numbered"))
+-                return "\n".join(lines)
++                            title_display = f"{title_display} — {origin.chat_name or origin.chat_id}"
++
++                    preview = (s.get("preview") or "").strip().replace("\n", " ")[:40]
++                    preview_display = preview if preview else "No preview"
++
++                    line1 = f"{idx}. {active_label}`{sid}`{tag_suffix}"
++                    line2 = f"   🏷️ **{title_display}**"
++                    line3 = f"   > _{preview_display}_"
++                    items.append(f"{line1}\n{line2}\n{line3}")
++
++                return f"{header}\n\n" + "\n\n".join(items) + f"\n\n{footer}" 
+             except Exception as e:
+                 logger.debug("Failed to list titled sessions: %s", e)
+                 return t("gateway.resume.list_failed", error=e)
