@@ -4112,7 +4112,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_watchdog_and_resilience.py",
-      "source_sha256": "d354b1d2e7261982c8592bbdcec13ba521d9b2811383aa1d53b18eb2d684f730"
+      "source_sha256": "ccab0451aec613ef01f25f687f96803f69c1dbce9ae82336a4b450953b00bf2a"
     }
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",

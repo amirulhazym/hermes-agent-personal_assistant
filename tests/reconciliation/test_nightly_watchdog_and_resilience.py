@@ -172,7 +172,9 @@ def test_watchdog_completed_remediation_verifies_only(tmp_path: Path):
     repo, hermes_home, now = _make_repo(tmp_path)
     (repo / "feature.txt").write_text("feature\n", encoding="utf-8")
     HYGIENE._workflow_git(repo, ["add", "feature.txt"])
-    HYGIENE._workflow_git(repo, ["commit", "-m", "feature"])
+    import os as _os
+    _env = dict(_os.environ, GIT_AUTHOR_DATE=now.isoformat(), GIT_COMMITTER_DATE=now.isoformat())
+    subprocess.run(["git", "-C", str(repo), "commit", "-m", "feature"], check=True, env=_env)
     pending = HYGIENE.run_nightly(
         repo_root=repo, hermes_home=hermes_home, now=now,
         schedule_timeout=lambda **kw: "dummy-timeout-job",
@@ -195,7 +197,9 @@ def test_watchdog_rejected_remediation_preserved(tmp_path: Path):
     repo, hermes_home, now = _make_repo(tmp_path)
     (repo / "feature.txt").write_text("feature\n", encoding="utf-8")
     HYGIENE._workflow_git(repo, ["add", "feature.txt"])
-    HYGIENE._workflow_git(repo, ["commit", "-m", "feature"])
+    import os as _os
+    _env = dict(_os.environ, GIT_AUTHOR_DATE=now.isoformat(), GIT_COMMITTER_DATE=now.isoformat())
+    subprocess.run(["git", "-C", str(repo), "commit", "-m", "feature"], check=True, env=_env)
     pending = HYGIENE.run_nightly(
         repo_root=repo, hermes_home=hermes_home, now=now,
         schedule_timeout=lambda **kw: "dummy-timeout-job",
@@ -216,7 +220,9 @@ def test_watchdog_continuation_window_open_no_duplicate(tmp_path: Path):
     repo, hermes_home, now = _make_repo(tmp_path)
     (repo / "feature.txt").write_text("feature\n", encoding="utf-8")
     HYGIENE._workflow_git(repo, ["add", "feature.txt"])
-    HYGIENE._workflow_git(repo, ["commit", "-m", "feature"])
+    import os as _os
+    _env = dict(_os.environ, GIT_AUTHOR_DATE=now.isoformat(), GIT_COMMITTER_DATE=now.isoformat())
+    subprocess.run(["git", "-C", str(repo), "commit", "-m", "feature"], check=True, env=_env)
     pending = HYGIENE.run_nightly(
         repo_root=repo, hermes_home=hermes_home, now=now,
         schedule_timeout=lambda **kw: "dummy-timeout-job",
