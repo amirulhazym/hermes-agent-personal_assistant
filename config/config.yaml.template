@@ -362,9 +362,9 @@ display:
     discord:
       streaming: false
     whatsapp:
-      show_reasoning: false
+      show_reasoning: true
       busy_ack_detail: false
-      tool_progress: false
+      tool_progress: all
   runtime_footer:
     enabled: false
     fields:
