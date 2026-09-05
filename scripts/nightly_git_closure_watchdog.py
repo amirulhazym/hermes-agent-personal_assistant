@@ -79,6 +79,25 @@ def _find_primary_run_for_watchdog(
     return None, None
 
 
+def _failed_publish_state_is_resumable(
+    paths: hygiene.RuntimePaths,
+    primary_run_id: str | None,
+) -> bool:
+    """True when a failed plan for this run died inside publication and may resume."""
+    if not primary_run_id:
+        return False
+    try:
+        pending = hygiene._load_pending(paths)
+    except Exception:
+        return False
+    return bool(
+        pending
+        and pending.get("run_id") == primary_run_id
+        and pending.get("status") in {"failed", "blocked"}
+        and hygiene._failed_state_is_publish_resumable(pending)
+    )
+
+
 def run_watchdog(
     *,
     repo_root: Path = REPO_ROOT,
@@ -136,6 +155,31 @@ def run_watchdog(
 
     # Check if there is a pending remediation file on disk
     if pending_state and pending_state.get("run_id") == primary_run_id:
+        pending_status = pending_state.get("status")
+        if pending_status == "completed":
+            # Already remediated (e.g. owner APPROVE executed). Verify only;
+            # never re-execute a completed chain (single-mutation rule).
+            watchdog_result["owner_decision"] = (
+                "APPROVE" if pending_state.get("decision") == "approve" else "NO RESPONSE"
+            )
+            watchdog_result["continuation_state"] = (
+                "FIRED" if pending_state.get("decision") == "timeout" else "NOT REQUIRED"
+            )
+            watchdog_result["primary_remediation"] = "COMPLETE"
+            if is_clean and is_synced:
+                watchdog_result["secondary_result"] = "PASS"
+                watchdog_result["secondary_recovery"] = "NONE"
+            else:
+                watchdog_result["secondary_result"] = "HOLD"
+                watchdog_result["errors"].append("Repo is not clean and synced despite completed remediation")
+            _format_and_record_watchdog(watchdog_result, paths)
+            return watchdog_result
+        if pending_status == "rejected":
+            # Owner rejection is terminal. Preserve it; never execute.
+            watchdog_result["owner_decision"] = "REJECT"
+            watchdog_result["secondary_result"] = "HOLD"
+            _format_and_record_watchdog(watchdog_result, paths)
+            return watchdog_result
         # Check AFK / timeout status
         deadline_str = pending_state.get("deadline_at")
         deadline = hygiene._parse_iso_datetime(deadline_str) if deadline_str else None
@@ -230,6 +274,20 @@ def run_watchdog(
             else:
                 watchdog_result["secondary_result"] = "FAIL"
                 watchdog_result["errors"].extend(recovery_res.get("errors", []))
+        elif not dry_run and _failed_publish_state_is_resumable(paths, primary_run_id):
+            # Same-run publication resume (reuses branch/PR, never duplicates).
+            rec_res = hygiene.process_pending(
+                decision="timeout",
+                hermes_home=hermes_home,
+                run_id=primary_run_id,
+                now=current,
+            )
+            if rec_res.get("status") == "PASS":
+                watchdog_result["secondary_recovery"] = "PUBLISH CHAIN RECOVERED SAME RUN"
+                watchdog_result["secondary_result"] = "RECOVERED"
+            else:
+                watchdog_result["secondary_result"] = "HOLD" if rec_res.get("status") == "HOLD" else "FAIL"
+                watchdog_result["errors"].extend(rec_res.get("errors", []))
         else:
             # Gate failure (Secret/PII/Contract) - do not bulldoze
             watchdog_result["secondary_result"] = "FAIL"

@@ -842,7 +842,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "cbefe43334b02fa5c20b50f07606dac8c40b6e2886d8493b1d9cd73e0714d44f"
+      "source_sha256": "ce94f7c3f4a09729dfed5d76a7ba9e933c351264d50f157b61b720e4a8b826ce"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_timeout.sh",
@@ -4100,7 +4100,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_closure_watchdog.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_closure_watchdog.py",
-      "source_sha256": "c71201d5e4d0866fcf8bdf0d6029d97f08c3ef79aec2d89e5b6b41e62c2d2d34"
+      "source_sha256": "dda3d7b3c5725e60b1567c738d7bcd385d3bd191260f96c73f44ccb04b26c9ac"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_closure_watchdog_wrapper.sh",
@@ -4112,7 +4112,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_watchdog_and_resilience.py",
-      "source_sha256": "d41b211244fe53ffcf97c9f19ee1a24461fc2cea70f1710d41b97f258acc0c28"
+      "source_sha256": "d354b1d2e7261982c8592bbdcec13ba521d9b2811383aa1d53b18eb2d684f730"
     }
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
