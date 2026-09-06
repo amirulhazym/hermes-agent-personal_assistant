@@ -11,10 +11,6 @@ echo "=== contract tests: reconciliation + guard ==="
 python3 -m pytest \
   tests/reconciliation/ \
   tests/guard/ \
-  -v --tb=short \
-  2>&1 | tail -30
+  -v --tb=short
 
-# Also check: these are the contract tests that would fail on Gate 2 regression
 echo "=== contract suite complete ==="
-echo "To catch Gate 2 regressions, these 14 tests must all pass."
-echo "Expected: 14 passed in ~10s"
