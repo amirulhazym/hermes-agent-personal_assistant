@@ -26,6 +26,7 @@ import json
 import os
 import re
 import secrets
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -295,6 +296,9 @@ TIMEOUT_SCRIPT = "nightly_git_hygiene_timeout.sh"
 TIMEOUT_WRAPPER_PREFIX = "nightly_git_hygiene_timeout-"
 TIMEOUT_WRAPPER_SUFFIX = ".sh"
 AUTO_ACTION_WINDOW = timedelta(minutes=30)
+PRIMARY_NIGHTLY_JOB_ID = "9517378892e3"
+PRIMARY_SCHEDULE_EARLY_TOLERANCE = timedelta(minutes=10)
+PRIMARY_SCHEDULE_LATE_TOLERANCE = timedelta(minutes=20)
 RUN_ID_RE = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}-[0-9a-f]{32}$")
 EXCLUDED_PRIVATE_PATHS = frozenset({"SOUL.md"})
 
@@ -355,6 +359,63 @@ def _format_myt(value: datetime) -> str:
 
 def _iso_myt(value: datetime) -> str:
     return _as_myt(value).isoformat()
+
+
+def primary_scheduled_window(target_date) -> tuple[datetime, datetime]:
+    """Return the bounded MYT window in which the 23:55 primary may start."""
+    scheduled = datetime(
+        target_date.year, target_date.month, target_date.day, 23, 55, tzinfo=MYT,
+    )
+    return (
+        scheduled - PRIMARY_SCHEDULE_EARLY_TOLERANCE,
+        scheduled + PRIMARY_SCHEDULE_LATE_TOLERANCE,
+    )
+
+
+def primary_scheduler_execution_evidence(hermes_home: Path, now: datetime) -> dict[str, Any]:
+    """Bind a primary receipt to its active built-in scheduler ledger row.
+
+    The runner is deliberately not trusted merely because a script was invoked:
+    manual/direct invocations use a different ledger source.  If the durable
+    ledger is missing, malformed, or ambiguous, retain that limitation in the
+    receipt instead of minting a scheduler identity from wall-clock time.
+    """
+    db_path = hermes_home / "cron" / "executions.db"
+    if not db_path.is_file():
+        return {"status": "UNKNOWN", "reason": "cron execution ledger is missing"}
+    start, end = primary_scheduled_window(_as_myt(now).date())
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            rows = conn.execute(
+                "SELECT id, job_id, source, status, claimed_at, started_at "
+                "FROM executions WHERE job_id=? AND source='builtin'",
+                (PRIMARY_NIGHTLY_JOB_ID,),
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        return {"status": "UNKNOWN", "reason": f"cron execution ledger unreadable: {exc}"}
+
+    eligible: list[tuple[str, str, str, str | None]] = []
+    for execution_id, job_id, source, status, claimed_at, started_at in rows:
+        try:
+            claimed = datetime.fromisoformat(str(claimed_at)).astimezone(MYT)
+        except (TypeError, ValueError):
+            continue
+        if start <= claimed <= end and status in {"claimed", "running"}:
+            eligible.append((str(execution_id), str(job_id), str(source), started_at))
+    if len(eligible) != 1:
+        reason = "no active primary scheduler record" if not eligible else "ambiguous active primary scheduler records"
+        return {"status": "UNKNOWN", "reason": reason}
+    execution_id, job_id, source, started_at = eligible[0]
+    return {
+        "status": "SCHEDULER_CLAIMED",
+        "execution_id": execution_id,
+        "job_id": job_id,
+        "source": source,
+        "started_at": started_at,
+    }
 
 
 def _atomic_json(path: Path, payload: dict[str, Any], *, mode: int = 0o600) -> None:
@@ -1177,6 +1238,7 @@ def run_nightly(
     repo = repo_root.expanduser().resolve()
     home = hermes_home.expanduser().resolve()
     paths = _runtime_paths(home)
+    scheduler_execution = primary_scheduler_execution_evidence(home, current)
     snapshot = _inspect_git(repo, current)
     head = snapshot["git_state"].get("head") or "unknown"
     run_id = _run_id(current, head if len(head) >= 12 else "0" * 12)
@@ -1319,6 +1381,7 @@ def run_nightly(
         "holds": holds,
         "errors": errors,
         "remediation": remediation,
+        "scheduler_execution": scheduler_execution,
         "execution": execution_identity(repo, head if len(head) == 40 else ""),
         "proposal_path": check_operational_proposals(repo, current.strftime("%Y-%m-%d")),
         "delivery": {"mode": "stdout", "status": "emitted_by_target_not_destination_verified"},

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sqlite3
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -64,6 +65,18 @@ def _make_repo(tmp_path: Path) -> tuple[Path, Path, datetime]:
     HYGIENE._workflow_git(repo, ["push", "upstream", "main"])
 
     now = datetime(2026, 9, 5, 23, 55, 0, tzinfo=MYT)
+    ledger = hermes_home / "cron" / "executions.db"
+    ledger.parent.mkdir()
+    with sqlite3.connect(ledger) as conn:
+        conn.execute(
+            "CREATE TABLE executions (id TEXT PRIMARY KEY, job_id TEXT NOT NULL, "
+            "source TEXT NOT NULL, status TEXT NOT NULL, claimed_at TEXT NOT NULL, started_at TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO executions (id, job_id, source, status, claimed_at, started_at) "
+            "VALUES (?, ?, 'builtin', 'running', ?, ?)",
+            ("fixture-primary-execution", HYGIENE.PRIMARY_NIGHTLY_JOB_ID, now.isoformat(), now.isoformat()),
+        )
     return repo, hermes_home, now
 
 
@@ -72,6 +85,13 @@ def test_watchdog_primary_pass_secondary_pass(tmp_path: Path):
     # Run primary at 23:55
     res = HYGIENE.run_nightly(repo_root=repo, hermes_home=hermes_home, now=now)
     assert res["status"] == "PASS"
+    assert res["scheduler_execution"] == {
+        "status": "SCHEDULER_CLAIMED",
+        "execution_id": "fixture-primary-execution",
+        "job_id": HYGIENE.PRIMARY_NIGHTLY_JOB_ID,
+        "source": "builtin",
+        "started_at": now.isoformat(),
+    }
 
     # Run watchdog at 01:55 next day
     watchdog_now = now + timedelta(hours=2)
@@ -80,6 +100,8 @@ def test_watchdog_primary_pass_secondary_pass(tmp_path: Path):
     assert w_res["primary_run_id"] == res["run_id"]
     assert w_res["primary_status"] == "PASS"
     assert w_res["final_repo_state"] == "CLEAN+SYNCED"
+    assert w_res["execution"]["script_path"] == str(SCRIPTS_DIR / "nightly_git_closure_watchdog.py")
+    assert len(w_res["execution"]["script_sha256"]) == 64
 
 
 def test_watchdog_recovers_unexecuted_timeout_autofix(tmp_path: Path):
@@ -150,10 +172,11 @@ def test_watchdog_recovers_transient_fetch_primary_failure(tmp_path: Path):
     paths = HYGIENE._runtime_paths(hermes_home)
 
     # Primary failed at 23:55 due to transient fetch ref race
-    primary_run_id = "20260905T155500Z-test-transient-fail"
+    primary_run_id = "20260905T155500Z-aaaaaaaaaaaa-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     fake_primary = {
         "run_id": primary_run_id,
         "date": now.strftime("%Y-%m-%d"),
+        "timestamp": "2026-09-05 23:55:00 MYT",
         "status": "FAIL",
         "errors": ["git fetch origin failed: error: cannot lock ref 'refs/remotes/origin/main': is at 1111 but expected 2222"],
         "remediation": {"status": "none"},
@@ -239,9 +262,9 @@ def test_watchdog_continuation_window_open_no_duplicate(tmp_path: Path):
 def test_watchdog_gate_failure_not_bypassed(tmp_path: Path):
     repo, hermes_home, now = _make_repo(tmp_path)
     paths = HYGIENE._runtime_paths(hermes_home)
-    run_id = "20260905T155500Z-watchdog-gatefail"
+    run_id = "20260905T155500Z-bbbbbbbbbbbb-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     HYGIENE._atomic_json(paths.history_dir / f"{run_id}.json", {
-        "run_id": run_id, "date": now.strftime("%Y-%m-%d"), "status": "FAIL",
+        "run_id": run_id, "date": now.strftime("%Y-%m-%d"), "timestamp": "2026-09-05 23:55:00 MYT", "status": "FAIL",
         "errors": ["contract tests failed: 1 failed"], "remediation": {"status": "none"},
     })
     before_head = HYGIENE._workflow_git(repo, ["rev-parse", "HEAD"])[1]
@@ -254,11 +277,107 @@ def test_watchdog_gate_failure_not_bypassed(tmp_path: Path):
 def test_watchdog_ambiguous_hold_preserved(tmp_path: Path):
     repo, hermes_home, now = _make_repo(tmp_path)
     paths = HYGIENE._runtime_paths(hermes_home)
-    run_id = "20260905T155500Z-watchdog-ambiguous"
+    run_id = "20260905T155500Z-cccccccccccc-cccccccccccccccccccccccccccccccc"
     HYGIENE._atomic_json(paths.history_dir / f"{run_id}.json", {
-        "run_id": run_id, "date": now.strftime("%Y-%m-%d"), "status": "HOLD",
+        "run_id": run_id, "date": now.strftime("%Y-%m-%d"), "timestamp": "2026-09-05 23:55:00 MYT", "status": "HOLD",
         "errors": [], "holds": ["provenance insufficient"], "remediation": {"status": "blocked"},
     })
     w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
     assert w_res["secondary_result"] == "HOLD"
     assert w_res["secondary_recovery"] == "NONE"
+
+
+def test_watchdog_missing_target_primary_never_falls_back_to_another_day(tmp_path: Path):
+    _repo, hermes_home, now = _make_repo(tmp_path)
+    paths = HYGIENE._runtime_paths(hermes_home)
+    HYGIENE._atomic_json(paths.history_dir / "stale.json", {
+        "run_id": "20260904T155500Z-dddddddddddd-dddddddddddddddddddddddddddddddd", "date": "2026-09-04",
+        "timestamp": "2026-09-04 23:55:00 MYT", "status": "PASS",
+    })
+
+    run_id, primary = WATCHDOG._find_primary_run_for_watchdog(paths, now + timedelta(hours=2))
+
+    assert run_id is None
+    assert primary is None
+
+
+def test_watchdog_selects_scheduled_window_not_newest_same_day_receipt(tmp_path: Path):
+    _repo, hermes_home, now = _make_repo(tmp_path)
+    paths = HYGIENE._runtime_paths(hermes_home)
+    HYGIENE._atomic_json(paths.history_dir / "natural.json", {
+        "run_id": "20260905T155512Z-eeeeeeeeeeee-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "date": "2026-09-05",
+        "timestamp": "2026-09-05 23:55:12 MYT", "status": "FAIL",
+    })
+    HYGIENE._atomic_json(paths.history_dir / "manual.json", {
+        "run_id": "20260905T120000Z-ffffffffffff-ffffffffffffffffffffffffffffffff", "date": "2026-09-05",
+        "timestamp": "2026-09-05 12:00:00 MYT", "status": "PASS",
+    })
+
+    run_id, primary = WATCHDOG._find_primary_run_for_watchdog(paths, now + timedelta(hours=2))
+
+    assert run_id == "20260905T155512Z-eeeeeeeeeeee-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    assert primary["status"] == "FAIL"
+
+
+def test_watchdog_fetch_failure_cannot_report_clean_synced_pass(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    primary = HYGIENE.run_nightly(repo_root=repo, hermes_home=hermes_home, now=now)
+    assert primary["status"] == "PASS"
+    HYGIENE._workflow_git(repo, ["remote", "set-url", "origin", str(tmp_path / "missing-origin.git")])
+
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
+
+    assert w_res["primary_run_id"] == primary["run_id"]
+    assert w_res["secondary_result"] == "FAIL"
+    assert w_res["final_repo_state"] == "UNKNOWN"
+    assert any("git fetch origin failed" in error for error in w_res["errors"])
+
+
+def test_watchdog_reports_primary_delivery_as_unknown_without_scheduler_record(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    primary = HYGIENE.run_nightly(repo_root=repo, hermes_home=hermes_home, now=now)
+
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
+
+    assert w_res["primary_run_id"] == primary["run_id"]
+    assert w_res["delivery_evidence"] == {
+        "status": "UNKNOWN",
+        "reason": "no matching primary scheduler record",
+    }
+
+
+def test_watchdog_rejects_primary_pass_without_bound_scheduler_execution(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    paths = HYGIENE._runtime_paths(hermes_home)
+    run_id = "20260905T155500Z-999999999999-99999999999999999999999999999999"
+    HYGIENE._atomic_json(paths.history_dir / f"{run_id}.json", {
+        "run_id": run_id,
+        "date": "2026-09-05",
+        "timestamp": "2026-09-05 23:55:00 MYT",
+        "status": "PASS",
+        "errors": [],
+        "remediation": {"status": "none"},
+    })
+
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
+
+    assert w_res["primary_run_id"] == run_id
+    assert w_res["secondary_result"] == "FAIL"
+    assert w_res["details"]["primary_scheduler_execution"]["status"] == "UNKNOWN"
+
+
+def test_watchdog_primary_delivery_error_cannot_leave_secondary_pass(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    primary = HYGIENE.run_nightly(repo_root=repo, hermes_home=hermes_home, now=now)
+    (hermes_home / "cron" / "jobs.json").write_text(json.dumps({"jobs": [{
+        "id": HYGIENE.PRIMARY_NIGHTLY_JOB_ID,
+        "last_run_at": now.isoformat(),
+        "last_status": "ok",
+        "last_delivery_error": "transport rejected",
+    }]}))
+
+    w_res = WATCHDOG.run_watchdog(repo_root=repo, hermes_home=hermes_home, now=now + timedelta(hours=2))
+
+    assert w_res["primary_run_id"] == primary["run_id"]
+    assert w_res["delivery_evidence"]["status"] == "FAILED"
+    assert w_res["secondary_result"] == "FAIL"
