@@ -38,13 +38,13 @@ COPILOT_REASONING_EFFORTS_O_SERIES = ["low", "medium", "high"]
 # user instruction.
 D8_OPENCODE_ZEN_FREE_MODELS: tuple[str, ...] = (
     "muse-spark-1.3-contributor-free",
-    "muse-spark-1.2-contributor-free",
     "nemotron-3.5-lightning-free",
     "big-pickle",
     "mimo-v2.5-free",
     "ling-3.0-flash-fin-free",
     "nemotron-3-ultra-free",
     "laguna-s-2.1-free",
+    "muse-spark-1.2-contributor-free",
 )
 
 # Model IDs that are legacy aliases, deprecated upstream (removed from the
