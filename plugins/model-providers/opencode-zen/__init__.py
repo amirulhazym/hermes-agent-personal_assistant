@@ -37,10 +37,9 @@ def _is_deepseek_thinking_model(model: str | None) -> bool:
     return False
 
 
-# Official 7 OpenCode Zen free models (2026-09-04 docs)
+# Official 6 OpenCode Zen free models (2026-09-08 docs)
 OPENCODE_ZEN_OFFICIAL_FREE: tuple[str, ...] = (
     "muse-spark-1.3-contributor-free",
-    "muse-spark-1.2-contributor-free",
     "nemotron-3.5-lightning-free",
     "big-pickle",
     "mimo-v2.5-free",
@@ -51,6 +50,7 @@ OPENCODE_ZEN_OFFICIAL_FREE: tuple[str, ...] = (
 # Secondary / undocumented live-catalog free candidate (keyed only, not official/keyless)
 OPENCODE_ZEN_SECONDARY_FREE: tuple[str, ...] = (
     "laguna-s-2.1-free",
+    "muse-spark-1.2-contributor-free",
 )
 
 # Explicitly delisted/deprecated models to filter out from Zen picker
