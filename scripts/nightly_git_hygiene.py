@@ -176,9 +176,10 @@ def run_audit(repo_root: Path = REPO_ROOT, dry_run: bool = False) -> dict[str, A
             audit["errors"].append("Contract tests failed")
             audit["status"] = "FAIL"
 
-    # 5. Fetch remotes & check sync
+    # 5. Fetch the personal remote and check sync.  The external upstream
+    # checkout is not managed by this repository and is intentionally outside
+    # the nightly personal-repo gate.
     _fetch_remote_with_retry(repo_root, "origin", "main")
-    _fetch_remote_with_retry(repo_root, "upstream", "main")
 
     rc, ahead_behind = run_cmd(["git", "rev-list", "--left-right", "--count", "main...origin/main"], cwd=repo_root)
     if rc == 0 and ahead_behind:
@@ -190,12 +191,6 @@ def run_audit(repo_root: Path = REPO_ROOT, dry_run: bool = False) -> dict[str, A
                 audit["holds"].append("Local main and origin/main have diverged")
             elif ahead > 0 and behind == 0:
                 audit["release_pending"] = True
-
-    rc, up_ahead_behind = run_cmd(["git", "rev-list", "--left-right", "--count", "main...upstream/main"], cwd=repo_root)
-    if rc == 0 and up_ahead_behind:
-        parts = up_ahead_behind.split()
-        if len(parts) == 2:
-            audit["sync_state"]["upstream"] = {"ahead": int(parts[0]), "behind": int(parts[1])}
 
     # 6. Classify branches
     rc, raw_branches = run_cmd(
@@ -755,24 +750,27 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
     head = head.strip()
     result["git_state"].update({"branch": branch, "head": head})
 
-    for remote in ("origin", "upstream"):
-        fetch_rc, fetch_out = _fetch_remote_with_retry(repo, remote, "main")
-        if fetch_rc != 0:
-            result["errors"].append(f"git fetch {remote} failed: {fetch_out}")
-            continue
+    # Only origin belongs to this repository's nightly health contract.
+    # External upstream availability must not turn a healthy personal repo into
+    # a false FAIL.
+    remote = "origin"
+    fetch_rc, fetch_out = _fetch_remote_with_retry(repo, remote, "main")
+    if fetch_rc != 0:
+        result["errors"].append(f"git fetch {remote} failed: {fetch_out}")
+    else:
         rc_remote, remote_line = _workflow_git(repo, ["ls-remote", remote, "refs/heads/main"])
         remote_head = remote_line.split()[0] if rc_remote == 0 and remote_line.strip() else None
         rc_count, count = _workflow_git(repo, ["rev-list", "--left-right", "--count", f"main...{remote}/main"])
         if rc_count != 0 or len(count.split()) != 2:
             result["errors"].append(f"could not classify {remote}/main: {count}")
-            continue
-        ahead, behind = (int(value) for value in count.split())
-        result["sync_state"][remote] = {
-            "ahead": ahead,
-            "behind": behind,
-            "remote_head": remote_head,
-            "tracking_head": _workflow_git(repo, ["rev-parse", f"{remote}/main"])[1].strip(),
-        }
+        else:
+            ahead, behind = (int(value) for value in count.split())
+            result["sync_state"][remote] = {
+                "ahead": ahead,
+                "behind": behind,
+                "remote_head": remote_head,
+                "tracking_head": _workflow_git(repo, ["rev-parse", f"{remote}/main"])[1].strip(),
+            }
 
     midnight = _as_myt(now).replace(hour=0, minute=0, second=0, microsecond=0)
     rc_log, daily = _workflow_git(

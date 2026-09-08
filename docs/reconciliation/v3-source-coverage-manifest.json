@@ -38,7 +38,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "AGENTS.md",
-      "source_sha256": "0c1ba6dbceb5aad31637187bc4762da6fd22a92793b80678d0a131ca656ae73a"
+      "source_sha256": "068fd710e695fce0e54e535f0e788ecc1ab5d08065dae7f384dc4eddd5fcceb0"
     },
     {
       "destination": null,
@@ -278,7 +278,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/nightly-git-closure-contract.md",
-      "source_sha256": "a57a32ed9e3c599d555964b6f32b6294723095bf9fa9a80c84df32c5d62afd1f"
+      "source_sha256": "176e35b07fc04e6f9b6de8a2bbc03a73b8551e3220db1bf61ba975443a33c548"
     },
     {
       "destination": null,
@@ -839,10 +839,16 @@
       "source_sha256": "6ae026cbbbb9fc617ed009058ae2e6c480cd797eba80125d0834c747bb55e06b"
     },
     {
+      "destination": "/home/ubuntu/.hermes/scripts/nightly_autofix_context.py",
+      "kind": "runtime-deploy",
+      "source": "scripts/nightly_autofix_context.py",
+      "source_sha256": "ffc4a14c7f129479dcacaa2464e57b14b332b712003d4e36c5a9b8e3e848f283"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "df6fe7669ee2b6bc3de5ad98de7a2c77a8957bc68a808f35860649698493c08a"
+      "source_sha256": "0e289adff06b892f225f45e210bd1a639155b2970a78207a9e638f0d3fd6ed3f"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_timeout.sh",
@@ -4052,7 +4058,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_closure_workflow.py",
-      "source_sha256": "5f215faa2cbec6a3e81d5781c468b6a2c637040de1138cde31b868efc55892b5"
+      "source_sha256": "ed66abd6f465c67648fe2bc8219692500b3defd57c606a2fd2f58595c0820fd5"
     },
     {
       "destination": null,
@@ -4063,8 +4069,14 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "tests/reconciliation/test_nightly_autofix_context.py",
+      "source_sha256": "949d226975111651a37953580f64ba578d1092658d924ef5c15ae8bdda569ab2"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_git_hygiene.py",
-      "source_sha256": "d9fe38db05bc76628bea7826ef8a90513a9034b44d1f213a87bf9687ad22e0cc"
+      "source_sha256": "a03e4b5c83e4453d86dea7721183d542190dd914e39d54ad41389fb61db5665a"
     },
     {
       "destination": null,
