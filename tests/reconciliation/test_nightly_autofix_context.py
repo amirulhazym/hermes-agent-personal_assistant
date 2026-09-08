@@ -52,13 +52,14 @@ def test_autofix_context_contains_primary_receipt_and_safe_policy(tmp_path: Path
     assert payload["primary"]["status"] == "FAIL"
     assert payload["policy"]["mode"] == "autonomous remediation"
     assert payload["policy"]["not_owner_approved"] is True
-    assert payload["policy"]["final_verification_time"] == "01:55 MYT"
+    assert payload["policy"]["preserve_existing_0155"] is True
     assert "safe, reversible" in payload["policy"]["repair_rule"]
 
     rendered = context.render_context(payload)
     assert "00:25 MYT" in rendered
     assert "synthetic failure" in rendered
     assert "not limited to Git" in rendered
+    assert "preserve existing 01:55 behavior exactly" in rendered
 
 
 def test_job_spec_is_exactly_thirty_minutes_after_primary_and_agent_mode() -> None:
@@ -71,5 +72,9 @@ def test_job_spec_is_exactly_thirty_minutes_after_primary_and_agent_mode() -> No
     assert spec["script"] == "nightly_autofix_context.py"
     assert spec["workdir"] == "/home/ubuntu/hermes-agent-personal_assistant-work"
     assert spec["deliver"] == "origin"
-    assert "not limited to Git" in spec["prompt"]
-    assert "01:55" in spec["prompt"]
+    prompt = " ".join(spec["prompt"].split()).lower()
+    assert "not limited to git" in prompt
+    assert "preserve the existing 01:55 job exactly as originally implemented" in prompt
+    assert "do not alter, disable, replace, or reinterpret it" in prompt
+    assert "final-verification job" not in prompt
+    assert "remains the final verification" not in prompt

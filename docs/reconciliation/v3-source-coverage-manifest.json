@@ -38,7 +38,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "AGENTS.md",
-      "source_sha256": "068fd710e695fce0e54e535f0e788ecc1ab5d08065dae7f384dc4eddd5fcceb0"
+      "source_sha256": "1680a19481188f763da4abaa144ce4b9160ef01ab551ce31d341606f58a17a7f"
     },
     {
       "destination": null,
@@ -278,7 +278,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/nightly-git-closure-contract.md",
-      "source_sha256": "176e35b07fc04e6f9b6de8a2bbc03a73b8551e3220db1bf61ba975443a33c548"
+      "source_sha256": "0eae15e4518bab09d9632e901e0af9759052d11814ed1b9c97a8640f79481056"
     },
     {
       "destination": null,
@@ -842,7 +842,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_autofix_context.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_autofix_context.py",
-      "source_sha256": "ffc4a14c7f129479dcacaa2464e57b14b332b712003d4e36c5a9b8e3e848f283"
+      "source_sha256": "66647fc4e7460b8f083cf9fbcb9ed911043e31b31d7c744ee1f02fb766901353"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
@@ -4070,7 +4070,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_autofix_context.py",
-      "source_sha256": "949d226975111651a37953580f64ba578d1092658d924ef5c15ae8bdda569ab2"
+      "source_sha256": "c35f4813ab5c9cd609cb69a2ee71b2adef7963a6cac67fb1f0167b3877ede8a6"
     },
     {
       "destination": null,
