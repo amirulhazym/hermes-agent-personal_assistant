@@ -30,11 +30,15 @@ if the issue can wait forever.
 ```text
 23:55 audit
   ├─ no issue + gates PASS → PASS, no Git mutation
-  ├─ safe plan exists → HOLD + pending JSON + 30-minute native one-shot cron job
+  ├─ safe Git plan exists → HOLD + pending JSON + owner-controlled 30-minute native one-shot
   │    ├─ `/nightly approve RUN_ID` → execute immediately
   │    ├─ `/nightly reject RUN_ID REASON` → retain state, no execution
   │    └─ no response at deadline → execute the stored plan automatically
-  └─ failed gate / hard stop → FAIL or HOLD, no automatic Git mutation
+  ├─ failed gate / hard stop → FAIL or HOLD, no automatic Git mutation
+  └─ every primary result → separate 00:25 normal-agent analysis/remediation run
+       ├─ safe, reversible, directly verifiable issue → attempt repair + report evidence
+       └─ owner-required/ambiguous issue → report BLOCKED; do not mutate
+01:55 final verification → existing watchdog function, unchanged
 ```
 
 The exact baseline HEAD, working-tree status, remote HEAD, action list, and
@@ -57,6 +61,25 @@ The timeout policy is owner-authorized for this nightly flow only. It does not
 permit force-push, protection bypass, deletion of unique unmerged work,
 private/secret/PII commits, guessed conflict resolution, failed-gate bypass, or
 unrelated architecture/configuration changes.
+
+## 30-minute autonomous remediation boundary
+
+Every primary run also has a separate normal Hermes agent job at **00:25 MYT**
+(`nightly-autofix-30m`). It receives a fresh read-only context snapshot and
+then independently inspects the current system. Its scope is **not limited to
+Git**: it analyzes directly related runtime, scheduler, repository, and
+operational findings and tries safe repairs without waiting for owner input.
+
+A repair is admissible only when it is local, bounded, reversible, and directly
+verifiable. The agent must preserve the pre-change bytes, change only causal
+scope, run checks, read the result back, and report actual changes. Medical or
+private state, credentials/secrets, destructive or ambiguous deletion,
+protected/public publication, deployment/service lifecycle, and unclear
+provenance remain blocked or owner-required. Governance and core policy are
+never auto-mutated.
+
+The 00:25 agent's report is separate from the existing 01:55 MYT watchdog. The
+01:55 schedule and final-verification function remain unchanged.
 
 ## Hard stops
 

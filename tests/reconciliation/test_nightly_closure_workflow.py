@@ -605,6 +605,25 @@ def test_substantive_divergence_is_hard_stop_without_pending_execution(tmp_path:
     assert not (hermes_home / "pending" / "nightly-git-remediation.json").exists()
 
 
+
+def test_run_nightly_ignores_external_upstream_failure(tmp_path: Path) -> None:
+    repo, _origin, _upstream = make_repo(tmp_path)
+    add_gate_scripts(repo)
+    missing_upstream = tmp_path / "missing-upstream.git"
+    git(repo, "remote", "set-url", "upstream", str(missing_upstream))
+
+    result = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=tmp_path / "hermes",
+        now=datetime(2026, 8, 30, 23, 55, tzinfo=MYT),
+        schedule_timeout=lambda **kwargs: "must-not-schedule",
+    )
+
+    assert result["status"] == "PASS"
+    assert "upstream" not in result["sync_state"]
+    assert not any("upstream" in str(error).lower() for error in result["errors"])
+
+
 def test_clean_repository_reports_pass_without_creating_remediation(tmp_path: Path) -> None:
     repo, _origin, _upstream = make_repo(tmp_path)
     add_gate_scripts(repo)

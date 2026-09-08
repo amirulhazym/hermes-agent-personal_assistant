@@ -171,8 +171,8 @@ class NightlyGitHygieneScenarioTests(unittest.TestCase):
         branches = subprocess.check_output(["git", "-C", str(self.repo_dir), "branch"], text=True)
         self.assertIn("feat/stale-unmerged", branches)
 
-    # Scenario 11: Upstream ahead -> reported in sync_state
-    def test_scenario_11_upstream_ahead_reported(self):
+    # Scenario 11: External upstream is not part of the personal-repo audit
+    def test_scenario_11_external_upstream_is_not_a_personal_gate(self):
         temp_up = Path(self.temp_dir) / "upstream_clone"
         subprocess.run(["git", "clone", "-q", "-b", "main", str(self.upstream_dir), str(temp_up)], check=True)
         subprocess.run(["git", "-C", str(temp_up), "config", "user.name", "Upstream Dev"], check=True)
@@ -183,7 +183,9 @@ class NightlyGitHygieneScenarioTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(temp_up), "push", "-q", "origin", "main"], check=True)
 
         audit = HYGIENE.run_audit(repo_root=self.repo_dir, dry_run=True)
-        self.assertEqual(audit["sync_state"]["upstream"]["behind"], 1)
+        self.assertNotIn("upstream", audit["sync_state"])
+        self.assertEqual(audit["errors"], [])
+        self.assertEqual(audit["status"], "PASS")
 
     # Scenario 12: Malformed git path -> handled gracefully
     def test_scenario_12_malformed_path_handling(self):
