@@ -130,7 +130,7 @@ Every night at **23:55 MYT**, an automated audit job executes `scripts/nightly_g
    - It may repair a finding without owner approval only when the repair is local, bounded, reversible, and directly verifiable. It must preserve pre-change bytes, run checks, read the result back, and report what actually changed.
    - Medical/private state, credentials/secrets, destructive or ambiguous deletion, protected/public publication, deployment/service lifecycle, and unclear provenance remain owner-required or blocked.
    - Governance (`AGENTS.md`) and core policy are NEVER auto-mutated; proposals require owner review.
-   - The existing **01:55 MYT** watchdog remains a separate final-verification job with its current schedule and function; it is not replaced by the 00:25 remediation agent.
+   - The existing **01:55 MYT** watchdog is preserved exactly as originally implemented: same schedule, script, mode, logic, recovery/verification behavior, and all current functions. The 00:25 remediation agent must not alter, disable, replace, or reinterpret it.
 5. **Push Gate:** Automated jobs NEVER push to protected `origin/main` without explicit human authorization.
 6. **Receipt & Audit Delivery:**
    - Generates `/home/ubuntu/.hermes/logs/git-nightly-receipt.md`.

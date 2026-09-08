@@ -38,7 +38,7 @@ if the issue can wait forever.
   └─ every primary result → separate 00:25 normal-agent analysis/remediation run
        ├─ safe, reversible, directly verifiable issue → attempt repair + report evidence
        └─ owner-required/ambiguous issue → report BLOCKED; do not mutate
-01:55 final verification → existing watchdog function, unchanged
+01:55 existing watchdog job → original behavior and all current functions, unchanged
 ```
 
 The exact baseline HEAD, working-tree status, remote HEAD, action list, and
@@ -78,8 +78,10 @@ protected/public publication, deployment/service lifecycle, and unclear
 provenance remain blocked or owner-required. Governance and core policy are
 never auto-mutated.
 
-The 00:25 agent's report is separate from the existing 01:55 MYT watchdog. The
-01:55 schedule and final-verification function remain unchanged.
+The 00:25 agent is additive and separate from the existing 01:55 MYT watchdog.
+The 01:55 job must remain exactly as originally implemented: same schedule,
+script, mode, logic, recovery/verification behavior, and all current functions.
+The 00:25 agent must not alter, disable, replace, or reinterpret it.
 
 ## Hard stops
 
