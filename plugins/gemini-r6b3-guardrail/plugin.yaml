@@ -1,0 +1,5 @@
+manifest_version: 1
+name: gemini-r6b3-guardrail
+version: 0.1.1
+kind: standalone
+description: Exact R6-B3 guardrail llm_request middleware for Gemini 3.8 Flash on Antigravity.
