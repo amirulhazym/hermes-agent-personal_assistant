@@ -1,0 +1,5 @@
+manifest_version: 1
+name: gemini-agentic-v2
+version: 0.1.0
+kind: standalone
+description: Agentic Depth Protocol v2 for Gemini 3.8 Flash on Antigravity.
