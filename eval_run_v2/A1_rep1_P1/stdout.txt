@@ -1,0 +1,15 @@
+Thursday, 10 September 2026, 08:05 PM MYT
+
+Verdict: UNKNOWN
+
+Evidence:
+- Source: /home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/p1/access_error.json
+- Raw content:
+  {
+    "error": "AccessDenied",
+    "status_code": 403,
+    "resource": "redis://cache-internal.local:6379"
+  }
+
+Details:
+The file only establishes an authorization/permission denial (status code 403, "AccessDenied") when attempting to access or query the resource. A permission error reflects request-level authorization, not the operational or lifecycle state of the service itself. Because there is no service telemetry, heartbeat, ping response, or process status provided, whether redis://cache-internal.local:6379 is actually healthy and running cannot be verified and remains UNKNOWN.

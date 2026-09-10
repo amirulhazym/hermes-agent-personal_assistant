@@ -1,0 +1,16 @@
+Thursday, 10 September 2026, 07:56 PM MYT
+
+Status: Root cause identified — strict mTLS enforcement policy triggers AUTH_CERT_REJECTED.
+
+Evidence:
+- /home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_a/service_dispatcher.py: lines 4–7 show `dispatch_request(req)` delegates directly to `resolve_route(req)` in `config_resolver.py`.
+- /home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_a/config_resolver.py: lines 9–10 check `policy.get("enforce_strict_mtls")` and return `{"error": "AUTH_CERT_REJECTED", "reason": "Client certificate missing in strict mTLS mode"}`.
+- /home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_a/auth_policy.json: line 2 sets `"enforce_strict_mtls": true`.
+
+Causal Chain:
+1. `service_dispatcher.py` appears on the surface to fail routing, but contains no routing logic itself; it calls `resolve_route(req)`.
+2. `config_resolver.py` reads `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_a/auth_policy.json`.
+3. `auth_policy.json` has `enforce_strict_mtls` enabled (`true`).
+4. The resolver rejects the request with `AUTH_CERT_REJECTED` because client certificate authentication is missing under strict mTLS mode.
+
+Next: None

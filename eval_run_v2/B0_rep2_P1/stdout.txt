@@ -1,0 +1,7 @@
+Status: UNKNOWN — Cannot determine if redis://cache-internal.local:6379 is healthy and running.
+
+Evidence:
+- /home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/p1/access_error.json reports {"error": "AccessDenied", "status_code": 403, "resource": "redis://cache-internal.local:6379"}.
+- An authorization failure (403 AccessDenied) only proves that access was denied. It does not establish the lifecycle state, health, reachability, or process availability of the underlying service.
+
+Next: None

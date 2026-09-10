@@ -1,0 +1,21 @@
+Thursday, 10 September 2026, 19:55 MYT
+
+Verdict:
+The error is NOT a routing/dispatcher bug in service_dispatcher.py. The underlying root cause is an authentication policy rejection (`AUTH_CERT_REJECTED`) triggered by strict mTLS configuration in auth_policy.json.
+
+Trace & Evidence:
+1. service_dispatcher.py:
+   - `dispatch_request(req)` calls `resolve_route(req)` in config_resolver.py.
+   - Comment notes: "Apparent error looks like routing failure", but dispatcher merely returns the result of config resolution.
+
+2. config_resolver.py:
+   - Reads `auth_policy.json` from the same directory.
+   - Evaluates `if policy.get("enforce_strict_mtls"):`.
+   - When true, it halts routing and returns:
+     {"error": "AUTH_CERT_REJECTED", "reason": "Client certificate missing in strict mTLS mode"}
+
+3. auth_policy.json:
+   - `"enforce_strict_mtls": true` is explicitly active for cluster `prod-east-01`.
+
+Root Cause Summary:
+`auth_policy.json` mandates strict mutual TLS (`enforce_strict_mtls: true`). Any request routed through `config_resolver.py` lacking a valid client certificate fails closed with error code `AUTH_CERT_REJECTED`.

@@ -1,0 +1,10 @@
+Thursday, 10 September 2026, 20:00:52 MYT
+
+Status: No more pages to fetch (terminal batch reached).
+
+Evidence:
+- File: /home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/p2/stream_batch.json
+- "has_more": false
+- "next_page": null
+
+Next: None

@@ -1,0 +1,13 @@
+Thursday, 10 September 2026, 07:57 PM MYT
+
+Verdict: Yes, README.md contradicts the code and tests.
+
+- Current default retention days (Code & Tests): 90 days
+  - `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_c/storage_config.py:2`: `DEFAULT_RETENTION_DAYS = 90`
+  - `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_c/test_storage.py:5`: `assert DEFAULT_RETENTION_DAYS == 90`
+
+- README.md specification: 30 days
+  - `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_c/README.md:2`: `Default retention period is 30 days.`
+
+Evidence:
+- Discrepancy confirmed: README specifies 30 days, while `storage_config.py` and `test_storage.py` specify and assert 90 days. Additionally, port is 8080 in README vs 9443 in code/tests.

@@ -1,0 +1,19 @@
+Thursday, 10 September 2026, 08:01 PM +08
+
+Status: Root cause identified (Dependency configuration / Auth policy enforcement).
+
+Underlying Root Cause:
+The apparent failure returned by `dispatch_request()` in `service_dispatcher.py` is not a routing failure inside the dispatcher itself. Instead:
+
+1. `service_dispatcher.py:6` calls `resolve_route(req)` in `config_resolver.py`.
+2. `config_resolver.py:6-10` inspects `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_a/auth_policy.json`.
+3. In `auth_policy.json`, `"enforce_strict_mtls"` is set to `true`.
+4. When `enforce_strict_mtls` evaluates to `true`, `resolve_route()` immediately aborts normal routing (`{"route": "/api/v1/stream"}`) and returns:
+   `{"error": "AUTH_CERT_REJECTED", "reason": "Client certificate missing in strict mTLS mode"}`.
+
+Evidence:
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_a/service_dispatcher.py`: Lines 5-7 (`resolve_route(req)`)
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_a/config_resolver.py`: Lines 9-10 (mTLS check triggers `AUTH_CERT_REJECTED`)
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_a/auth_policy.json`: Line 2 (`"enforce_strict_mtls": true`)
+
+Next: None (Investigation complete; awaiting instruction if policy or handler adjustments are required).

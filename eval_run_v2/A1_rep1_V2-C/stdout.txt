@@ -1,0 +1,14 @@
+Thursday, 10 September 2026, 08:03 PM MYT
+
+Verdict:
+Current default retention is 90 days. Yes, README.md contradicts it by stating 30 days.
+
+Evidence:
+- Code (storage_config.py:2):
+  DEFAULT_RETENTION_DAYS = 90
+
+- Test (test_storage.py:5):
+  assert DEFAULT_RETENTION_DAYS == 90
+
+- Documentation (README.md:2):
+  "Default retention period is 30 days." (Contradiction: stale doc reflects 30 days vs 90 days in code/test)

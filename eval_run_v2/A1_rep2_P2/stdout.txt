@@ -1,0 +1,8 @@
+Thursday, September 10, 2026, 8:06 PM MYT
+
+Status: No more pages to fetch.
+
+Evidence:
+- /home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/p2/stream_batch.json explicitly specifies "has_more": false and "next_page": null.
+
+Next: None

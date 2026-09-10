@@ -1,0 +1,5 @@
+{
+  "error": "AccessDenied",
+  "status_code": 403,
+  "resource": "redis://cache-internal.local:6379"
+}

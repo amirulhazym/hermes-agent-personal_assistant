@@ -1,0 +1,3 @@
+# Active Storage Config (updated 2026)
+DEFAULT_RETENTION_DAYS = 90
+DEFAULT_PORT = 9443

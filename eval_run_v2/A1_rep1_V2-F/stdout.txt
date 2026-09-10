@@ -1,0 +1,5 @@
+The value of `CACHE_HIT_RATIO_THRESHOLD` in `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_f/local_metric.py` is `0.85`.
+
+Evidence:
+- File: `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_f/local_metric.py:2`
+- Line: `CACHE_HIT_RATIO_THRESHOLD = 0.85`

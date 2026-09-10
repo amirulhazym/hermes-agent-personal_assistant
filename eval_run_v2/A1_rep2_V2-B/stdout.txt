@@ -1,0 +1,23 @@
+Thursday, 10 September 2026, 8:02 PM MYT
+
+### Diagnosis: Token Generation Failure
+
+1. **Root Cause (Type Contract Violation)**
+   - **Target Definition (`token_codec.py:4-5`)**:
+     `encode_session_token(user_id, timestamp)` explicitly enforces that `timestamp` must be a string:
+     ```python
+     if not isinstance(timestamp, str):
+         raise TypeError(f"Contract violation: timestamp must be ISO string, got {type(timestamp).__name__}")
+     ```
+   - **Caller Usage (`client_caller.py:6`)**:
+     `initiate_session(user_id)` passes a Unix integer timestamp instead of an ISO formatted string:
+     ```python
+     token = encode_session_token(user_id, timestamp=1789041200)
+     ```
+
+2. **Failure Mode**
+   - Calling `initiate_session(user_id)` raises:
+     `TypeError: Contract violation: timestamp must be ISO string, got int`
+
+3. **Resolution**
+   - Pass an ISO 8601 string representation (e.g., `"2026-09-10T12:00:00Z"` or convert via `datetime.fromtimestamp(1789041200, tz=timezone.utc).isoformat()`) from `client_caller.py`, or update `token_codec.py` to accept numeric timestamps and convert them internally if supporting both types is desired.

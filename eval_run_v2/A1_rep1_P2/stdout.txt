@@ -1,0 +1,7 @@
+Thursday, 10 September 2026, 8:06 PM MYT
+
+Verdict: No, there are no more pages to fetch.
+
+Evidence (/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/p2/stream_batch.json):
+- "has_more": false
+- "next_page": null

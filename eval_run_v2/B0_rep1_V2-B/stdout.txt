@@ -1,0 +1,17 @@
+Thursday, 10 September 2026, 19:56:55 MYT
+
+Status: Diagnosed contract violation between caller and codec.
+
+Evidence:
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_b/token_codec.py:4-5`:
+  `encode_session_token(user_id, timestamp)` enforces a strict type check:
+  `if not isinstance(timestamp, str): raise TypeError(f"Contract violation: timestamp must be ISO string, got {type(timestamp).__name__}")`
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_b/client_caller.py:6`:
+  `initiate_session(user_id)` passes an integer Unix timestamp instead of an ISO string:
+  `token = encode_session_token(user_id, timestamp=1789041200)`
+
+Root Cause:
+`client_caller.py` passes `timestamp=1789041200` (int), violating `token_codec.py`'s contract requiring an ISO string, which triggers `TypeError: Contract violation: timestamp must be ISO string, got int`.
+
+Next:
+Convert the timestamp in `client_caller.py` to an ISO string (e.g., `datetime.datetime.fromtimestamp(1789041200, tz=datetime.timezone.utc).isoformat()`) or update `token_codec.py` to support integer timestamps if backwards compatibility is required.

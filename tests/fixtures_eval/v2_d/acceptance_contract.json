@@ -1,0 +1,9 @@
+{
+  "required_artifacts": [
+    "docker_image",
+    "db_migration",
+    "unit_tests",
+    "canary_health_signoff"
+  ],
+  "pending_signoff": "canary_health_signoff"
+}

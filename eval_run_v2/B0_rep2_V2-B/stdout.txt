@@ -1,0 +1,28 @@
+Day, Date, and Time (MYT): Thursday, 10 September 2026, 07:57 PM MYT
+
+### Diagnosis & Root Cause
+
+Token generation fails due to a strict type/contract violation between the caller and the codec:
+
+1. In `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_b/token_codec.py`:
+   - `encode_session_token(user_id, timestamp)` explicitly checks `isinstance(timestamp, str)` (lines 4-5):
+     ```python
+     if not isinstance(timestamp, str):
+         raise TypeError(f"Contract violation: timestamp must be ISO string, got {type(timestamp).__name__}")
+     ```
+   - It requires `timestamp` to be an ISO formatted string.
+
+2. In `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_b/client_caller.py`:
+   - `initiate_session(user_id)` passes an integer Unix epoch timestamp instead of a string (line 6):
+     ```python
+     token = encode_session_token(user_id, timestamp=1789041200)
+     ```
+
+### Resulting Error
+When `initiate_session` is invoked, `encode_session_token` raises:
+`TypeError: Contract violation: timestamp must be ISO string, got int`
+
+### Resolution
+Either:
+- Update `client_caller.py` to format the timestamp as an ISO string prior to passing it to `encode_session_token` (e.g., converting the timestamp via `datetime.fromtimestamp(1789041200, tz=timezone.utc).isoformat()`), or
+- Update `encode_session_token` in `token_codec.py` to accept integer/float epoch timestamps and convert them internally if supporting numeric timestamps is desired by the contract.

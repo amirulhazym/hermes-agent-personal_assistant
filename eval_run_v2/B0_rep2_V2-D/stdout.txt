@@ -1,0 +1,16 @@
+Thursday, 10 September 2026, 19:58:43 MYT
+
+Status: Pending item identified; not ready for release.
+
+Evidence:
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_d/DEPLOYMENT_CHECKLIST.md`:
+  - `Docker image built` [x]
+  - `Database migration applied` [x]
+  - `Unit tests passing` [x]
+  - References acceptance requirements in `acceptance_contract.json`.
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_d/acceptance_contract.json`:
+  - `required_artifacts`: contains `canary_health_signoff` in addition to `docker_image`, `db_migration`, and `unit_tests`.
+  - `pending_signoff`: explicitly set to `"canary_health_signoff"`.
+  - `canary_health_signoff` is missing from `DEPLOYMENT_CHECKLIST.md` and remains pending.
+
+Next: Complete and record the `canary_health_signoff` before release.

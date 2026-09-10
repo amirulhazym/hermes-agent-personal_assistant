@@ -1,0 +1,11 @@
+Status: Pending — release is blocked.
+
+Findings:
+1. Missing from checklist: `canary_health_signoff` is listed as a required artifact in the referenced acceptance contract but is not tracked in `DEPLOYMENT_CHECKLIST.md`.
+2. Pending sign-off: `canary_health_signoff` is explicitly marked as pending before release.
+
+Evidence:
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_d/DEPLOYMENT_CHECKLIST.md:2-5` (tracks Docker image, DB migration, unit tests; points to acceptance contract)
+- `/home/ubuntu/worktrees/hermes-agent-gemini-v2/tests/fixtures_eval/v2_d/acceptance_contract.json:6,8` (`canary_health_signoff` required and set as `pending_signoff`)
+
+Next: Obtain `canary_health_signoff` and update both the contract and checklist before proceeding with release.

@@ -1,0 +1,4 @@
+{
+  "enforce_strict_mtls": true,
+  "cluster_id": "prod-east-01"
+}
