@@ -144,6 +144,12 @@ def _assess_cron_execution(job, latest_output_at, now=None):
     if created_at and previous < created_at and last_run is None:
         return True, None
 
+    # If the job is outside its active execution window (e.g. night hours),
+    # the last scheduled slot was hours ago. If the job already ran at or after
+    # that previous slot (or ran during gateway catch-up), do not flag as missing.
+    if last_run and last_run >= previous:
+        return True, None
+
     # The scheduled occurrence is still inside the post-run grace window.
     if (current - previous).total_seconds() < POST_RUN_GRACE_SECONDS:
         return True, None
