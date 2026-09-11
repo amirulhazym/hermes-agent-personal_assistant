@@ -12,7 +12,9 @@ REPO = Path(__file__).resolve().parents[2]
 LOCK = REPO / "docs/reconciliation/hermes-runtime-source-lock.json"
 TREE_MANIFEST = REPO / "docs/reconciliation/hermes-runtime-tree-manifest.json"
 RECONSTRUCT = REPO / "scripts/reconstruct_hermes_runtime.py"
-LIVE_UPSTREAM = Path("/home/ubuntu/.hermes/hermes-agent")
+# The live destination is a materialized source tree without Git metadata.
+# Use the SSOT's Git object store as the pinned official-base repository.
+BASE_REPO = REPO
 
 
 @pytest.fixture(scope="module")
@@ -27,7 +29,7 @@ def reconstructed_tree(tmp_path_factory: pytest.TempPathFactory) -> Path:
             "--tree-manifest",
             str(TREE_MANIFEST),
             "--base-repo",
-            str(LIVE_UPSTREAM),
+            str(BASE_REPO),
             "--output",
             str(output),
             "--validate",
