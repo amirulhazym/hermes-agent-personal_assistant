@@ -10,8 +10,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 LOCK = REPO / "docs/reconciliation/hermes-runtime-source-lock.json"
 TREE = REPO / "docs/reconciliation/hermes-runtime-tree-manifest.json"
-RECONSTRUCT = REPO / "scripts/reconstruct_hermes_runtime.py"
-LIVE_UPSTREAM = Path("/home/ubuntu/.hermes/hermes-agent")
+RECONSTRUCT = REPO / "scripts" / "reconstruct_hermes_runtime.py"
+# The live destination is a materialized source tree without Git metadata.
+# Use the SSOT's Git object store as the pinned official-base repository.
+BASE_REPO = REPO
 LIVE_BASE = "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8"
 
 
@@ -27,7 +29,7 @@ def run_reconstruct(output: Path) -> subprocess.CompletedProcess[str]:
             "--tree-manifest",
             str(TREE),
             "--base-repo",
-            str(LIVE_UPSTREAM),
+            str(BASE_REPO),
             "--output",
             str(output),
             "--validate",
