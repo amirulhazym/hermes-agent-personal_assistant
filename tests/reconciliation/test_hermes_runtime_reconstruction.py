@@ -123,6 +123,13 @@ def test_active_runtime_overlays_are_ordered_and_hash_pinned():
             "sha256": "dd6db0f5690297e236d23697cfa27e2b54c09ecc363f894a208446e1933165a8",
             "description": "Live runtime overlay: main CLI/gateway bounded progress-aware continuation after a 300-iteration window; live-applied 2026-09-05.",
         },
+        {
+            "order": 5,
+            "id": "candidate-runtime-profile-routing-fail-closed",
+            "path": "patches/upstream-hermes/2026-09-11_profile-routing-fail-closed.patch",
+            "sha256": "d9990d2e55bbb7553e6f6563e55a8afb65f805b8078208d9007997d67695234e",
+            "description": "Profile-routing safety overlay: reject explicit missing or unserved profiles before provider resolution.",
+        },
     ]
 
 

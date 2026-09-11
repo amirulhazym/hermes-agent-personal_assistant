@@ -37,6 +37,42 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": ".scratch/hermes-ovis-2-provider-wiring/candidate-receipt.md",
+      "source_sha256": "02ad5e99a9c76e0df36debcfa8058bbcc59817413d18c9ae091a41bd9861821f"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/hermes-ovis-2-provider-wiring/issues/01-fail-closed-profile-routing.md",
+      "source_sha256": "cc1c5a92e290a1a7287ef553931931917d05034f16dbe45824f10e283b9a8da7"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/hermes-ovis-2-provider-wiring/issues/02-canonical-bot-2-multiplex-topology.md",
+      "source_sha256": "343aea8bc8d6764fb38989e1251bd4becb6f46dd13e515b9fd4af1f9b66a1d2d"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/hermes-ovis-2-provider-wiring/issues/03-zero-token-provider-boundary.md",
+      "source_sha256": "a1b53685e7cff6eaf6a50a550318cd2652d0d2cacd917e40a75d0b20dadd0e90"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/hermes-ovis-2-provider-wiring/issues/04-ssot-overlay-and-release-gates.md",
+      "source_sha256": "169619d37fac460c21f22c4fba8aa7d7bf25d36214609625d9806a3146ace00e"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/hermes-ovis-2-provider-wiring/spec.md",
+      "source_sha256": "60b8628ce75310339a8e1d7edfe683fd61fdfa0b4d47f15f70b2bb8a320dadd4"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "AGENTS.md",
       "source_sha256": "1680a19481188f763da4abaa144ce4b9160ef01ab551ce31d341606f58a17a7f"
     },
@@ -266,13 +302,13 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-source-lock.json",
-      "source_sha256": "abf96de4dd6bae1657ee6a534db6366651ce8a54b26b17d23b5f062962422c58"
+      "source_sha256": "fc7fd24096382f0d28db08819fe90389482932d1ad4d8ba8699195d73cd85200"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-tree-manifest.json",
-      "source_sha256": "a4cd9f7c31d09af9b8d6a246e04fc157aa1c67864796f0368ed917680954d3bb"
+      "source_sha256": "9673913df50d223589c539c8e377c467d5c7c5dba126bddf824b342e8bd03e1e"
     },
     {
       "destination": null,
@@ -321,6 +357,18 @@
       "kind": "source-only",
       "source": "docs/superpowers/plans/2026-09-05-bounded-main-turn-auto-continue.md",
       "source_sha256": "3e827d7ad0c52424c1dc5821265d6058a7a21945ffc7628dc1cc6e9fbc3a8185"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "docs/superpowers/plans/2026-09-11-hermes-ovis-2-provider-wiring.md",
+      "source_sha256": "4110f751e182b0a00f1bb7669a97fab64ce4d8d294a282def07238a92b32692c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "docs/superpowers/specs/2026-09-11-hermes-ovis-2-provider-wiring.md",
+      "source_sha256": "11af8ae591de58d6887d9ea5412c8f8349e24383edfa810030b24016c68df741"
     },
     {
       "destination": null,
@@ -441,6 +489,12 @@
       "kind": "source-only",
       "source": "patches/upstream-hermes/2026-09-05_bounded-main-turn-auto-continue.patch",
       "source_sha256": "dd6db0f5690297e236d23697cfa27e2b54c09ecc363f894a208446e1933165a8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "patches/upstream-hermes/2026-09-11_profile-routing-fail-closed.patch",
+      "source_sha256": "d9990d2e55bbb7553e6f6563e55a8afb65f805b8078208d9007997d67695234e"
     },
     {
       "destination": null,
@@ -843,6 +897,18 @@
       "kind": "runtime-deploy",
       "source": "scripts/nightly_autofix_context.py",
       "source_sha256": "66647fc4e7460b8f083cf9fbcb9ed911043e31b31d7c744ee1f02fb766901353"
+    },
+    {
+      "destination": "/home/ubuntu/.hermes/scripts/nightly_git_closure_watchdog.py",
+      "kind": "runtime-deploy",
+      "source": "scripts/nightly_git_closure_watchdog.py",
+      "source_sha256": "047da2df49dcfdb192efef5f7512ff5d67f868b4c5069a9334c5574bdad1a5ea"
+    },
+    {
+      "destination": "/home/ubuntu/.hermes/scripts/nightly_git_closure_watchdog_wrapper.sh",
+      "kind": "runtime-deploy",
+      "source": "scripts/nightly_git_closure_watchdog_wrapper.sh",
+      "source_sha256": "5b62a273eedc619ca138deb858316eb555929c145765749ade04efaa82be0c6c"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
@@ -4052,7 +4118,13 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_hermes_runtime_reconstruction.py",
-      "source_sha256": "4d04269306456122f11134a1bc0df6fb72314f37fa24fb3c1738678aac47b34a"
+      "source_sha256": "f01d6cb54b8508d01b43dc15edb29cfd200e16f6f974a9792ed8f454d70c74df"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "tests/reconciliation/test_nightly_autofix_context.py",
+      "source_sha256": "c35f4813ab5c9cd609cb69a2ee71b2adef7963a6cac67fb1f0167b3877ede8a6"
     },
     {
       "destination": null,
@@ -4069,12 +4141,6 @@
     {
       "destination": null,
       "kind": "source-only",
-      "source": "tests/reconciliation/test_nightly_autofix_context.py",
-      "source_sha256": "c35f4813ab5c9cd609cb69a2ee71b2adef7963a6cac67fb1f0167b3877ede8a6"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_git_hygiene.py",
       "source_sha256": "a03e4b5c83e4453d86dea7721183d542190dd914e39d54ad41389fb61db5665a"
     },
@@ -4083,6 +4149,12 @@
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_plugin.py",
       "source_sha256": "c22ee10f1a1138f96379c81f85b5badb7a22407d032dcc0dc227d8f11f9ca830"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "tests/reconciliation/test_nightly_watchdog_and_resilience.py",
+      "source_sha256": "fd7b83693440f3c98f46810198a20baab4e26000b69cebe6d0e4c425a37ec143"
     },
     {
       "destination": null,
@@ -4107,24 +4179,6 @@
       "kind": "source-only",
       "source": "tests/test_model_forces_max_completion_tokens.py",
       "source_sha256": "6503617d39545dd8071324c14cf54c6174291075fde8a5385a04efa6e1305f88"
-    },
-    {
-      "destination": "/home/ubuntu/.hermes/scripts/nightly_git_closure_watchdog.py",
-      "kind": "runtime-deploy",
-      "source": "scripts/nightly_git_closure_watchdog.py",
-      "source_sha256": "047da2df49dcfdb192efef5f7512ff5d67f868b4c5069a9334c5574bdad1a5ea"
-    },
-    {
-      "destination": "/home/ubuntu/.hermes/scripts/nightly_git_closure_watchdog_wrapper.sh",
-      "kind": "runtime-deploy",
-      "source": "scripts/nightly_git_closure_watchdog_wrapper.sh",
-      "source_sha256": "5b62a273eedc619ca138deb858316eb555929c145765749ade04efaa82be0c6c"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "tests/reconciliation/test_nightly_watchdog_and_resilience.py",
-      "source_sha256": "fd7b83693440f3c98f46810198a20baab4e26000b69cebe6d0e4c425a37ec143"
     }
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
