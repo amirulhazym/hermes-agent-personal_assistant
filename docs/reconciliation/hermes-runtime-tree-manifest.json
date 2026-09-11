@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8",
-  "patch_series_digest": "4989294d9fcdd9ea124d33159e1339d6c5c8d89fca41a46502f2015902369cf2",
+  "patch_series_digest": "20e93302c44fca18d4917a0b163c8c6a129d906dc5c38b74403c088271bddc10",
   "destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "entries": [
     {
@@ -20941,7 +20941,7 @@
     {
       "source": "gateway/run.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/gateway/run.py",
-      "sha256": "e36c51b53dc6df99f0c6abc5b23d6d84c8ff4b333dee5e7f6a42009f7a8a469b",
+      "sha256": "4e1727af5df2a55bad33436ce9d37ee929be18ac28518507d8bdd9e3d36c931d",
       "mode": "0644"
     },
     {
@@ -39301,7 +39301,7 @@
     {
       "source": "tests/gateway/test_profile_resolution.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/gateway/test_profile_resolution.py",
-      "sha256": "4d6dd60886f25d18c77a9b0e6c15d24724b7f56784ab44d6ccb5d0a25b16655e",
+      "sha256": "62d3e5544397f3673d250d10956ae72871267c969949eb57aec48e6eb7de5403",
       "mode": "0644"
     },
     {
@@ -62969,5 +62969,5 @@
       "mode": "0644"
     }
   ],
-  "tree_sha256": "005dcdfade4cfe313f0429e7b2f6dd8ef6d31258f4c766423581c83ad1f185fb"
+  "tree_sha256": "cc229851a54a7f380d3c9a92509fa230e3553e851cc652ab4ba85df85056b5ea"
 }

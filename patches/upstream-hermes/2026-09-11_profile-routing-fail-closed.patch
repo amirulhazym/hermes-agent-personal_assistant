@@ -1,0 +1,346 @@
+diff --git a/gateway/run.py b/gateway/run.py
+index 0a353677aa1922df35862fd643cffbdeeee31d7c..8dec2f7856d884c565b4b2c59a324a19aa61b11b 100644
+--- a/gateway/run.py
++++ b/gateway/run.py
+@@ -16091,23 +16091,26 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+         handler in ``_profile_runtime_scope`` so allowlists/tokens from that
+         profile's ``.env`` are visible to ``get_secret`` / authz.
+         """
+-        from hermes_cli.profiles import get_profile_dir
+-
+-        try:
+-            profile_home = get_profile_dir(profile_name)
+-        except Exception:
+-            profile_home = None
++        from gateway.profile_routing import ProfileRouteRejected
+ 
+         async def _handler(event):
++            source = event.source
+             try:
+-                if getattr(event, "source", None) is not None and not event.source.profile:
+-                    event.source.profile = profile_name
+-            except Exception:
+-                pass
+-            if profile_home is not None:
+-                with _profile_runtime_scope(profile_home):
+-                    return await self._handle_message(event)
+-            return await self._handle_message(event)
++                if not getattr(source, "profile", None):
++                    source.profile = profile_name
++                profile_home = self._resolve_profile_home_for_source(source)
++            except ProfileRouteRejected:
++                source.profile_route_rejected = True
++                logger.warning(
++                    "Dropping inbound message for profile %r because its "
++                    "profile route is not served (source=%s/%s)",
++                    profile_name,
++                    source.platform.value,
++                    source.chat_id,
++                )
++                return None
++            with _profile_runtime_scope(profile_home):
++                return await self._handle_message(event)
+ 
+         return _handler
+ 
+@@ -16141,6 +16144,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+         the gateway's launch/default home.
+         """
+         default_home = Path(get_hermes_home())
++        from gateway.profile_routing import ProfileRouteRejected
+ 
+         async def _handler(event):
+             source = event.source
+@@ -16152,8 +16156,6 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+                 not getattr(source, "profile", None)
+                 and getattr(source, "profile_route_rejected", False) is not True
+             ):
+-                from gateway.profile_routing import ProfileRouteRejected
+-
+                 try:
+                     source.profile = self._profile_name_for_source(source)
+                 except ProfileRouteRejected:
+@@ -16164,11 +16166,20 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+                     # routing for the same source.
+                     source.profile_route_rejected = True
+ 
+-            profile_home = (
+-                self._resolve_profile_home_for_source(source)
+-                if getattr(source, "profile", None)
+-                else default_home
+-            )
++            profile_home = default_home
++            if getattr(source, "profile", None):
++                try:
++                    profile_home = self._resolve_profile_home_for_source(source)
++                except ProfileRouteRejected:
++                    source.profile_route_rejected = True
++                    logger.warning(
++                        "Dropping inbound message because profile %r is not served "
++                        "(source=%s/%s)",
++                        source.profile,
++                        source.platform.value,
++                        source.chat_id,
++                    )
++                    return None
+             with _profile_runtime_scope(profile_home):
+                 return await self._handle_message(event)
+ 
+@@ -28604,24 +28615,56 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
+                     explicit_profile = name  # Routing explicitly set this profile
+             if not name:
+                 name = get_active_profile_name() or "default"
+-            
++
+             profile_dir = get_profile_dir(name)
+-            # Warn if an explicit profile doesn't exist on disk
++            # An explicit profile is a security boundary: never replace it with
++            # the global home when the profile has disappeared.
+             if explicit_profile and not profile_exists(name):
+                 logger.warning(
+-                    "Profile %r does not exist for source %s/%s (guild_id=%s), "
+-                    "falling back to global HERMES_HOME",
++                    "Profile %r does not exist for source %s/%s (guild_id=%s); "
++                    "rejecting profile route",
+                     explicit_profile,
+                     source.platform.value,
+                     source.chat_id,
+                     getattr(source, "guild_id", None),
+                 )
+-                return get_hermes_home()
++                raise ProfileRouteRejected(explicit_profile)
++            if (
++                explicit_profile
++                and getattr(getattr(self, "config", None), "multiplex_profiles", False) is True
++            ):
++                served = {
++                    served_name
++                    for served_name, _home in _multiplex_profile_homes(self.config)
++                }
++                if name not in served:
++                    logger.warning(
++                        "Profile %r is not served for source %s/%s (guild_id=%s); "
++                        "rejecting profile route",
++                        explicit_profile,
++                        source.platform.value,
++                        source.chat_id,
++                        getattr(source, "guild_id", None),
++                    )
++                    raise ProfileRouteRejected(explicit_profile)
+             return profile_dir
+         except ProfileRouteRejected:
+             raise
+-        except Exception:
+-            # Catch normalization errors, path errors, etc.
++        except Exception as exc:
++            # Explicit profile failures must fail closed. Only a genuinely
++            # unrouted source may retain the historical global-home fallback.
++            if explicit_profile:
++                logger.warning(
++                    "Failed to resolve profile directory for explicit profile %r "
++                    "for source %s/%s (guild_id=%s); rejecting profile route: %s",
++                    explicit_profile,
++                    source.platform.value,
++                    source.chat_id,
++                    getattr(source, "guild_id", None),
++                    exc,
++                    exc_info=True,
++                )
++                raise ProfileRouteRejected(explicit_profile) from exc
+             logger.warning(
+                 "Failed to resolve profile directory for source %s/%s (guild_id=%s), "
+                 "falling back to global HERMES_HOME: %s",
+diff --git a/tests/gateway/test_profile_resolution.py b/tests/gateway/test_profile_resolution.py
+index 695b9c7b894360c9d54948fa494e0a6af9824335..0a52571d1a435773543e2885274ee64ef70323fc 100644
+--- a/tests/gateway/test_profile_resolution.py
++++ b/tests/gateway/test_profile_resolution.py
+@@ -21,6 +21,8 @@ def mock_runner():
+     # Bind the actual methods to the mock
+     runner._profile_name_for_source = GatewayRunner._profile_name_for_source.__get__(runner)
+     runner._resolve_profile_home_for_source = GatewayRunner._resolve_profile_home_for_source.__get__(runner)
++    runner._make_profile_message_handler = GatewayRunner._make_profile_message_handler.__get__(runner)
++    runner._make_default_profile_message_handler = GatewayRunner._make_default_profile_message_handler.__get__(runner)
+     return runner
+ 
+ 
+@@ -85,23 +87,46 @@ class TestMissingProfileWarning:
+                 with patch("hermes_cli.profiles.profile_exists", return_value=False):
+                     with patch("hermes_constants.get_hermes_home", return_value=Path("/hermes")):
+                         with caplog.at_level(logging.WARNING):
+-                            result = mock_runner._resolve_profile_home_for_source(discord_source)
+-                            
+-                            # Should fall back to global HERMES_HOME
+-                            assert result == Path("/hermes")
+-                            
+-                            # Should have logged a warning
++                            with pytest.raises(ProfileRouteRejected):
++                                mock_runner._resolve_profile_home_for_source(discord_source)
++
++                            # An explicit missing profile must not enter global HERMES_HOME.
+                             assert len(caplog.records) == 1
+                             assert caplog.records[0].levelname == "WARNING"
+                             assert "nonexistent" in caplog.records[0].message
+                             assert "does not exist" in caplog.records[0].message
+                             assert "discord" in caplog.records[0].message
+                             assert "123456" in caplog.records[0].message
+-    
++                            assert "falling back" not in caplog.records[0].message
++
+     
+     
+ 
+ 
++class TestUnservedProfile:
++    """Existing profile directories outside the allowlist must still reject."""
++
++    def test_existing_but_unserved_profile_rejects(
++        self, mock_runner, discord_source, caplog
++    ):
++        discord_source.profile = "ovis2"
++        mock_runner.config.multiplex_profiles = True
++        mock_runner.config.multiplex_profile_allowlist = ["bot_2"]
++
++        with patch(
++            "hermes_cli.profiles.get_profile_dir",
++            return_value=Path("/hermes/profiles/ovis2"),
++        ), patch("hermes_cli.profiles.profile_exists", return_value=True), patch(
++            "hermes_cli.profiles.profiles_to_serve",
++            return_value=[("default", Path("/hermes")), ("bot_2", Path("/hermes/profiles/bot_2"))],
++        ), caplog.at_level(logging.WARNING, logger="gateway.run"):
++            with pytest.raises(ProfileRouteRejected):
++                mock_runner._resolve_profile_home_for_source(discord_source)
++
++        assert "ovis2" in caplog.text
++        assert "not served" in caplog.text
++
++
+ class TestExceptionHandling:
+     """Tests for exception handling in profile resolution."""
+     
+@@ -113,19 +138,98 @@ class TestExceptionHandling:
+             with patch("hermes_cli.profiles.get_profile_dir", side_effect=ValueError("Invalid profile name")):
+                 with patch("hermes_constants.get_hermes_home", return_value=Path("/hermes")):
+                     with caplog.at_level(logging.WARNING):
+-                        result = mock_runner._resolve_profile_home_for_source(discord_source)
+-                        
+-                        # Should fall back to global HERMES_HOME
+-                        assert result == Path("/hermes")
+-                        
+-                        # Should have logged a warning with exception info
++                        with pytest.raises(ProfileRouteRejected):
++                            mock_runner._resolve_profile_home_for_source(discord_source)
++
++                        # Invalid explicit profiles must fail closed as well.
+                         assert len(caplog.records) == 1
+                         assert caplog.records[0].levelname == "WARNING"
+                         assert "bad-profile" in caplog.records[0].message
+                         assert "Failed to resolve profile directory" in caplog.records[0].message
++                        assert "falling back" not in caplog.records[0].message
+     
+ 
+ 
++class TestSecondaryProfileHandler:
++    """Secondary adapters must not dispatch through a missing profile."""
++
++    @pytest.mark.asyncio
++    async def test_missing_profile_drops_before_message_dispatch(
++        self, mock_runner, discord_source
++    ):
++        discord_source.profile = None
++        event = MessageEvent(text="must not reach provider", source=discord_source)
++        mock_runner._handle_message = AsyncMock(return_value="wrong-profile-response")
++
++        with patch(
++            "hermes_cli.profiles.get_profile_dir",
++            return_value=Path("/hermes/profiles/nonexistent"),
++        ), patch("hermes_cli.profiles.profile_exists", return_value=False), patch(
++            "hermes_constants.get_hermes_home", return_value=Path("/hermes")
++        ):
++            handler = mock_runner._make_profile_message_handler("nonexistent")
++            result = await handler(event)
++
++        assert result is None
++        assert event.source.profile == "nonexistent"
++        assert event.source.profile_route_rejected is True
++        mock_runner._handle_message.assert_not_awaited()
++
++
++class TestDefaultProfileHandler:
++    """Primary multiplex ingress must reject stale explicit profiles."""
++
++    @pytest.mark.asyncio
++    async def test_explicit_missing_profile_drops_before_message_dispatch(
++        self, mock_runner, discord_source
++    ):
++        discord_source.profile = "nonexistent"
++        event = MessageEvent(text="must not reach provider", source=discord_source)
++        mock_runner._handle_message = AsyncMock(return_value="wrong-profile-response")
++
++        with patch(
++            "hermes_cli.profiles.get_profile_dir",
++            return_value=Path("/hermes/profiles/nonexistent"),
++        ), patch("hermes_cli.profiles.profile_exists", return_value=False):
++            handler = mock_runner._make_default_profile_message_handler()
++            result = await handler(event)
++
++        assert result is None
++        assert event.source.profile == "nonexistent"
++        assert event.source.profile_route_rejected is True
++        mock_runner._handle_message.assert_not_awaited()
++
++
++class TestServedProfileEnumeration:
++    """The gateway allowlist must be the served-profile chokepoint."""
++
++    def test_allowlist_serves_bot_2_and_skips_absent_ovis2(
++        self, tmp_path, monkeypatch, caplog
++    ):
++        import hermes_cli.profiles as profiles
++
++        default_home = tmp_path / "default"
++        profiles_root = tmp_path / "profiles"
++        bot_2_home = profiles_root / "bot_2"
++        default_home.mkdir()
++        bot_2_home.mkdir(parents=True)
++
++        monkeypatch.setattr(profiles, "_get_default_hermes_home", lambda: default_home)
++        monkeypatch.setattr(profiles, "_get_profiles_root", lambda: profiles_root)
++        monkeypatch.setattr(profiles, "get_active_profile_name", lambda: "default")
++        monkeypatch.setattr(profiles, "_WARNED_MISSING_ALLOWLIST_ENTRIES", set())
++
++        with caplog.at_level(logging.WARNING, logger="hermes_cli.profiles"):
++            served = profiles.profiles_to_serve(
++                multiplex=True,
++                profile_allowlist=["bot_2", "ovis2"],
++            )
++
++        assert served == [("default", default_home), ("bot_2", bot_2_home)]
++        assert "ovis2" in caplog.text
++        assert "Skipping missing" in caplog.text
++
++
+ class TestRoutingConsultation:
+     """Tests that _profile_name_for_source is consulted when source.profile is empty."""
+     
+@@ -136,13 +240,14 @@ class TestRoutingConsultation:
+         with patch("hermes_cli.profiles.get_active_profile_name", return_value="active"):
+             with patch("hermes_cli.profiles.get_profile_dir") as mock_get_dir:
+                 mock_get_dir.return_value = Path("/hermes/profiles/routed")
+-                
+-                mock_runner._profile_name_for_source = MagicMock(return_value="routed")
+-                
+-                mock_runner._resolve_profile_home_for_source(discord_source)
+-                
+-                # Should have called routing
+-                mock_runner._profile_name_for_source.assert_called_once_with(discord_source)
++                with patch("hermes_cli.profiles.profile_exists", return_value=True):
++                    mock_runner._profile_name_for_source = MagicMock(return_value="routed")
++
++                    result = mock_runner._resolve_profile_home_for_source(discord_source)
++
++                    # Should have called routing and used its existing profile home.
++                    mock_runner._profile_name_for_source.assert_called_once_with(discord_source)
++                    assert result == Path("/hermes/profiles/routed")
+     
+ 
+ 
