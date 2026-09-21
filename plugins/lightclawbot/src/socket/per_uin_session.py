@@ -22,6 +22,8 @@ import asyncio
 import json
 import logging
 import random
+import re
+import time
 import urllib.parse
 from typing import Awaitable, Callable, Dict, Optional, Tuple
 
@@ -34,6 +36,23 @@ from ..config import (
 from .reliable_emitter import ReliableEmitter
 
 logger = logging.getLogger(__name__)
+
+
+# 仅完成 TCP/WS 握手不代表 session 健康。ai-server 可能接受重复登录，
+# 随后在毫秒级时间内将其踢下线；如果将这种情况视为成功，就会持续重置重连延迟，
+# 并引发 ticket 请求风暴。
+STABLE_CONNECTION_SECONDS = 30.0
+
+
+_TICKET_QUERY_RE = re.compile(
+    r"([?&]ticket=)[^&\s'\"<>]+",
+    flags=re.IGNORECASE,
+)
+
+
+def _redact_log_text(value: object) -> str:
+    """脱敏 aiohttp 异常 URL 中携带的 ticket 凭据。"""
+    return _TICKET_QUERY_RE.sub(r"\1[REDACTED]", str(value))
 
 
 # Type alias: adapter 注册到每个 session 上的回调签名
@@ -74,6 +93,10 @@ class _PerUinSession:
         on_raw: RawHandler,
         on_connected: Optional[Callable[["_PerUinSession"], None]] = None,
         on_disconnected: Optional[Callable[["_PerUinSession"], None]] = None,
+        on_disconnect_error: Optional[
+            Callable[["_PerUinSession", Optional[int], str, Optional[float]], None]
+        ] = None,
+        on_send_error: Optional[Callable[["_PerUinSession", str], None]] = None,
         log_prefix: Optional[str] = None,
     ) -> None:
         self.api_key = api_key
@@ -84,6 +107,8 @@ class _PerUinSession:
         self._on_raw = on_raw
         self._on_connected = on_connected
         self._on_disconnected = on_disconnected
+        self._on_disconnect_error = on_disconnect_error
+        self._on_send_error = on_send_error
         self._log_prefix = log_prefix or f"[lightclaw uin={self.uin or '?'}]"
 
         # 运行时状态
@@ -103,6 +128,13 @@ class _PerUinSession:
             ws_emit_with_timeout=self._ws_emit_with_timeout,
             prefix=self._log_prefix,
         )
+
+        # ---- 指标采集状态（§3）---- 由 get_metrics_snapshot() 读取并重置，供 60s 窗口使用
+        self._metrics_ticket_success: Optional[bool] = None
+        self._metrics_ticket_duration_ms: Optional[float] = None
+        self._metrics_ws_duration_ms: Optional[float] = None
+        self._metrics_half_open_count: int = 0
+        self._metrics_reconnect_attempts: int = 0
 
     async def start(self) -> None:
         """启动后台连接循环。立即返回，首次连接完成由 ``first_connect_event`` 通知。"""
@@ -142,7 +174,12 @@ class _PerUinSession:
     # ------------------------------------------------------------------
 
     def _ws_emit(self, event: str, data: dict) -> None:
-        """Fire-and-forget 同步发送。镜像 TS ``socket.emit(event, data)``。"""
+        """Fire-and-forget 同步发送，镜像 TS ``socket.emit(event, data)``。
+
+        fire-and-forget 帧无 ACK/重试兜底，异常即最终失败信号；Hermes 版出站
+        无 REST 降级，故直接调用 on_send_error 上报一次 event.error（module=outbound），
+        而非仅打 debug 日志，避免 §2.4.3「出站发送异常」的观测盲点。
+        """
         ws = self._ws
         if ws is None or getattr(ws, "closed", True):
             return
@@ -155,6 +192,13 @@ class _PerUinSession:
             )
         except Exception as exc:
             logger.debug("%s _ws_emit send failed: %s", self._log_prefix, exc)
+            if self._on_send_error is not None:
+                try:
+                    self._on_send_error(self, f"fire_and_forget send failed: {exc}")
+                except Exception as callback_exc:
+                    logger.warning(
+                        "%s on_send_error callback error: %s", self._log_prefix, callback_exc,
+                    )
 
     def _ws_emit_with_timeout(
         self,
@@ -235,23 +279,31 @@ class _PerUinSession:
 
         url = f"{self._api_base_url}{API_PATH_TICKET}"
         headers = {"authorization": f"Bearer {self.api_key}", "x-product": "channel"}
+        started_at = time.monotonic()
 
-        async with self._http.post(
-            url, headers=headers,
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as resp:
-            if resp.status != 200:
-                raise RuntimeError(f"POST /cgi/ticket HTTP {resp.status}")
-            data = await resp.json()
-            if data.get("code") != 0:
-                raise RuntimeError(f"POST /cgi/ticket error: {data.get('message')}")
-            ticket = data.get("data", {}).get("ticket", "")
-            if not ticket:
-                logger.warning(
-                    "%s /cgi/ticket returned empty ticket, connecting without it",
-                    self._log_prefix,
-                )
-            return ticket
+        try:
+            async with self._http.post(
+                url, headers=headers,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status != 200:
+                    raise RuntimeError(f"POST /cgi/ticket HTTP {resp.status}")
+                data = await resp.json()
+                if data.get("code") != 0:
+                    raise RuntimeError(f"POST /cgi/ticket error: {data.get('message')}")
+                ticket = data.get("data", {}).get("ticket", "")
+                if not ticket:
+                    logger.warning(
+                        "%s /cgi/ticket returned empty ticket, connecting without it",
+                        self._log_prefix,
+                    )
+                self._metrics_ticket_success = True
+                self._metrics_ticket_duration_ms = (time.monotonic() - started_at) * 1000
+                return ticket
+        except Exception:
+            self._metrics_ticket_success = False
+            self._metrics_ticket_duration_ms = (time.monotonic() - started_at) * 1000
+            raise
 
     def _build_ws_url(self, ticket: str) -> str:
         """拼 WS URL —— enableMultiLogin=false 仅约束同一 apiKey 不重复登录，多 UIN 不冲突。"""
@@ -266,6 +318,14 @@ class _PerUinSession:
     # ------------------------------------------------------------------
     # 连接循环
     # ------------------------------------------------------------------
+
+    def _runtime_log_identity(self) -> str:
+        """返回不含凭据的运行时身份，用于区分并发 session/task。"""
+        connection_task = self._connection_task or asyncio.current_task()
+        task_identity = (
+            hex(id(connection_task)) if connection_task is not None else "?"
+        )
+        return f"session={hex(id(self))} task={task_identity}"
 
     async def _connection_loop(self) -> None:
         """指数退避重连循环（镜像原 ``_connection_loop``，但作用域限制在本 session）。
@@ -284,65 +344,99 @@ class _PerUinSession:
             try:
                 ticket = await self._fetch_ticket()
                 ws_url = self._build_ws_url(ticket)
+                # Ticket 属于凭据，绝不能将包含它的查询字符串写入日志。
+                safe_ws_target = urllib.parse.urlsplit(ws_url)._replace(
+                    query="", fragment="",
+                ).geturl()
                 if attempts < LOG_LOUD_THRESHOLD:
-                    logger.info("%s Connecting to %s", self._log_prefix, ws_url[:80])
+                    logger.info("%s Connecting to %s", self._log_prefix, safe_ws_target)
                 else:
-                    logger.debug("%s Connecting to %s", self._log_prefix, ws_url[:80])
-                await self._run_once(ws_url)
-                attempts = 0   # 成功一次重置计数
+                    logger.debug("%s Connecting to %s", self._log_prefix, safe_ws_target)
+                stable = await self._run_once(ws_url)
+                if stable:
+                    # 只有存活超过稳定窗口的连接，
+                    # 才能证明 endpoint/session 健康。
+                    attempts = 0
+                else:
+                    attempts += 1
             except asyncio.CancelledError:
                 return
             except Exception as exc:
-                if attempts < LOG_LOUD_THRESHOLD:
+                attempts += 1
+                safe_error = _redact_log_text(exc)
+                runtime_identity = self._runtime_log_identity()
+                if attempts <= LOG_LOUD_THRESHOLD:
                     logger.warning(
-                        "%s Connection session ended: %s", self._log_prefix, exc,
+                        "%s Connection session ended (%s): %s",
+                        self._log_prefix, runtime_identity, safe_error,
                     )
                 elif attempts % HEARTBEAT_EVERY == 0:
                     logger.info(
-                        "%s Still failing after %d attempts: %s",
-                        self._log_prefix, attempts, exc,
+                        "%s Still failing after %d attempts (%s): %s",
+                        self._log_prefix, attempts, runtime_identity, safe_error,
                     )
                 else:
                     logger.debug(
-                        "%s Connection session ended (attempt=%d): %s",
-                        self._log_prefix, attempts, exc,
+                        "%s Connection session ended (attempt=%d, %s): %s",
+                        self._log_prefix, attempts, runtime_identity, safe_error,
                     )
 
             if self._stopped:
                 return
 
-            attempts += 1
-            base_delay = min(RECONNECT_DELAY_BASE * (2 ** (attempts - 1)), RECONNECT_DELAY_MAX)
+            # 稳定连接后续关闭时，仍在基础延迟后重连。连续的不稳定 session/异常
+            # 会增加 attempts，从而实现指数退避。
+            delay_attempt = max(attempts, 1)
+            base_delay = min(
+                RECONNECT_DELAY_BASE * (2 ** (delay_attempt - 1)),
+                RECONNECT_DELAY_MAX,
+            )
+            # 指标：累计重连尝试次数
+            self._metrics_reconnect_attempts += 1
             delay = base_delay * (0.8 + random.random() * 0.4)
-            if attempts <= LOG_LOUD_THRESHOLD:
+            if delay_attempt <= LOG_LOUD_THRESHOLD:
                 logger.info(
                     "%s Reconnecting in %.1fs (attempt %d)",
-                    self._log_prefix, delay, attempts,
+                    self._log_prefix, delay, delay_attempt,
                 )
             else:
                 logger.debug(
                     "%s Reconnecting in %.1fs (attempt %d)",
-                    self._log_prefix, delay, attempts,
+                    self._log_prefix, delay, delay_attempt,
                 )
             try:
                 await asyncio.sleep(delay)
             except asyncio.CancelledError:
                 return
 
-    async def _run_once(self, ws_url: str) -> None:
-        """单次 WS 会话：建连 → 接收循环 → 清理。"""
+    async def _run_once(self, ws_url: str) -> bool:
+        """单次 WS 会话：建连 → 接收循环 → 清理。
+
+        ``receive_timeout`` 用于防止 TCP 半开连接（ai-server 心跳超时直接 RST，
+        不发 Close 帧）导致 ``async for`` 循环永久阻塞，使连接"僵尸化"。
+        3 倍 heartbeat 内无任何帧到达即判定僵死，主动退出触发 ``_connection_loop`` 重连。
+        """
         import aiohttp
 
+        _RECEIVE_TIMEOUT = 90.0  # 3× heartbeat(30s)
+
+        connect_started_at = time.monotonic()
         ws = await self._http.ws_connect(
             ws_url,
             heartbeat=30,
             timeout=aiohttp.ClientTimeout(total=None, connect=15),
+            receive_timeout=_RECEIVE_TIMEOUT,
         )
         self._ws = ws
+        connected_at = time.monotonic()
+        close_code = None
+        close_reason = ""
+        lifetime = 0.0
 
         try:
             self.socket_id = ""
             self.connected = True
+            self._metrics_ws_duration_ms = (time.monotonic() - connect_started_at) * 1000
             self.first_connect_event.set()
             if self._on_connected is not None:
                 try:
@@ -353,15 +447,45 @@ class _PerUinSession:
 
             async for raw_msg in ws:
                 if self._stopped:
+                    close_reason = "stopped"
                     break
                 if raw_msg.type == aiohttp.WSMsgType.TEXT:
                     try:
                         await self._on_raw(self, raw_msg.data)
                     except Exception as exc:
                         logger.error("%s on_raw error: %s", self._log_prefix, exc)
-                elif raw_msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                elif raw_msg.type == aiohttp.WSMsgType.CLOSED:
+                    close_code = getattr(raw_msg, "data", None)
+                    close_reason = str(getattr(raw_msg, "extra", "") or "")
                     break
+                elif raw_msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                    close_reason = str(getattr(raw_msg, "extra", "") or "")
+                    break
+            else:
+                # async for 正常耗尽：底层 TCP 被直接断开、服务端未发送 Close 帧
+                # （无 CLOSED/ERROR 帧可读），与 lightclaw 的 close_code=1006 场景对应。
+                close_reason = "stream_ended"
+        except asyncio.TimeoutError:
+            self._metrics_half_open_count += 1
+            close_reason = "receive_timeout"
+            logger.warning(
+                "%s No message received for %.0fs — connection may be zombied, "
+                "closing to trigger reconnect",
+                self._log_prefix, _RECEIVE_TIMEOUT,
+            )
         finally:
+            lifetime = max(0.0, time.monotonic() - connected_at)
+            if close_code is None:
+                close_code = getattr(ws, "close_code", None)
+            if not close_reason and hasattr(ws, "exception"):
+                try:
+                    ws_exception = ws.exception()
+                except Exception:
+                    ws_exception = None
+                if ws_exception is not None:
+                    close_reason = str(ws_exception)
+            # 防止恶意或过长的对端原因文本刷屏日志。
+            close_reason = close_reason[:200] if close_reason else "?"
             self._ws = None
             self.connected = False
             # 失败时把 pending 全 fail，让上层 await 立即返回
@@ -379,10 +503,31 @@ class _PerUinSession:
                     logger.warning(
                         "%s on_disconnected callback error: %s", self._log_prefix, exc,
                     )
-            logger.info(
-                "%s Disconnected (socket_id=%s)",
-                self._log_prefix, self.socket_id or "?",
+            # 指标：只在真实网络断线时上报 event.error（携带 close_code / 存续时长供按
+            # close_code 分类下钻）；session.stop() 触发的主动关闭（close_reason='stopped'）
+            # 视为正常关闭，不算异常事件。
+            if close_reason != "stopped" and self._on_disconnect_error is not None:
+                try:
+                    self._on_disconnect_error(self, close_code, close_reason, lifetime * 1000)
+                except Exception as exc:
+                    logger.warning(
+                        "%s on_disconnect_error callback error: %s", self._log_prefix, exc,
+                    )
+            stable = lifetime >= STABLE_CONNECTION_SECONDS
+            log_disconnected = logger.warning if not stable and not self._stopped else logger.info
+            log_disconnected(
+                "%s Disconnected (%s, socket_id=%s, close_code=%s, "
+                "close_reason=%s, lifetime=%.3fs, stable=%s)",
+                self._log_prefix,
+                self._runtime_log_identity(),
+                self.socket_id or "?",
+                close_code if close_code is not None else "?",
+                close_reason,
+                lifetime,
+                stable,
             )
+
+        return stable
 
     # ------------------------------------------------------------------
     # 便捷封装：让 adapter 不直接碰 reliable
@@ -395,3 +540,24 @@ class _PerUinSession:
         self, event: str, data: dict, msg_id: Optional[str] = None,
     ) -> bool:
         return await self.reliable.emit_with_ack(event, data, msg_id)
+
+    # ------------------------------------------------------------------
+    # 指标采集（docs/指标建设.md §3）
+    # ------------------------------------------------------------------
+
+    def get_metrics_snapshot(self) -> Dict[str, object]:
+        """读取并重置指标快照，由 MetricsCollector 每 60s 窗口调用。
+
+        清零 half_open_count / reconnect_attempts 累计量；ticket_success 与
+        ws_duration_ms 是"最近一次"状态量，保留不清零（不会重复计数）。
+        """
+        snapshot = {
+            "ticket_success": self._metrics_ticket_success,
+            "ticket_duration_ms": self._metrics_ticket_duration_ms,
+            "ws_duration_ms": self._metrics_ws_duration_ms,
+            "half_open_count": self._metrics_half_open_count,
+            "reconnect_attempts": self._metrics_reconnect_attempts,
+        }
+        self._metrics_half_open_count = 0
+        self._metrics_reconnect_attempts = 0
+        return snapshot

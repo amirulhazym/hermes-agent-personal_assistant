@@ -18,6 +18,7 @@ tags: ["whatsapp", "bridge", "baileys", "memory", "diagnostics", "nodejs", "sess
 - User asks about upgrading Baileys or alternative WhatsApp solutions
 - Bridge crashes repeatedly or disconnects frequently
 - Evaluating free/self-hosted WhatsApp API alternatives
+- WhatsApp execution logging hidden vs Telegram (missing tool progress, terminal commands, or reasoning logs) — resolved via `hermes config set` and SSOT template
 - User reports empty/blank dark message bubbles flooding WhatsApp groups from bridge
 - Bridge log grows rapidly (thousands of lines in minutes) with "Closing session" / "Removing old closed session" entries
 

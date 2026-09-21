@@ -8,6 +8,11 @@ is discovered automatically when this package is placed under
 """
 
 import os
+import threading
+
+
+_adapter_instance = None
+_adapter_instance_lock = threading.Lock()
 
 
 def _get_version() -> str:
@@ -58,9 +63,13 @@ def _load_platform_hint() -> str:
         "4. One MEDIA: line per file when multiple files were written.\n"
         "The framework converts each MEDIA: line into a download link for the "
         "user; without it the user gets NO download link.\n\n"
-        "For cron jobs / reminders / scheduled tasks, always set "
-        "deliver='lightclawbot:<chat_id>' so results reach the user instead of "
-        "being saved locally."
+        "For cron jobs / reminders / scheduled tasks, always target the user "
+        "who is talking to you right now: set "
+        "deliver='lightclawbot:<chat_id>' (the current user's chat_id) so the "
+        "result is delivered back to that same user. If you cannot determine "
+        "the chat_id, use deliver='origin' — the framework will route the "
+        "result to whoever created the task. Never omit deliver (results would "
+        "be saved locally and the user would never see them)."
     )
 
 
@@ -103,6 +112,40 @@ def _is_connected(config) -> bool:
     return False
 
 
+def _env_enablement_fn():
+    """Read LIGHTCLAWBOT_HOME_CHANNEL from env and return seed dict.
+
+    Called by the gateway config loader during _apply_env_overrides to wire
+    up the home channel (and any future env-driven config) without requiring
+    core code changes.
+    """
+    home_chat_id = os.getenv("LIGHTCLAWBOT_HOME_CHANNEL", "").strip()
+    thread_id = os.getenv("LIGHTCLAWBOT_HOME_CHANNEL_THREAD_ID", "").strip()
+    if not home_chat_id:
+        return None
+    result = {
+        "home_channel": {
+            "chat_id": home_chat_id,
+            "name": "Home",
+        }
+    }
+    if thread_id:
+        result["home_channel"]["thread_id"] = thread_id
+    return result
+
+
+def _get_or_create_adapter(config):
+    """在当前进程内只创建一个 LightClaw adapter。"""
+    global _adapter_instance
+
+    with _adapter_instance_lock:
+        if _adapter_instance is None:
+            from .src import LightClawAdapter
+
+            _adapter_instance = LightClawAdapter(config)
+        return _adapter_instance
+
+
 def register(ctx):
     """Called by the Hermes plugin discovery system.
 
@@ -113,12 +156,12 @@ def register(ctx):
       - Cron delivery to "lightclawbot:<chat_id>" works automatically
       - User authorization respects LIGHTCLAW_ALLOWED_USERS env var
     """
-    from .src import LightClawAdapter, check_lightclaw_requirements
+    from .src import check_lightclaw_requirements
 
     ctx.register_platform(
         name="lightclawbot",
         label="LightClawBot",
-        adapter_factory=lambda cfg: LightClawAdapter(cfg),
+        adapter_factory=_get_or_create_adapter,
         check_fn=check_lightclaw_requirements,
         validate_config=_validate_config,
         is_connected=_is_connected,
@@ -129,6 +172,8 @@ def register(ctx):
         max_message_length=4096,
         emoji="⚡",
         platform_hint=_load_platform_hint(),
+        env_enablement_fn=_env_enablement_fn,
+        cron_deliver_env_var="LIGHTCLAWBOT_HOME_CHANNEL",
     )
 
 

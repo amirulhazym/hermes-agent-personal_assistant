@@ -1,10 +1,9 @@
 name: lightclawbot
 kind: platform
-version: 0.0.6
+version: 0.0.18
 description: >
-  LightClaw gateway adapter for Hermes Agent.
-  Connects to a LightClaw-compatible server via native WebSocket,
-  receiving user messages and sending AI responses back through the same protocol.
+  Reply language follows user input; Hermes v0.20+ compatibility for sub-agents, tools, streaming, and chat history.
+  Compatible LightClaw gateway adapter using native WebSocket.
 author: lhanyun
 requires_env:
   - LIGHTCLAW_API_KEY_${UIN}  # 多用户隔离格式
