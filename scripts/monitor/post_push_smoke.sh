@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Read-only VPS smoke check. Cron is the sole post-push trigger.
 set -eu
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=${XDG_RUNTIME_DIR}/bus}"
 RUNTIME=/home/ubuntu/.hermes/hermes-agent
 MANIFEST_REPO=/home/ubuntu/hermes-agent-personal_assistant-work
 LOG_DIR=/home/ubuntu/.hermes/logs
@@ -12,7 +14,7 @@ REMOTE_SHA=$(git -C "$MANIFEST_REPO" ls-remote origin refs/heads/main | cut -f1)
 DEPLOYED_SHA=$(python3 -c 'import json; print(json.load(open("/home/ubuntu/.hermes/logs/deployed-runtime-reference.json"))["deployed_runtime_sha"])')
 GATEWAY_ACTIVE=$(systemctl --user is-active hermes-gateway.service || true)
 BRIDGE_LISTEN=$(ss -ltnH 'sport = :3000' | head -1 || true)
-GATEWAY_PID=$(systemctl --user show hermes-gateway.service -p MainPID --value)
+GATEWAY_PID=$(systemctl --user show hermes-gateway.service -p MainPID --value || true)
 TMP_USED_BYTES=$(du -B1 -s /tmp 2>/dev/null | cut -f1 || echo 0)
 TMP_THRESHOLD_BYTES=$(awk -v g="$TMP_THRESHOLD_GB" 'BEGIN{printf "%d", g*1024*1024*1024}')
 TMP_ALERT=false
