@@ -554,13 +554,13 @@
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/__init__.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/__init__.py",
-      "source_sha256": "02d86d7a581aae424ee0da5b11a0ac657bff92ca282446c8003abf1c9d40e56f"
+      "source_sha256": "0231d297778cf6a02469aecb48081fe81bc219c4cc9d9261dec1f2d232e01c35"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/plugin.yaml",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/plugin.yaml",
-      "source_sha256": "d2eb962692ef465367a72f300deacc9a9b3461a7f5bdab3a61d317985c69c8a9"
+      "source_sha256": "68ffd744d2a3240b6a0158ee7666e43e0fdc071f8262bee38b987507dacedaeb"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/__init__.py",
@@ -572,19 +572,19 @@
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/adapter.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/adapter.py",
-      "source_sha256": "5efb00ee1ce7038b5cc34074597b7a2a58ae573f2f963bea6e6e5f0c58702149"
+      "source_sha256": "7bc8ca101e4156918967360af7250c0d3d5d64277794c9068ed71d538ac0cef0"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/config.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/config.py",
-      "source_sha256": "2b5d46541ee84e527f3fe7406f5714a414b7c29726370cd89e545c519ec08afe"
+      "source_sha256": "e0a48fa5a1297a557906692ddf1241ea1a4513dc4ffff88b10b9637f35133dd9"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/download_handler.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/download_handler.py",
-      "source_sha256": "a3784960c2aff780e8b804274c48c383e973f52c08980717f63bd1be7469a129"
+      "source_sha256": "47d28174881617cd65ee7633844e89f7ef96b02ae0a3a72101627fd2ab0cfcd5"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/file_storage.py",
@@ -596,13 +596,13 @@
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/history.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/history.py",
-      "source_sha256": "9ea40e06adc4daae287ec910360c4480a68fd4ae9f77c160f8367aaf0e3daa08"
+      "source_sha256": "e478926f22b6be85d0246964aac52a3fae3a78380df3bed846290fa70d4cbc40"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/inbound.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/inbound.py",
-      "source_sha256": "11d1cf69e6bda5900efd9cb065c9e6c033b4b028bc0ab27d3007722808e3f56c"
+      "source_sha256": "73b0bcc409ff1a7f6f8778bdbc746ad1fbd3350ad0cb4def1cb8690650c63ede"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/media.py",
@@ -614,7 +614,7 @@
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/outbound.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/outbound.py",
-      "source_sha256": "e3515103f2a1e4bb2923bba701ce78bb79935a8c0bfd5250f06d59637af1f712"
+      "source_sha256": "d23e6958f0ffdea052d8b8cf643502cb6d6ec2f1834c77ff23ee9429e8d5839c"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/socket/__init__.py",
@@ -626,25 +626,25 @@
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/socket/per_uin_session.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/socket/per_uin_session.py",
-      "source_sha256": "4bb3a435eddab9d3f7c7f68bdbaf84d544745880454a07a3ffd3fd3ef5370bd7"
+      "source_sha256": "cdb41a2160fbe8c53c44a810e863da9d3ce03343a059d60fc07a2953882a5b6a"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/socket/reliable_emitter.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/socket/reliable_emitter.py",
-      "source_sha256": "57f58283ec95c27b2ebd89969ab6eebda0155292328efda43c854d741f0089f7"
+      "source_sha256": "66ebd18517af831ae00686c412e7a51309b7d241f50bb7a7c93cc76288ab76fa"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/tenancy.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/tenancy.py",
-      "source_sha256": "7f070cadf74f7752b7844c6a9180959f221b22c907fb1a234147bf03664bbb20"
+      "source_sha256": "88dd3b21b4b0192de0483d1698ff2881b41b6b2d936f04ff32d1129d93193345"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/src/usage_tracker.py",
       "kind": "runtime-deploy",
       "source": "plugins/lightclawbot/src/usage_tracker.py",
-      "source_sha256": "16b712cb604fd24314cd43cb98d7fbfed257c984475041730d331b8b6664cc9b"
+      "source_sha256": "d593d49555972092e6cdf2d511ec3320b647a0a369cf591a07fb53443aa6903e"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/model-providers/a6api/__init__.py",
@@ -752,7 +752,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/drift_check.sh",
-      "source_sha256": "5cc342c03e9433aa63b4b07a9f5bd819aa2f3b8f3a0eb32a29627e9526dcfac1"
+      "source_sha256": "634426285cf5982c9af544cd5c017d469eadba96ed24eadbf0cbf0f43390169a"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/fix-models.sh",
@@ -2366,7 +2366,7 @@
       "destination": "/home/ubuntu/.hermes/skills/devops/whatsapp-bridge-maintenance/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/devops/whatsapp-bridge-maintenance/SKILL.md",
-      "source_sha256": "7d9e70767fe4050d7c5a8dec074e3e19177f3b3120a0720be8e883449db8e3e8"
+      "source_sha256": "f5c5b2e02cd51fdc182832881ed5e58683947f39bdc2ccce7589a3f9d714b107"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/devops/whatsapp-bridge-maintenance/references/bridge-405-reconnect-storm-2026-07-29.md",
@@ -3110,7 +3110,7 @@
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/SKILL.md",
-      "source_sha256": "8362e6af2ec2c61bcccfa19a7b94611f18fae424c3e093ac04a2c68e37f0fbee"
+      "source_sha256": "4bb5ef23c787b6d2842658834a488f88e94641112b2f0c7beff0fef1af358888"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/akurit4-timing-empty-stomach.md",
@@ -3146,7 +3146,7 @@
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/ppi-tb-steroid-interactions.md",
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/references/ppi-tb-steroid-interactions.md",
-      "source_sha256": "2b03beb3095e25d37074f3d4059a5881e8997db9125c2ce798a2a42a0f938246"
+      "source_sha256": "9f3b2571e0babad9a64fdf79ccad9fe87f1712e1a187d0b989682ac673ff25fb"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/supply-gap-pyridoxine-inh.md",
@@ -4118,7 +4118,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_hermes_runtime_reconstruction.py",
-      "source_sha256": "f01d6cb54b8508d01b43dc15edb29cfd200e16f6f974a9792ed8f454d70c74df"
+      "source_sha256": "d1bd264d156b5cf17db26f929e93cbba53d2db35063837d93708e1b6f530e81c"
     },
     {
       "destination": null,
