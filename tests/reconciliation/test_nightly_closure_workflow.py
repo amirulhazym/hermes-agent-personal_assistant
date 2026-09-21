@@ -506,6 +506,39 @@ def test_unique_unmerged_stale_branch_is_retained_as_hold(tmp_path: Path) -> Non
     assert result["remediation"]["actions"] == []
     assert "unique-stale" in " ".join(result["holds"])
     assert "unique-stale" in git(repo, "branch", "--format=%(refname:short)").splitlines()
+    assert result["branches"].get("retained", []) == []
+
+
+def test_owner_retained_gemini_stale_branch_is_informational_not_hold(tmp_path: Path) -> None:
+    repo, _origin, _upstream = make_repo(tmp_path)
+    add_gate_scripts(repo)
+    branch = "feat/gemini-antigravity-v2-agentic-depth"
+    git(repo, "switch", "-c", branch)
+    (repo / "gemini_candidate.txt").write_text("intentional candidate\n", encoding="utf-8")
+    git(repo, "add", "gemini_candidate.txt")
+    old_env = os.environ.copy()
+    old_env["GIT_AUTHOR_DATE"] = "2026-08-01T12:00:00+0000"
+    old_env["GIT_COMMITTER_DATE"] = "2026-08-01T12:00:00+0000"
+    git(repo, "commit", "-q", "-m", "intentional gemini candidate", env=old_env)
+    git(repo, "switch", "main")
+    linked_worktree = tmp_path / "gemini-linked-worktree"
+    git(repo, "worktree", "add", str(linked_worktree), branch)
+
+    result = HYGIENE.run_nightly(
+        repo_root=repo,
+        hermes_home=tmp_path / "hermes",
+        now=datetime(2026, 8, 30, 23, 55, tzinfo=MYT),
+        schedule_timeout=lambda **kwargs: "must-not-schedule",
+    )
+
+    assert result["status"] == "PASS"
+    assert result["remediation"]["status"] == "none"
+    assert result["remediation"]["actions"] == []
+    assert any(item["name"] == branch for item in result["branches"]["retained"])
+    assert not any(branch in hold for hold in result["holds"])
+    assert branch in result["human_report"]
+    assert branch in git(repo, "branch", "--format=%(refname:short)").splitlines()
+    assert git(linked_worktree, "status", "--porcelain") == ""
 
 
 def _clone_and_push_remote_change(origin: Path, tmp_path: Path, filename: str, content: str, message: str) -> Path:

@@ -133,7 +133,7 @@ def run_audit(repo_root: Path = REPO_ROOT, dry_run: bool = False) -> dict[str, A
         "owner_approval_required_for_push": True,
         "gates": {},
         "git_state": {},
-        "branches": {"merged": [], "stale": [], "active": []},
+        "branches": {"merged": [], "stale": [], "retained": [], "active": []},
         "sync_state": {},
         "actions_taken": [],
         "holds": [],
@@ -216,8 +216,12 @@ def run_audit(repo_root: Path = REPO_ROOT, dry_run: bool = False) -> dict[str, A
                 b_date = datetime.fromisoformat(b_date_str.replace("Z", "+00:00"))
                 age_days = (datetime.now(timezone.utc) - b_date).days
                 if age_days > 7:
-                    audit["branches"]["stale"].append({"name": b_name, "age_days": age_days})
-                    audit["holds"].append(f"Stale unmerged branch (>7d): {b_name}")
+                    item = {"name": b_name, "age_days": age_days}
+                    if b_name in OWNER_RETAINED_UNMERGED_BRANCHES:
+                        audit["branches"]["retained"].append(item)
+                    else:
+                        audit["branches"]["stale"].append(item)
+                        audit["holds"].append(f"Stale unmerged branch (>7d): {b_name}")
                 else:
                     audit["branches"]["active"].append(b_name)
             except Exception:
@@ -296,6 +300,9 @@ PRIMARY_SCHEDULE_EARLY_TOLERANCE = timedelta(minutes=10)
 PRIMARY_SCHEDULE_LATE_TOLERANCE = timedelta(minutes=20)
 RUN_ID_RE = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}-[0-9a-f]{32}$")
 EXCLUDED_PRIVATE_PATHS = frozenset({"SOUL.md"})
+OWNER_RETAINED_UNMERGED_BRANCHES = frozenset({
+    "feat/gemini-antigravity-v2-agentic-depth",
+})
 
 
 @dataclass(frozen=True)
@@ -716,7 +723,7 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
     result: dict[str, Any] = {
         "repo": str(repo),
         "git_state": {"is_clean": False, "status_porcelain": [], "status_records": []},
-        "branches": {"merged": [], "stale": [], "active": []},
+        "branches": {"merged": [], "stale": [], "retained": [], "active": []},
         "sync_state": {},
         "daily_delta": {"commits": []},
         "errors": [],
@@ -818,7 +825,10 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
             age_days = None
         item = {"name": name, "tip": tip, "age_days": age_days}
         if age_days is not None and age_days > 7:
-            result["branches"]["stale"].append(item)
+            if name in OWNER_RETAINED_UNMERGED_BRANCHES:
+                result["branches"]["retained"].append(item)
+            else:
+                result["branches"]["stale"].append(item)
         else:
             result["branches"]["active"].append(name)
     return result
@@ -1146,6 +1156,10 @@ def _human_report(result: dict[str, Any]) -> str:
             lines.append(f"- Local main diverged dengan origin/main (ahead {ahead}, behind {behind}).")
     if result.get("daily_delta", {}).get("commits"):
         lines.append(f"- Delta MYT hari ini mengandungi {len(result['daily_delta']['commits'])} commit.")
+    retained_branches = result.get("branches", {}).get("retained", [])
+    if retained_branches:
+        retained_names = ", ".join(f"`{item['name']}`" for item in retained_branches)
+        lines.append(f"- Branch unmerged yang owner tetapkan untuk kekal: {retained_names}.")
     lines.extend(["", "Healthy:"])
     healthy = [
         name.replace("_", " ")
@@ -2203,7 +2217,7 @@ def process_pending(
                 "owner_approval_required_for_push": True,
                 "gates": {},
                 "git_state": {},
-                "branches": {"merged": [], "stale": [], "active": []},
+                "branches": {"merged": [], "stale": [], "retained": [], "active": []},
                 "sync_state": {},
                 "daily_delta": {"commits": []},
                 "actions_taken": [],
@@ -2453,7 +2467,7 @@ def process_pending(
     if not repo.is_dir():
         state["status"] = "failed"
         state["errors"] = [f"repository disappeared: {repo}"]
-        snapshot = {"git_state": {}, "branches": {"merged": [], "stale": [], "active": []}, "sync_state": {}, "daily_delta": {"commits": []}}
+        snapshot = {"git_state": {}, "branches": {"merged": [], "stale": [], "retained": [], "active": []}, "sync_state": {}, "daily_delta": {"commits": []}}
         gates: dict[str, Any] = {}
         final_status = "FAIL"
     else:
@@ -2523,7 +2537,7 @@ def status_pending(
             "owner_approval_required_for_push": True,
             "gates": {},
             "git_state": {},
-            "branches": {"merged": [], "stale": [], "active": []},
+            "branches": {"merged": [], "stale": [], "retained": [], "active": []},
             "sync_state": {},
             "daily_delta": {"commits": []},
             "actions_taken": [],
@@ -2567,7 +2581,7 @@ def _display_mode_result(hermes_home: Path, mode: str, now: datetime | None = No
         "owner_approval_required_for_push": True,
         "gates": {},
         "git_state": {},
-        "branches": {"merged": [], "stale": [], "active": []},
+        "branches": {"merged": [], "stale": [], "retained": [], "active": []},
         "sync_state": {},
         "daily_delta": {"commits": []},
         "actions_taken": [],

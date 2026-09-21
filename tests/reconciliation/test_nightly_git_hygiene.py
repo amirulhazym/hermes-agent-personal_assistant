@@ -171,6 +171,25 @@ class NightlyGitHygieneScenarioTests(unittest.TestCase):
         branches = subprocess.check_output(["git", "-C", str(self.repo_dir), "branch"], text=True)
         self.assertIn("feat/stale-unmerged", branches)
 
+    def test_scenario_10b_owner_retained_gemini_branch_is_informational(self):
+        branch = "feat/gemini-antigravity-v2-agentic-depth"
+        subprocess.run(["git", "-C", str(self.repo_dir), "checkout", "-q", "-b", branch], check=True)
+        (self.repo_dir / "gemini_candidate.txt").write_text("intentional candidate\n")
+
+        past_date = "2026-08-10T12:00:00+08:00"
+        env = {**os.environ, "GIT_COMMITTER_DATE": past_date, "GIT_AUTHOR_DATE": past_date}
+        subprocess.run(["git", "-C", str(self.repo_dir), "add", "gemini_candidate.txt"], check=True)
+        subprocess.run(["git", "-C", str(self.repo_dir), "commit", "-q", "-m", "intentional gemini candidate"], env=env, check=True)
+        subprocess.run(["git", "-C", str(self.repo_dir), "checkout", "-q", "main"], check=True)
+
+        audit = HYGIENE.run_audit(repo_root=self.repo_dir, dry_run=True)
+
+        self.assertEqual(audit["status"], "PASS")
+        self.assertTrue(any(item["name"] == branch for item in audit["branches"]["retained"]))
+        self.assertFalse(any(branch in hold for hold in audit["holds"]))
+        branches = subprocess.check_output(["git", "-C", str(self.repo_dir), "branch"], text=True)
+        self.assertIn(branch, branches)
+
     # Scenario 11: External upstream is not part of the personal-repo audit
     def test_scenario_11_external_upstream_is_not_a_personal_gate(self):
         temp_up = Path(self.temp_dir) / "upstream_clone"
