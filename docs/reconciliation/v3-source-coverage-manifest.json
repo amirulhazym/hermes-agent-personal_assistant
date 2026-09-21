@@ -749,8 +749,8 @@
       "source_sha256": "24f5e4b77ce7d8f1e2895632a6c8ebafa5bf650db4164c05d99e4610590222a5"
     },
     {
-      "destination": null,
-      "kind": "source-only",
+      "destination": "/home/ubuntu/.hermes/scripts/drift_check.sh",
+      "kind": "runtime-deploy",
       "source": "scripts/drift_check.sh",
       "source_sha256": "634426285cf5982c9af544cd5c017d469eadba96ed24eadbf0cbf0f43390169a"
     },

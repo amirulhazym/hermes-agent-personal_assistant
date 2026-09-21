@@ -108,3 +108,10 @@ def test_no_hardcoded_known_drift_escape_hatch_and_mirror_matches() -> None:
     assert "# Known acceptable drift" not in text
     assert "known = {" not in text
     assert MONITOR.read_bytes() == MIRROR.read_bytes()
+
+
+def test_runtime_drift_script_is_manifested_for_live_deployment() -> None:
+    manifest = json.loads((REPO / "docs/reconciliation/v3-source-coverage-manifest.json").read_text())
+    row = next(entry for entry in manifest["entries"] if entry["source"] == "scripts/drift_check.sh")
+    assert row["kind"] == "runtime-deploy"
+    assert row["destination"] == "/home/ubuntu/.hermes/scripts/drift_check.sh"
