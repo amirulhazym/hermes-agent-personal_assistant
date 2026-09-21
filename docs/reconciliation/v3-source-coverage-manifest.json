@@ -332,7 +332,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/v3-source-closure-ledger.jsonl",
-      "source_sha256": "8b3b21a1bc012eb1eb957e0e3a27066eaa99bb81e554dfd602681dd1c2b4dc7e"
+      "source_sha256": "0e0350002c8a2927725821d6a20499f0df5d3fb8d5e623df6369e67d250d0a85"
     },
     {
       "destination": null,
@@ -3110,7 +3110,31 @@
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/SKILL.md",
-      "source_sha256": "4bb5ef23c787b6d2842658834a488f88e94641112b2f0c7beff0fef1af358888"
+      "source_sha256": "e7ca8f45213737a23c66576114f470ff7d58f4b8876c28d8ee2b1a8534691780"
+    },
+    {
+      "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/acute-prodrome-supplement-evaluation.md",
+      "kind": "runtime-deploy",
+      "source": "skills/research/medication-safety-research/references/acute-prodrome-supplement-evaluation.md",
+      "source_sha256": "ae1ed24fcfe9f9a297fce444711b62f1b965fdfe4c866b54dd9d37932d52d633"
+    },
+    {
+      "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/calcium-calcitriol-food-timing.md",
+      "kind": "runtime-deploy",
+      "source": "skills/research/medication-safety-research/references/calcium-calcitriol-food-timing.md",
+      "source_sha256": "7c3f3c17ae57fae3ad5de7e5e0ab35674b199a1e02bd7481ff0590d26f597efd"
+    },
+    {
+      "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/contradictory-institution-labels-taper-vs-dispense.md",
+      "kind": "runtime-deploy",
+      "source": "skills/research/medication-safety-research/references/contradictory-institution-labels-taper-vs-dispense.md",
+      "source_sha256": "62ac4b20e68b1e79793a1d5e2e7ce9bfd1ff63b532a374aeebeac6b39c098472"
+    },
+    {
+      "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/same-day-short-dose-swapping-and-pharmacy-briefing.md",
+      "kind": "runtime-deploy",
+      "source": "skills/research/medication-safety-research/references/same-day-short-dose-swapping-and-pharmacy-briefing.md",
+      "source_sha256": "d3ecfdbf4d4d5eb05d6bbbc2981ed37e2c7580130abbb4488c18d7c4ad247afa"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/akurit4-timing-empty-stomach.md",

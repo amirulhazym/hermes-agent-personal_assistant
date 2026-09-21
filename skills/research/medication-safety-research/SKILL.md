@@ -17,6 +17,7 @@ trigger:
   - User asks "is this normal" about a medication side effect
   - User says "I don't understand why this is happening to my body"
   - User asks for analysis of medication side effects beyond simple interactions
+  - User asks whether an OTC supplement, vitamin, or symptomatic medication (e.g. paracetamol/uphamol) helps with prodromal illness ("rasa nak demam / selsema")
 ---
 
 # Medication Safety Research Protocol
@@ -347,6 +348,8 @@ When a user proposes an aggressive rapid weight loss goal (e.g. "-5kg in 3 weeks
 
 ## Pitfalls
 
+- **Healthy-person vacuum & ungrounded toxicity overclaim**: NEVER evaluate an OTC supplement, vitamin, or dose change against textbook physiology in isolation. Always cross-reference against the user's active multi-drug regimen (e.g., enzyme inducers like Rifampicin accelerating clearance; corticosteroids antagonizing calcium absorption). Check actual therapeutic dosing ranges before warning of toxicities like hypercalcemia (e.g., 0.5 mcg Calcitriol is standard maintenance, not acute poison).
+- **Intent projection / assumption**: Do not guess or project unstated user intent (e.g., assuming a vitamin dose increase was for a cold/virus when the user only mentioned general immunity). Address only the stated rationale without editorializing.
 - **Scope creep**: User asks about taking meds at breakfast. Don't analyse their entire daily regimen unless they ask. Answer what was asked.
 - **Training data overconfidence**: "I know from pharmacology that..." — don't. Check actual sources. Medical knowledge in training data may be outdated or incomplete.
 - **Blocked sites**: Many medical sites (Drugs.com, Medscape, WebMD interaction checker) detect bots. Accept the block, try an alternative source (Wikipedia API via curl often works), and explicitly flag the gap. Don't fabricate what you would have found.
@@ -361,6 +364,7 @@ When a user proposes an aggressive rapid weight loss goal (e.g. "-5kg in 3 weeks
 
 ## References
 
+- `references/acute-prodrome-supplement-evaluation.md` — Framework for evaluating OTC supplements and antipyretics for acute cold/flu prodrome against chronic regimens.
 - `references/interaction-source-guide.md` — which URLs to use for each drug and how to navigate each source's layout.
 - `references/wikipedia-api-medical-research.md` — how to use the Wikipedia API via curl for medical literature when other medical sites are blocked.
 - `references/supply-gap-pyridoxine-inh.md` — case study: Pyridoxine supply gap bridging.
