@@ -15,13 +15,15 @@ tiers (see ``read_session_history``):
      when SessionDB is unavailable / returns nothing).
 """
 
+import hashlib
 import json
 import logging
 import mimetypes
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import quote
 
 from .config import LOCALFILE_SCHEME
 
@@ -175,32 +177,197 @@ def resolve_session_id(
 # SQLite session store accessor (hermes_state.SessionDB)
 # ---------------------------------------------------------------------------
 
-# Cached SessionDB instance — SessionDB() runs schema reconciliation on init,
-# so we reuse a single read connection across history requests.  SQLite WAL
-# mode allows our reader to coexist with the gateway's writer.
-_session_db = None
-_session_db_failed = False
+# 每个已打开的 state.db 独立缓存一个只读 SessionDB。历史读取始终使用调用方
+# 传入的明确文件路径，避免 ContextVar 或不存在路径意外创建数据库。
+_session_dbs: Dict[str, Any] = {}
+_session_db_failed_paths: set[str] = set()
 
 
-def _get_session_db():
-    """Return a cached ``hermes_state.SessionDB`` instance, or ``None``.
+def _default_state_db_path(sessions_dir: Optional[str] = None) -> str:
+    """返回 sessions 目录同级的主 state.db 绝对路径。"""
+    directory = os.path.abspath(sessions_dir or _default_sessions_dir())
+    return os.path.join(os.path.dirname(directory), "state.db")
 
-    Imported lazily so the plugin still loads if the running Hermes build
-    predates the SQLite session store.
+
+def _get_session_db(state_db_path: str):
+    """按已存在的 SQLite 文件返回缓存 SessionDB，不创建空库。
+
+    History 是纯读取接口。目标文件不存在时直接返回 None，不能因为用户点击
+    会话列表创建新的 SQLite 数据库。
+    Hermes 旧版本若不支持 ``read_only`` 参数，会在目标已存在的前提下退回
+    兼容构造方式。
     """
-    global _session_db, _session_db_failed
-    if _session_db is not None:
-        return _session_db
-    if _session_db_failed:
+    if not state_db_path:
         return None
+
+    path = os.path.realpath(state_db_path)
+    if not os.path.isfile(path):
+        return None
+    if path in _session_dbs:
+        return _session_dbs[path]
+    if path in _session_db_failed_paths:
+        return None
+
     try:
         from hermes_state import SessionDB
-        _session_db = SessionDB()
-        return _session_db
+
+        try:
+            db = SessionDB(db_path=Path(path), read_only=True)
+        except TypeError:
+            # 兼容尚未提供 read_only 参数的 Hermes；已先校验文件存在，避免
+            # 该降级路径创建数据库。
+            db = SessionDB(db_path=Path(path))
+        _session_dbs[path] = db
+        return db
     except Exception as exc:  # pragma: no cover - depends on host build
-        logger.warning("[lightclaw] SessionDB unavailable for history: %s", exc)
-        _session_db_failed = True
+        logger.warning(
+            "[lightclaw] SessionDB unavailable for history path=%s: %s",
+            path,
+            exc,
+        )
+        _session_db_failed_paths.add(path)
         return None
+
+
+def _read_db_message_groups(
+    session_id: str,
+    state_db_paths: List[str],
+) -> List[Tuple[List[dict], str]]:
+    """读取各候选库中同一 session 的正文，并保留来源路径。
+
+    子角色启用独立 Home 后，升级前的主库和升级后的子库可能各保存同一
+    session 的不同时间段。这里不因第一个库命中就停止，而是返回所有非空
+    结果，交由调用方按时间合并。历史读取始终只读，不会创建或迁移数据库。
+    """
+    groups: List[Tuple[List[dict], str]] = []
+    seen_paths: set[str] = set()
+    for state_db_path in state_db_paths:
+        real_path = os.path.realpath(state_db_path)
+        if real_path in seen_paths:
+            continue
+        seen_paths.add(real_path)
+        db = _get_session_db(state_db_path)
+        if db is None:
+            continue
+        try:
+            raw_messages = db.get_messages_as_conversation(
+                session_id, include_ancestors=True,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to read messages from SessionDB path=%s session_id=%s: %s",
+                os.path.realpath(state_db_path),
+                session_id,
+                exc,
+            )
+            continue
+        if raw_messages:
+            groups.append((raw_messages, real_path))
+    return groups
+
+
+def _history_content_fingerprint(message: dict) -> tuple:
+    """返回跨物理数据库识别同一消息副本的保守指纹。
+
+    子角色使用独立 Home 后，同一 session 的旧消息可能在主 state.db，
+    新消息位于子 state.db；某些 Core 版本还可能复制已有消息。SQLite 自增
+    id 在不同数据库之间不稳定，缺少平台消息 ID 时只能以时间、角色和正文
+    哈希识别副本。该指纹只用于不同数据库之间，绝不折叠同一库内模型真实的
+    重复输出。
+    """
+    content = str(message.get("content") or "")
+    content_hash = hashlib.sha1(content.encode("utf-8")).hexdigest()[:16]
+    return (
+        message.get("timestamp"),
+        message.get("role", ""),
+        content_hash,
+    )
+
+
+def _history_message_identity(message: dict) -> tuple:
+    """返回跨库消息身份；优先平台消息 ID，缺失时使用正文弱指纹。"""
+    platform_message_id = message.get("platformMessageId")
+    if platform_message_id:
+        return ("platform", platform_message_id)
+    return ("content",) + _history_content_fingerprint(message)
+
+
+def _attach_usage_from_state_db(
+    messages: List[dict],
+    session_id: str,
+    state_db_path: str,
+) -> None:
+    """从正文所在 Home 的 usage sidecar 补回该库内各轮 token 用量。"""
+    try:
+        sessions_dir = os.path.join(os.path.dirname(state_db_path), "sessions")
+        usage_entries = _read_usage_log(
+            os.path.join(sessions_dir, f"{session_id}.usage.jsonl")
+        )
+        if usage_entries:
+            _attach_usage_to_messages(messages, usage_entries)
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.warning(
+            "Usage attach failed for session_id=%s state_db=%s: %s",
+            session_id,
+            state_db_path,
+            exc,
+        )
+
+
+def _merge_db_message_groups(
+    groups: List[Tuple[List[dict], str]],
+    session_id: str,
+    *,
+    limit: int,
+    chat_only: bool,
+) -> List[dict]:
+    """合并主/子数据库的同一 session，保留库内顺序并仅跨库去重。
+
+    候选顺序由调用方决定，当前为子库优先、主库次之；副本冲突时保留优先
+    数据库的消息及其 usage。真实消息只在不同物理数据库身份相同才去重。
+    """
+    normalized_groups: List[Tuple[List[dict], str]] = []
+    preferred_sources: Dict[tuple, str] = {}
+
+    for raw_messages, state_db_path in groups:
+        messages = _normalize_db_messages(
+            raw_messages, limit=100000, chat_only=chat_only,
+        )
+        _attach_usage_from_state_db(messages, session_id, state_db_path)
+        normalized_groups.append((messages, state_db_path))
+        # 候选顺序定义冲突副本优先级，先记录归属，避免时间较早的低优先级
+        # 副本抢占子库消息。
+        for message in messages:
+            identity = _history_message_identity(message)
+            preferred_sources.setdefault(identity, state_db_path)
+
+    # 只在不同物理库的当前队首之间比较时间；绝不排序单个库内部消息，避免
+    # Hermes 用 SQLite id 保证的 tool call / tool result 相邻关系被打散。
+    positions = [0] * len(normalized_groups)
+    messages: List[dict] = []
+    while True:
+        candidates: List[Tuple[float, int]] = []
+        for index, (group_messages, _state_db_path) in enumerate(normalized_groups):
+            if positions[index] >= len(group_messages):
+                continue
+            timestamp = group_messages[positions[index]].get("timestamp")
+            sort_timestamp = (
+                float(timestamp)
+                if isinstance(timestamp, (int, float)) and not isinstance(timestamp, bool)
+                else float("inf")
+            )
+            candidates.append((sort_timestamp, index))
+        if not candidates:
+            break
+
+        _, index = min(candidates)
+        group_messages, state_db_path = normalized_groups[index]
+        message = group_messages[positions[index]]
+        positions[index] += 1
+        if preferred_sources[_history_message_identity(message)] == state_db_path:
+            messages.append(message)
+
+    return messages[-limit:] if len(messages) > limit else messages
 
 
 # ---------------------------------------------------------------------------
@@ -285,10 +452,13 @@ _LOCALFILE_MD_RE = re.compile(
     r"\[(?P<name>[^\]]+)\]\((?P<uri>localfile://[^)\s]+)\)"
 )
 
-# MEDIA:/path tags — stored raw in transcripts, need conversion to localfile://
-# Matches: MEDIA:/absolute/path/to/file.ext  (with optional quotes/backticks)
+# MEDIA:/path tags — stored raw in transcripts, need conversion to localfile://.
+# Treat everything after the absolute-path prefix through the line end as the
+# path so historical attachments with spaces follow the same rule as live
+# delivery. Optional quotes/backticks are tolerated for model variations.
 _MEDIA_TAG_RE = re.compile(
-    r"^[`\"']?MEDIA:\s*(?P<path>(?:~/|/)\S+)[`\"']?\s*$",
+    r'^[ \t]*[`"\']?MEDIA:[ \t]*'
+    r'(?P<path>(?:[A-Za-z]:[/\\]|/|~/)[^\r\n]*?)[`"\']?[ \t]*(?=\r?$)',
     re.MULTILINE,
 )
 
@@ -333,7 +503,8 @@ def _convert_media_tags_to_localfile(text: str) -> str:
     def _replace(m: re.Match) -> str:
         path = m.group("path").strip().rstrip("\"'`,.;:)}]")
         name = os.path.basename(path) or path
-        return f"📎 [{name}]({LOCALFILE_SCHEME}{path})"
+        encoded_path = quote(path, safe="/")
+        return f"📎 [{name}]({LOCALFILE_SCHEME}{encoded_path})"
 
     return _MEDIA_TAG_RE.sub(_replace, text)
 
@@ -372,6 +543,16 @@ def normalize_message(msg: dict) -> Optional[dict]:
     if timestamp is not None:
         result["timestamp"] = timestamp
 
+    # 透传消息 ID：跨 Reset 历史合并（read_session_histories_by_ids）需要用
+    # 这些 ID 做去重键。缺少它们会退回到「timestamp+role+content_hash」的
+    # 弱去重，同一条消息若被父/子 session 各写一次会展示重复。
+    message_id = msg.get("message_id") or msg.get("messageId") or msg.get("id")
+    if message_id:
+        result["messageId"] = message_id
+    platform_message_id = msg.get("platform_message_id") or msg.get("platformMessageId")
+    if platform_message_id:
+        result["platformMessageId"] = platform_message_id
+
     # File-attachment recovery (mirrors TS history/message-parser.ts):
     # User messages → "用户发送了文件" + [media attached] markers
     # Assistant messages → MEDIA: tags (raw) or localfile:// markdown links
@@ -388,29 +569,14 @@ def normalize_message(msg: dict) -> Optional[dict]:
         if cleaned_user_text != text:
             result["content"] = cleaned_user_text
     elif role == "assistant":
-        # Extract file links for the "files" field by converting MEDIA: tags
-        # to localfile:// format temporarily, but keep original content intact.
+        # Restore MEDIA: tags to the same localfile:// Markdown representation
+        # used by live delivery. Do not also populate files from these
+        # derived links: the front-end would otherwise render both the inline
+        # blue link/image and a second structured attachment card.
         converted_text = _convert_media_tags_to_localfile(text)
         localfile_links = _extract_localfile_links(converted_text)
         if localfile_links:
-            result["files"] = localfile_links
-            # Remove MEDIA: tags from content to avoid double rendering.
-            # The files field already contains the file info, so we strip the
-            # raw MEDIA: tags from content to prevent the front-end from
-            # rendering them twice (once as text, once as files array).
-            cleaned_text = text
-            for link in localfile_links:
-                path = link["uri"].replace(LOCALFILE_SCHEME, "")
-                cleaned_text = re.sub(
-                    rf"^[`\"']?MEDIA:\s*{re.escape(path)}[`\"']?\s*$",
-                    "",
-                    cleaned_text,
-                    flags=re.MULTILINE,
-                )
-            cleaned_text = cleaned_text.strip()
-            # 始终用清理后的版本覆盖 content，如果原始内容仅包含 MEDIA: 标签（cleaned_text==""）
-            # 则将 content 置为空字符串，使前端只渲染 files 数组，而不会将原始协议标签作为纯文本展示。
-            result["content"] = cleaned_text
+            result["content"] = converted_text.strip()
 
     return result
 
@@ -660,6 +826,7 @@ def read_session_history(
     session_key: str,
     sessions_dir: Optional[str] = None,
     *,
+    state_db_paths: Optional[List[str]] = None,
     limit: int = 200,
     chat_only: bool = True,
 ) -> List[dict]:
@@ -685,52 +852,22 @@ def read_session_history(
         logger.warning("Entry for session_key=%s has no session_id", session_key)
         return []
 
-    # Tier 1: SQLite (new builds).
-    db = _get_session_db()
-    if db is not None:
-        try:
-            # include_ancestors=True walks the parent_session_id chain so
-            # history stays complete across mid-conversation context
-            # compressions (which rotate session_id parent→child);
-            # sessions.json only maps to the tip.
-            raw_messages = db.get_messages_as_conversation(
-                session_id, include_ancestors=True,
-            )
-        except Exception as exc:
-            logger.warning(
-                "Failed to read messages from SessionDB for session_id=%s: %s",
-                session_id, exc,
-            )
-            raw_messages = None
-        if raw_messages:
-            messages = _normalize_db_messages(
-                raw_messages, limit=limit, chat_only=chat_only,
-            )
-            # Re-attach per-turn usage from the sidecar jsonl.  Since
-            # "spec 002" the transcript lives in SQLite, but the usage
-            # sidecar is still written by ``outbound._persist_turn_usage``
-            # to ``<sessions_dir>/<session_id>.usage.jsonl`` (keyed by the
-            # tip session_id from sessions.json — the same id resolved
-            # above).  Without this, history read via the SQLite tier would
-            # drop ``assistant.usage`` entirely (regression after the
-            # Hermes 0.15.1 / spec-002 merge).  Best-effort: any failure
-            # just yields messages without usage, never breaks the response.
-            try:
-                d = sessions_dir or _default_sessions_dir()
-                usage_path = os.path.join(d, f"{session_id}.usage.jsonl")
-                usage_entries = _read_usage_log(usage_path)
-                if usage_entries:
-                    _attach_usage_to_messages(messages, usage_entries)
-            except Exception as exc:  # pylint: disable=broad-except
-                logger.warning(
-                    "Usage attach failed for session_id=%s: %s",
-                    session_id, exc,
-                )
-            return messages
-        logger.debug(
-            "SessionDB returned no rows for session_id=%s; trying JSONL",
+    # 第一层：SQLite。子角色库与主库均参与合并；旧调用方未显式指定时保持
+    # 原先只读主库的行为。
+    db_paths = state_db_paths or [_default_state_db_path(sessions_dir)]
+    groups = _read_db_message_groups(session_id, db_paths)
+    if groups:
+        messages = _merge_db_message_groups(
+            groups,
             session_id,
+            limit=limit,
+            chat_only=chat_only,
         )
+        return messages
+    logger.debug(
+        "SessionDB returned no rows for session_id=%s; trying JSONL",
+        session_id,
+    )
 
     # Tier 2: legacy JSONL transcript file (pre-spec-002 builds).
     path = resolve_transcript_path(session_id, sessions_dir, entry)
@@ -849,11 +986,9 @@ def _normalize_db_messages(
     ``MEDIA:`` link recovery, and drop delivery-mirror echoes (``observed``)
     plus system-injected user turns to match the previous JSONL behaviour.
 
-    Note: ``SessionDB.get_messages_as_conversation`` uses ``ORDER BY id`` (auto-increment
-    primary key) rather than ``ORDER BY timestamp``. This is usually correct, but may
-    be out of order in edge cases (concurrent writes, message compression). If messages
-    appear out of order in the UI, consider modifying the core library to use
-    ``ORDER BY timestamp`` and include the ``timestamp`` field in the response.
+    ``SessionDB.get_messages_as_conversation`` 使用 ``ORDER BY id``（自增主键）。
+    这个顺序会保持 tool call 与 tool result 的相邻关系，插件不得再按 timestamp
+    重排单库消息；跨物理库合并时仅比较各自尚未读取的队首。
     """
     messages: list[dict] = []
     for msg in raw_messages:
@@ -894,6 +1029,110 @@ def _normalize_db_messages(
     return messages[-limit:] if len(messages) > limit else messages
 
 
+# 跨 Reset 历史合并查询
+
+MAX_MERGE_SESSIONS = 100
+
+
+def _history_dedup_key(message: dict) -> tuple:
+    """构建跨 session 合并时的去重键（与具体 session_id 无关）。
+
+    采用「消息自身身份」而非「迭代到的 session_id」作为去重维度，原因：
+    当 ``sessionIdHistory`` 因会话中途压缩同时记录父、子 session 时，配合
+    ``include_ancestors=True`` 读取，父 session 的消息会在父、子两次迭代中
+    被分别读出。若去重键带 session_id，则同一条消息会被判为不同，导致重复。
+
+    优先用平台消息 ID（全局唯一）；缺失时退回 ``(timestamp, role, content_hash)``。
+    """
+    platform_message_id = (
+        message.get("platformMessageId")
+        or message.get("platform_message_id")
+        or message.get("messageId")
+        or message.get("message_id")
+    )
+    if platform_message_id:
+        return ("pmid", platform_message_id)
+
+    content = str(message.get("content") or "")
+    content_hash = hashlib.sha1(content.encode("utf-8")).hexdigest()[:16]
+    return (
+        "legacy",
+        message.get("timestamp"),
+        message.get("role", ""),
+        content_hash,
+    )
+
+
+def read_session_histories_by_ids(
+    session_ids: List[str],
+    sessions_dir: Optional[str] = None,
+    *,
+    state_db_paths: Optional[List[str]] = None,
+    limit: int = 200,
+    chat_only: bool = True,
+) -> List[dict]:
+    """按 sessionIdHistory 顺序合并多个 session 的消息并截取最近 limit 条。
+
+    用于跨 Reset 历史完整性：同一 chatId 的 ``sessionIdHistory`` 记录了所有历史
+    sessionId，本函数按该顺序逐个查询、合并，返回完整历史流。
+
+    完整性保证：每个 session 使用 ``include_ancestors=True`` 走 parent_session_id
+    链，确保会话中途压缩（session_id 轮转 parent→child）之前的消息不丢失，与单
+    session 读取行为对齐。
+    """
+    if not session_ids:
+        return []
+
+    deduped_session_ids = [sid for sid in session_ids if sid]
+    if len(deduped_session_ids) > MAX_MERGE_SESSIONS:
+        logger.warning(
+            "[history] session_ids truncated to last %d for performance",
+            MAX_MERGE_SESSIONS,
+        )
+        deduped_session_ids = deduped_session_ids[-MAX_MERGE_SESSIONS:]
+
+    all_messages: List[dict] = []
+    seen_keys: set = set()
+    db_paths = state_db_paths or [_default_state_db_path(sessions_dir)]
+
+    for sid in deduped_session_ids:
+        msgs: List[dict] = []
+
+        # Tier 1: SQLite（include_ancestors=True 保证压缩前历史完整）
+        groups = _read_db_message_groups(sid, db_paths)
+        if groups:
+            msgs = _merge_db_message_groups(
+                groups,
+                sid,
+                limit=100000,
+                chat_only=chat_only,
+            )
+
+        # Tier 2: JSONL fallback
+        if not msgs:
+            d = sessions_dir or _default_sessions_dir()
+            path = os.path.join(d, f"{sid}.jsonl")
+            if os.path.isfile(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        raw_text = f.read()
+                    msgs = _parse_transcript(raw_text, limit=100000, chat_only=chat_only)
+                except OSError as exc:
+                    logger.warning(
+                        "[history] read_session_histories_by_ids: JSONL read error sid=%s: %s",
+                        sid, exc,
+                    )
+
+        for message in msgs:
+            dedup_key = _history_dedup_key(message)
+            if dedup_key in seen_keys:
+                continue
+            seen_keys.add(dedup_key)
+            all_messages.append(message)
+
+    return all_messages[-limit:] if len(all_messages) > limit else all_messages
+
+
 # ---------------------------------------------------------------------------
 # Session list (mirrors session-reader.ts: listSessions)
 # ---------------------------------------------------------------------------
@@ -903,28 +1142,38 @@ def list_sessions(
     *,
     owner_uin: Optional[str] = None,
     channel_key: Optional[str] = None,
+    agent_id: Optional[str] = None,
 ) -> List[dict]:
     """List sessions from the sessions.json index.
 
     Multi-tenant filtering (D2):
         ``sessions.json`` is shared by the whole Hermes instance — every
         tenant's conversations live in the same dict.  In LightClaw, sessionKey
-        format is ``agent:main:<channel_key>:dm:<peer_uin>[:<agent_id>]`` where
-        ``peer_uin`` is the user side of the DM.
+        format is ``agent:{agentId}:<channel_key>:dm:<peer_uin>[:<chatId>]``
+        where ``agentId`` occupies the namespace segment (defaults to ``"main"``
+        via DEFAULT_AGENT_ID) and ``chatId`` is the optional business-session
+        suffix appended for physical per-chat isolation (method A).
 
         When ``owner_uin`` is set, we only return entries whose sessionKey's
         ``peer_uin`` segment matches ``owner_uin`` — i.e. "the sessions
         belonging to user X", filtering out other tenants' sessions.
 
         ``channel_key`` further narrows results to a specific platform
-        prefix (``agent:main:<channel_key>:``); set it to LightClaw's
+        prefix (``agent:<agent_id>:<channel_key>:``); set it to LightClaw's
         ``CHANNEL_KEY`` to avoid leaking sessions from other adapters that
         share the same Hermes instance.
+
+        ``agent_id`` scopes results to a specific agent (defaults to
+        ``"main"`` when omitted).  Pass the resolved agentId from the
+        inbound message for multi-agent isolation.
 
         With neither set, behaviour matches the pre-D2 build (return all
         entries).  This keeps the function safe to use in single-tenant
         deployments and in hosts that have no concept of "owner".
     """
+    from .config import DEFAULT_AGENT_ID as _DEFAULT_AGENT_ID
+    effective_agent_id = agent_id or _DEFAULT_AGENT_ID
+
     store = load_session_store(sessions_dir)
     result: list[dict] = []
 
@@ -932,7 +1181,7 @@ def list_sessions(
     # are ":"-delimited and the per-tenant dm chunk we care about always
     # appears at the same depth, so a substring check is sufficient and
     # avoids a full split per row.
-    channel_prefix = f"agent:main:{channel_key}:" if channel_key else None
+    channel_prefix = f"agent:{effective_agent_id}:{channel_key}:" if channel_key else None
     dm_marker = f":dm:{owner_uin}" if owner_uin else None
 
     for key, entry in store.items():

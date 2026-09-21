@@ -330,6 +330,19 @@ When the user is in distress (use of 😭, "berat untuk terima", self-blame):
 
 **Pitfall — don't overpromise:** "We can definitely get your weight down" while on 14mg+ dexa is misleading. Say: "We can stop the acceleration and reduce water weight now. Real fat loss starts when dose drops below ~7.5mg equivalent."
 
+### 6.6 Aggressive Weight Loss / Deficit Challenges During High-Dose Taper
+
+When a user proposes an aggressive rapid weight loss goal (e.g. "-5kg in 3 weeks") while on high-dose glucocorticoids (>7.5mg prednisolone equivalent / >1mg dexa):
+
+1. **Quantify the deficit math:** Show why -5kg fat requires an extreme deficit (~1,600+ kcal/day deficit) that requires starvation-level intake, collapsing immune recovery.
+2. **Flag catabolic compounding:** Supraphysiological steroids already drive muscle wasting. Severe deficit accelerates skeletal muscle breakdown rather than burning steroid-locked visceral fat.
+3. **Distinguish fat loss from edema/water flush:** High steroid doses stimulate mineralocorticoid receptors (avid sodium/water retention, elevated systolic BP). Strict sodium restriction (<1500–2000mg/day) and potassium loading safely flushes 1.5–2.5 kg of fluid, reduces facial puffiness, and lowers BP.
+4. **Reframe to achievable clinical metrics:**
+   - Halt further weight gain (stop acceleration).
+   - Flush water weight (1.5–2.5 kg edema relief).
+   - Moderate deficit only (300–400 kcal below maintenance) with high protein (1.5–2.0g/kg) to defend muscle.
+   - Stress-test dietary discipline using structured interviews (e.g. `/grill-me`) to remove home environmental triggers (liquid sugar, processed sodium) rather than relying on willpower against steroid-driven neurochemical cravings.
+
 ---
 
 ## Pitfalls

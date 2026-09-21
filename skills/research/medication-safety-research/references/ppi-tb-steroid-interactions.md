@@ -22,11 +22,30 @@ Dexamethasone (high-dose steroid) increases gastric acid secretion and risk of p
 
 Levetiracetam is not pH-dependent for absorption and not metabolized by CYP pathways. No interaction mechanism exists.
 
-### Ideal Timing
+### Ideal Morning Timing & Spacing Sequence (Updated 2026-09)
 
-PPIs work best on empty stomach, 30-60 min before food/other meds. For this regimen:
-- Take Pantoprazole BEFORE Dexamethasone (maximises gastroprotection)
-- Taking alongside Dexa/Levetiracetam is acceptable if separate timing impractical
+Current regimen uses **Akurit-2** (Rifampicin + Isoniazid) + **Pyridoxine** (Akurit-4 ended July 2026).
+When taking PRN Pantoprazole in the morning alongside Slot A and Slot B:
+
+1. **Mechanism vs Antacid Distinction:**
+   - Pantoprazole is NOT a physical coating agent (like antacid/sucralfate/Gaviscon) that lines the stomach immediately.
+   - It is an enteric-coated prodrug absorbed in the small intestine into the systemic circulation, where it irreversibly binds and inactivates active parietal cell H+/K+-ATPase (proton pumps).
+   - Because it targets active proton pumps, taking it 30–60 minutes before food ensures peak plasma concentration coincides with food-triggered acid secretion.
+
+2. **Slot A (Akurit-2 + Pyridoxine):**
+   - Must be on empty stomach (stomach acid and food delay/reduce rifampin absorption).
+   - Best taken early morning (e.g. 04:15 – 06:00).
+
+3. **Pantoprazole (PRN 40mg) Flexible Timing:**
+   - Do NOT rigidly force a late clock time (e.g. insisting on 07:00–07:30 AM if the user woke early and finished Slot A by 04:15).
+   - Physiological requirement:
+     - At least **1–2 hours after Slot A** (so Akurit absorption is complete on an empty stomach).
+     - **30–60 minutes before breakfast / food** (so the drug is in the bloodstream when food stimulates proton pumps).
+   - Example: If Slot A is at 04:15 AM, Pantoprazole can be taken anytime from ~05:45–06:00 AM onwards, followed by food/Slot B 30–60 minutes later.
+
+4. **Breakfast / Lapik Perut & Slot B (Dexamethasone + Levetiracetam):**
+   - Must be taken **with or immediately after food** to minimize steroid-induced gastric ulceration/gastritis (the primary reason for pantoprazole gastroprotection).
+   - Ensure the gap from Slot A to Slot B is at least 1 hour (rule_001) and subsequent slot constraints (e.g. 6h gap from B to BD Slot F at 14:00/14:30) are preserved.
 
 ### Long-Term Note
 

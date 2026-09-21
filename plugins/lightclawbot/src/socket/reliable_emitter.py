@@ -88,6 +88,14 @@ class ReliableEmitter:
         self._paused = False
         self._counter = 0
 
+        # ---- 指标采集统计（§3 metric.messaging）---- 累计值，由 get_stats() 读取（不重置）
+        self._stats = {
+            "total_emitted": 0,
+            "total_confirmed": 0,
+            "total_retried": 0,
+            "total_failed": 0,
+        }
+
     # ---- public API --------------------------------------------------------
 
     def emit_fire_and_forget(self, event: str, data: dict) -> None:
@@ -114,6 +122,7 @@ class ReliableEmitter:
         """
         emit_id = self._gen_id()
         enriched = {**data, "idempotencyKey": emit_id}
+        self._stats["total_emitted"] += 1
 
         # Capacity protection: evict oldest on overflow
         self._evict_if_needed()
@@ -212,6 +221,7 @@ class ReliableEmitter:
         if entry.retry_timer is not None:
             entry.retry_timer.cancel()
             entry.retry_timer = None
+        self._stats["total_confirmed"] += 1
         entry.resolve(True)
 
     def _schedule_retry(self, entry: _PendingMsg) -> None:
@@ -221,6 +231,7 @@ class ReliableEmitter:
 
         if entry.retry_count >= EMIT_MAX_RETRIES:
             self._pending.pop(entry.emit_id, None)
+            self._stats["total_failed"] += 1
             logger.error(
                 "%s Gave up after %d retries: emitId=%s msgId=%s elapsed=%.1fs",
                 self._prefix, entry.retry_count, entry.emit_id, entry.msg_id,
@@ -230,6 +241,7 @@ class ReliableEmitter:
             return
 
         entry.retry_count += 1
+        self._stats["total_retried"] += 1
         delay = self._retry_delay(entry.retry_count)
         logger.info(
             "%s Retry #%d in %.1fs: emitId=%s msgId=%s",
@@ -261,8 +273,23 @@ class ReliableEmitter:
             entry = self._pending.pop(oldest_id)
             if entry.retry_timer is not None:
                 entry.retry_timer.cancel()
+            self._stats["total_failed"] += 1
             logger.warning(
                 "%s Evicted oldest: emitId=%s msgId=%s",
                 self._prefix, entry.emit_id, entry.msg_id,
             )
             entry.resolve(False)
+
+    # ---- 指标采集 ----------------------------------------------------------
+
+    def get_stats(self) -> Dict[str, int]:
+        """运行时统计快照。
+
+        累计值，由 MetricsCollector 每 60s 窗口读取，填充 metric.messaging 的
+        total_emitted/total_confirmed/total_retried/total_failed/pending_count；
+        ai-server 按窗口差值或绝对值消费均可。
+        """
+        return {
+            **self._stats,
+            "current_pending": len(self._pending),
+        }

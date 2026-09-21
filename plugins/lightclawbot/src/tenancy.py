@@ -95,7 +95,7 @@ def extract_uin_from_session_key(session_key: str) -> Optional[str]:
         * legacy ``<channel>:dm:<peerId>``
 
     Returns ``None`` when no uin segment can be located (e.g. the main
-    session key ``agent:main:main``).
+    session key ``agent:main``).
     """
     if not session_key:
         return None

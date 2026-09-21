@@ -40,6 +40,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from urllib.parse import unquote
 
 from .config import (
     DEFAULT_AGENT_ID,
@@ -80,7 +81,15 @@ class DownloadHandlerMixin:
         td    = td or {}
 
         transfer_id = td.get("transferId")
-        local_path  = td.get("localPath") or ""
+        # ``localfile://`` Markdown uses a percent-encoded URI path so spaces,
+        # CJK and parentheses survive parsing as one link destination.  Decode
+        # once at the protocol boundary; literal ``%`` was encoded as ``%25``.
+        encoded_local_path = td.get("localPath") or ""
+        local_path = (
+            unquote(encoded_local_path)
+            if isinstance(encoded_local_path, str)
+            else ""
+        )
 
         logger.info(
             "[lightclaw] file:download(req) received: transferId=%s localPath=%s from=%s",
