@@ -1,0 +1,33 @@
+diff --git a/src/antigravity_provider/models.py b/src/antigravity_provider/models.py
+--- a/src/antigravity_provider/models.py
++++ b/src/antigravity_provider/models.py
+@@ -3,7 +3,7 @@
+ import re
+ 
+ ANTIGRAVITY_PREFIX = "google-antigravity/"
+-DEFAULT_MODEL = "gemini-3.7-flash"
++DEFAULT_MODEL = "gemini-3.8-flash"
+ 
+ KNOWN_MODELS: dict[str, int] = {
+     "gemini-3.8-flash": 65536,
+diff --git a/tests/test_models.py b/tests/test_models.py
+--- a/tests/test_models.py
++++ b/tests/test_models.py
+@@ -1,6 +1,7 @@
+ import unittest
+ 
+ from antigravity_provider.models import (
++    DEFAULT_MODEL,
+     KNOWN_MODELS,
+     WIRE_PROFILES,
+     clamp_reasoning_effort,
+@@ -11,6 +12,9 @@
+ 
+ 
+ class ModelCatalogTests(unittest.TestCase):
++    def test_default_model_tracks_current_antigravity_default(self):
++        self.assertEqual(DEFAULT_MODEL, "gemini-3.8-flash")
++
+     def test_normalizes_bare_model(self):
+         self.assertEqual(normalize_model_id("gemini-3.1-pro"), "gemini-3.1-pro")
+         self.assertEqual(normalize_model_id("google-antigravity/gemini-3.1-pro"), "gemini-3.1-pro")

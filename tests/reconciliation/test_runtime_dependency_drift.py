@@ -6,6 +6,24 @@ import subprocess
 from pathlib import Path
 
 
+ANTIGRAVITY_BASE_SHA = "097db5303a610d7e5d75a2fef58d4aefb18436d6"
+ANTIGRAVITY_LOCAL_HEAD = "8cccbb6b891164f7aeceb09695e43b4a12d6a83e"
+ANTIGRAVITY_PATCH_CHAIN = (
+    (
+        "patches/antigravity-provider/2026-09-23_local_dependency_commits_base.patch",
+        "50ed309a7a9a9a542aec6b361c0280f9317ac839e8d1c8e44ba9b766d1e102c3",
+    ),
+    (
+        "patches/antigravity-provider/2026-09-04_custom_antigravity_features.patch",
+        "f5f726808dd1935f9551dea258432c2450be2a013798dd393273042002844520",
+    ),
+    (
+        "patches/antigravity-provider/2026-09-23_gemini_3_8_default.patch",
+        "35fa5040e7886cf233614ee2248fcf5cb86d152d905efb8f77f251b7d8c6d016",
+    ),
+)
+
+
 def test_antigravity_provider_live_parity_with_main_repo_patch():
     """Verify live antigravity-provider checkout has zero unrepresented drift."""
     live_agy = Path("/home/ubuntu/.hermes/plugins/antigravity-provider")
@@ -33,6 +51,64 @@ def test_antigravity_provider_live_parity_with_main_repo_patch():
     # The only untracked file permitted is DO_NOT_EDIT_LIVE_RUNTIME.md
     untracked = [line for line in res_status.stdout.splitlines() if line.startswith("??") and not line.endswith("DO_NOT_EDIT_LIVE_RUNTIME.md")]
     assert not untracked, f"Unrepresented untracked files in live antigravity checkout: {untracked}"
+
+
+def test_antigravity_provider_candidate_reconstruction_chain(tmp_path: Path):
+    """Rebuild the Antigravity candidate from the pinned upstream base and ordered SSOT patches."""
+    repo = Path(__file__).resolve().parents[2]
+    live_agy = Path("/home/ubuntu/.hermes/plugins/antigravity-provider")
+    candidate = tmp_path / "antigravity-provider"
+
+    subprocess.run(
+        ["git", "clone", "--quiet", "--no-hardlinks", str(live_agy), str(candidate)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "checkout", "--quiet", "--detach", ANTIGRAVITY_BASE_SHA],
+        cwd=candidate,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    # Patch 1 must reproduce the intentional local dependency commits exactly.
+    first_rel, first_sha = ANTIGRAVITY_PATCH_CHAIN[0]
+    first_patch = repo / first_rel
+    assert hashlib.sha256(first_patch.read_bytes()).hexdigest() == first_sha
+    subprocess.run(["git", "apply", "--check", str(first_patch)], cwd=candidate, check=True)
+    subprocess.run(["git", "apply", str(first_patch)], cwd=candidate, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=candidate, check=True)
+    rebuilt_local_tree = subprocess.run(
+        ["git", "write-tree"], cwd=candidate, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    live_local_tree = subprocess.run(
+        ["git", "-C", str(live_agy), "rev-parse", f"{ANTIGRAVITY_LOCAL_HEAD}^{{tree}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    assert rebuilt_local_tree == live_local_tree
+    subprocess.run(["git", "reset", "--mixed", "HEAD"], cwd=candidate, check=True, capture_output=True)
+
+    # The remaining patches are ordered personal overlays on top of that exact dependency state.
+    for rel, expected_sha in ANTIGRAVITY_PATCH_CHAIN[1:]:
+        patch = repo / rel
+        assert patch.is_file(), f"Antigravity patch missing: {patch}"
+        assert hashlib.sha256(patch.read_bytes()).hexdigest() == expected_sha
+        subprocess.run(["git", "apply", "--check", str(patch)], cwd=candidate, check=True)
+        subprocess.run(["git", "apply", str(patch)], cwd=candidate, check=True)
+
+    models_py = (candidate / "src/antigravity_provider/models.py").read_text(encoding="utf-8")
+    assert 'DEFAULT_MODEL = "gemini-3.8-flash"' in models_py
+    assert '"gemini-3.8-flash"' in models_py
+    assert "antigravity-preview-09-2026" not in models_py
+
+    diff_check = subprocess.run(
+        ["git", "diff", "--check"], cwd=candidate, capture_output=True, text=True
+    )
+    assert diff_check.returncode == 0, diff_check.stderr or diff_check.stdout
 
 
 def verify_authoritative_reconstruction_contract(
