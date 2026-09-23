@@ -302,13 +302,13 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-source-lock.json",
-      "source_sha256": "6e8f33dfb3fdcbd9c03af947d55f0267e15d148a158d399abe3fff859fc757a3"
+      "source_sha256": "5c27026c00b6eab035d3211eaa1d0f736ad8774f86fe6c3444c5dcea0b8eca2e"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-tree-manifest.json",
-      "source_sha256": "6c84e5e9f750aabfc55d3101b1c37011ef141713bdc5ab97c93f8521ef78d935"
+      "source_sha256": "f45ed9b3a24f26fbcde14fc22800812951bf6edcd86634f1a814acaff6f30969"
     },
     {
       "destination": null,
@@ -517,6 +517,12 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "patches/upstream-hermes/2026-09-24_live_model_surface_reconciliation.patch",
+      "source_sha256": "afb474028bd55dea66cab13ef95f1c1ef505239fc5fa6f0ecf119d629e387601"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "patches/upstream-hermes/2026-09-24_shared_model_catalog_integration.patch",
       "source_sha256": "5755e7b77d4fcdbcdb3368f5aec55562c4f2bacb4a3e8d2329f937d6eb45311a"
     },
@@ -524,7 +530,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "patches/upstream-hermes/README.md",
-      "source_sha256": "8de39dba0fece9c961305b2a2b6d08e3518a837a20d9398a3c69222ab833b66c"
+      "source_sha256": "9beeeec09e38625e716cf310e9ab6dd3e3f76f4df04a5daa1161634857c51f27"
     },
     {
       "destination": null,
@@ -4166,7 +4172,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_hermes_runtime_reconstruction.py",
-      "source_sha256": "f37f76ed5b7511c4fc138a5977de5bb03165fa7715b109b6ec915b5ae1c9acb3"
+      "source_sha256": "d0debbf8e6c0f167d0cc8fc137338cae7e1cc9f37ee9bafde4614bf960dfee2d"
     },
     {
       "destination": null,
@@ -4231,6 +4237,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "64db032bcb9dbc13b882ed1a86cf82d541eb7a0a05c0c30634fb01f9316371ad",
+  "payload_sha256": "d2a3944a228db1f5bf00ffa98ca40512b0fd1af580c6ff4abc7b032ff93d4442",
   "schema_version": 1
 }

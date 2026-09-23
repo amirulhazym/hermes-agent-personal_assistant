@@ -67,6 +67,13 @@
       "path": "patches/upstream-hermes/2026-09-24_shared_model_catalog_integration.patch",
       "sha256": "5755e7b77d4fcdbcdb3368f5aec55562c4f2bacb4a3e8d2329f937d6eb45311a",
       "description": "Shared /model integration: hide OpenCode Zen from the base authenticated provider list so WhatsApp text fallback and Telegram interactive picker share the same free-only fail-closed catalog."
+    },
+    {
+      "order": 10,
+      "id": "candidate-runtime-live-model-surface-reconciliation-20260924",
+      "path": "patches/upstream-hermes/2026-09-24_live_model_surface_reconciliation.patch",
+      "sha256": "afb474028bd55dea66cab13ef95f1c1ef505239fc5fa6f0ecf119d629e387601",
+      "description": "Preserve current live upstream model-surface bytes and transitive dependencies while retaining the Codex, DeepSeek, Zen, and shared /model refresh changes."
     }
   ],
   "runtime_tree_manifest": "docs/reconciliation/hermes-runtime-tree-manifest.json",

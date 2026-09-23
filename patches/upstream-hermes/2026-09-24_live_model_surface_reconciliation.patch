@@ -1,0 +1,2130 @@
+diff --git a/agent/model_metadata.py b/agent/model_metadata.py
+--- a/agent/model_metadata.py
++++ b/agent/model_metadata.py
+@@ -504,6 +504,7 @@
+     # Qwen — specific model families before the catch-all.
+     # Official docs: https://help.aliyun.com/zh/model-studio/developer-reference/
+     "qwen3.8-max": 1_000_000,     # 1M context (OpenRouter & Nous portal, verified 2026-08-03)
++    "qwen3.8-flash": 1_000_000,   # 1M context (OpenRouter & Nous portal, verified 2026-08-28)
+     "qwen3.6-plus": 1048576,      # 1M context (DashScope/Alibaba & OpenRouter)
+     "qwen3.7-plus": 1048576,      # 1M context (DashScope/Alibaba)
+     "qwen3-coder-plus": 1000000,  # 1M context
+@@ -572,6 +573,10 @@
+     "solar-pro3": 131072,
+     "solar-pro2": 65536,
+     "solar-mini": 32768,
++    # Tencent — Hy4 Preview (Hunyuan), 1M context window per OpenRouter
++    # live metadata (2026-08-28). Longest-key-first so this wins over any
++    # future shorter hy* catch-all.
++    "hy4-preview": 1_048_576,
+     # Tencent — Hy3 Preview (Hunyuan) with 256K context window.
+     # OpenRouter live metadata reports 262144 (256 × 1024); align the
+     # static fallback so cache and offline both agree (issue #22268).
+@@ -760,6 +765,7 @@
+     "api.gmi-serving.com": "gmi",
+     "api.novita.ai": "novita",
+     "tokenhub.tencentmaas.com": "tencent-tokenhub",
++    "api.lkeap.cloud.tencent.com": "tencent-tokenplan",
+     "ollama.com": "ollama-cloud",
+ }
+ 
+@@ -1673,6 +1679,7 @@
+       - "context_length_exceeded: 131072"
+       - "Maximum context size 32768 exceeded"
+       - "model's max context length is 65536"
++      - "input token count is 32825 but model only supports up to 32768"
+     """
+     error_lower = error_msg.lower()
+     # Pattern: look for numbers near context-related keywords
+@@ -1684,6 +1691,12 @@
+         r'(\d{4,})\s*(?:token)?\s*(?:context|limit)',
+         r'>\s*(\d{4,})\s*(?:max|limit|token)',  # "250000 tokens > 200000 maximum"
+         r'(\d{4,})\s*(?:max(?:imum)?)\b',  # "200000 maximum"
++        # Google Gemini/Gemma: "Unable to submit request because the input
++        # token count is 32825 but model only supports up to 32768." The
++        # limit is the number AFTER "supports up to" — the input count that
++        # precedes it must not be captured, so this pattern anchors on the
++        # "supports up to" phrase itself.
++        r'supports?\s+(?:only\s+)?up\s+to\s+(\d{4,})',
+     ]
+     for pattern in patterns:
+         match = re.search(pattern, error_lower)
+@@ -3538,13 +3551,28 @@
+     return dense + ((sparse + 3) // 4)
+ 
+ 
+-def estimate_messages_tokens_rough(messages: List[Dict[str, Any]]) -> int:
++def estimate_messages_tokens_rough(
++    messages: List[Dict[str, Any]], *, charge_stale_thinking: bool = True,
++) -> int:
+     """Rough token estimate for a message list (pre-flight only).
+ 
+     Image parts (base64 PNG/JPEG) are counted as a flat ~1500 tokens per
+     image — the Anthropic pricing model — instead of counting raw base64
+     character length. Without this, a single ~1MB screenshot would be
+     estimated at ~250K tokens and trigger premature context compression.
++
++    ``charge_stale_thinking`` mirrors the tail-budget walk's policy
++    (``context_compressor._estimate_msg_budget_tokens``, #73624): generic
++    thinking text (``reasoning`` / ``reasoning_content``) rides the wire for
++    at most the NEWEST assistant turn on routes that do not echo stale
++    reasoning back (Codex Responses ships encrypted ``codex_reasoning_items``
++    instead of the text keys; strict chat-completions providers strip or
++    one-space-pad the field). Passing ``False`` excludes those keys on every
++    assistant turn but the newest, so the compaction TRIGGER sees the same
++    size class as the tail-protection walk — the disagreement made
++    reasoning-heavy codex_responses sessions fire preflight forever while the
++    walk found nothing to compact (#84371 dead loop). Default ``True``
++    preserves the conservative full charge for callers without route context.
+ 
+     Per-message results are memoized (see ``_estimate_message_tokens_cached``)
+     keyed on a deep *identity fingerprint* of the message, so re-walking a
+@@ -3553,10 +3581,48 @@
+     leaf objects and structure, hence an identical estimate.
+     """
+     _IMAGE_TOKEN_COST = 1500
++    if not charge_stale_thinking:
++        messages = _strip_stale_thinking_for_estimate(messages)
+     total = 0
+     for msg in messages:
+         total += _estimate_message_tokens_cached(msg, _IMAGE_TOKEN_COST)
+     return total
++
++
++# Generic thinking-text keys replayed for at most the newest assistant turn
++# on non-echo routes — must stay in lockstep with
++# ``context_compressor._NEWEST_TURN_ONLY_BUDGET_KEYS``.
++_STALE_THINKING_ESTIMATE_KEYS = ("reasoning", "reasoning_content")
++
++
++def _strip_stale_thinking_for_estimate(
++    messages: List[Dict[str, Any]],
++) -> List[Dict[str, Any]]:
++    """Copy of ``messages`` with stale thinking keys removed (newest kept).
++
++    Shallow stripped copies share the original value objects, so the
++    per-message memo still hits for the stripped shape on subsequent walks.
++    """
++    newest = -1
++    for i in range(len(messages) - 1, -1, -1):
++        m = messages[i]
++        if isinstance(m, dict) and m.get("role") == "assistant":
++            newest = i
++            break
++    out: List[Dict[str, Any]] = []
++    for i, m in enumerate(messages):
++        if (
++            i != newest
++            and isinstance(m, dict)
++            and m.get("role") == "assistant"
++            and any(m.get(k) for k in _STALE_THINKING_ESTIMATE_KEYS)
++        ):
++            m = {
++                k: v for k, v in m.items()
++                if k not in _STALE_THINKING_ESTIMATE_KEYS
++            }
++        out.append(m)
++    return out
+ 
+ 
+ # --- Per-message token-estimate memo -------------------------------------
+@@ -3686,9 +3752,23 @@
+         and bool(sidecar)
+         and msg.get("role") in ("user", "assistant")
+     )
++    # The internal ``reasoning`` key never ships: every request build pops it
++    # after (optionally) promoting it into ``reasoning_content`` (see
++    # ``apply_reasoning_content_policy`` / conversation_loop's api_messages
++    # build). When a message carries BOTH keys — the normal shape on
++    # reasoning-echo providers, which pin ``reasoning_content`` at creation
++    # time while ``reasoning`` holds the same text for trajectory storage —
++    # counting both charged the same thinking twice and inflated the rough
++    # estimate by up to +53% against provider-reported prompt_tokens
++    # (#84371 comment data, llama.cpp/Qwen). Keep ``reasoning`` only as the
++    # promotion proxy when no ``reasoning_content`` exists to displace it.
++    _rc = msg.get("reasoning_content")
++    drop_reasoning_dup = isinstance(_rc, str) and bool(_rc.strip())
+     shadow: Dict[str, Any] = {}
+     for k, v in msg.items():
+         if k in ("_anthropic_content_blocks", "reasoning_details") or k in PERSISTENCE_ONLY_MESSAGE_FIELDS:
++            continue
++        if k == "reasoning" and drop_reasoning_dup:
+             continue
+         if k == "api_content":
+             # Always popped before the request is built; only counted when it
+@@ -3744,6 +3824,7 @@
+     *,
+     system_prompt: str = "",
+     tools: Optional[List[Dict[str, Any]]] = None,
++    charge_stale_thinking: bool = True,
+ ) -> int:
+     """Rough token estimate for a full chat-completions request.
+ 
+@@ -3752,14 +3833,112 @@
+     tools enabled, schemas alone can add 20-30K tokens — a significant
+     blind spot when only counting messages. Image content is counted
+     at a flat per-image cost (see estimate_messages_tokens_rough).
++
++    ``charge_stale_thinking`` is forwarded to
++    ``estimate_messages_tokens_rough`` — pass ``False`` when the active
++    route provably strips stale assistant thinking at send time (see
++    ``message_sanitization.stale_thinking_reaches_wire``, #84371).
+     """
+     total = 0
+     if system_prompt:
+         total += estimate_tokens_rough(system_prompt)
+     if messages:
+-        total += estimate_messages_tokens_rough(messages)
++        if charge_stale_thinking:
++            # Positional-compatible call: test seams and plugin engines
++            # monkeypatch estimate_messages_tokens_rough with (messages)-only
++            # signatures; only the route-aware False path needs the kwarg.
++            total += estimate_messages_tokens_rough(messages)
++        else:
++            total += estimate_messages_tokens_rough(
++                messages, charge_stale_thinking=False
++            )
+     if tools:
+         total += _estimate_tools_tokens_rough(tools)
++    return total
++
++
++# --- Usage-anchored context accounting ------------------------------------
++#
++# Provider responses carry ``usage.prompt_tokens`` — EXACT ground truth for
++# everything sent on that request (system prompt + tool schemas + full
++# history). Re-estimating the whole conversation with chars/4 heuristics on
++# every context-size check compounds error over the entire transcript (flat
++# 1500-token images, CJK density, provider replay blobs). Anchoring on the
++# last real usage shrinks the estimation window to the messages appended
++# since that response; the error self-corrects at every new response.
++#
++# The anchor is a plain dict so callers can store it anywhere:
++#   prompt_tokens / completion_tokens — provider-reported usage at capture.
++#   base_count — len(messages) at capture time (the assistant reply for the
++#       captured response is NOT yet appended at the capture site; when it
++#       appears at index base_count its cost is covered by completion_tokens,
++#       so the delta walk skips it).
++#   base_last_id / base_last_role — identity fingerprint of the last message
++#       at capture time. Compaction, splices, and history rewrites shift or
++#       replace that element, failing the check and falling back to full
++#       estimation. Belt-and-braces on top of explicit invalidation.
++
++
++def capture_usage_anchor(
++    prompt_tokens: Any,
++    completion_tokens: Any,
++    messages: List[Dict[str, Any]],
++) -> Optional[Dict[str, Any]]:
++    """Build a usage anchor from provider-reported usage, or None."""
++    try:
++        pt = int(prompt_tokens or 0)
++        ct = int(completion_tokens or 0)
++    except (TypeError, ValueError):
++        return None
++    if pt <= 0 or not isinstance(messages, list):
++        # No usable usage (some OpenAI-compatible endpoints omit it) — the
++        # caller keeps whatever anchor it had, or stays on pure estimation.
++        return None
++    base_count = len(messages)
++    last = messages[-1] if base_count else None
++    return {
++        "prompt_tokens": pt,
++        "completion_tokens": max(0, ct),
++        "base_count": base_count,
++        "base_last_id": id(last) if last is not None else None,
++        "base_last_role": last.get("role") if isinstance(last, dict) else None,
++    }
++
++
++def anchored_context_tokens(
++    messages: List[Dict[str, Any]],
++    anchor: Optional[Dict[str, Any]],
++) -> Optional[int]:
++    """Context size anchored on the last provider-reported usage.
++
++    Returns ``prompt_tokens + completion_tokens`` of the anchored response
++    plus a rough estimate of ONLY the messages appended since — or ``None``
++    when the anchor is missing or stale (caller falls back to full
++    estimation). The assistant reply produced by the anchored response
++    (first appended message after the base) is skipped: its cost is already
++    counted exactly by ``completion_tokens``.
++    """
++    if not isinstance(anchor, dict) or not isinstance(messages, list):
++        return None
++    base_count = anchor.get("base_count") or 0
++    if base_count <= 0 or len(messages) < base_count:
++        return None
++    base_msg = messages[base_count - 1]
++    if id(base_msg) != anchor.get("base_last_id"):
++        return None
++    base_role = base_msg.get("role") if isinstance(base_msg, dict) else None
++    if base_role != anchor.get("base_last_role"):
++        return None
++    total = int(anchor["prompt_tokens"]) + int(anchor.get("completion_tokens") or 0)
++    delta = messages[base_count:]
++    if delta:
++        first = delta[0]
++        if isinstance(first, dict) and first.get("role") == "assistant":
++            # The anchored response's own reply — already counted exactly by
++            # completion_tokens above.
++            delta = delta[1:]
++    if delta:
++        total += estimate_messages_tokens_rough(delta)
+     return total
+ 
+ 
+diff --git a/agent/reasoning_effort.py b/agent/reasoning_effort.py
+--- a/agent/reasoning_effort.py
++++ b/agent/reasoning_effort.py
+@@ -105,6 +105,9 @@
+ #: Tencent TokenHub: low/medium/high.
+ TOKENHUB_EFFORTS: tuple[str, ...] = ("low", "medium", "high")
+ 
++#: Nebius Token Factory: low/medium/high (top-level reasoning_effort knob).
++NEBIUS_EFFORTS: tuple[str, ...] = ("low", "medium", "high")
++
+ #: Kimi K3's vendor-documented translation quirks (platform.kimi.ai
+ #: thinking-model guide): ``high`` is K3's positional middle AND server
+ #: default, so ``medium`` rounds to it rather than down to ``low``; ``xhigh``
+diff --git a/hermes_cli/model_normalize.py b/hermes_cli/model_normalize.py
+--- a/hermes_cli/model_normalize.py
++++ b/hermes_cli/model_normalize.py
+@@ -104,6 +104,7 @@
+     "xiaomi",
+     "arcee",
+     "ollama-cloud",
++    "nebius-token-factory",
+     "custom",
+     "gemini",
+     "xai",
+diff --git a/hermes_cli/models.py b/hermes_cli/models.py
+--- a/hermes_cli/models.py
++++ b/hermes_cli/models.py
+@@ -111,6 +111,7 @@
+     ("deepseek/deepseek-v4-flash-0731",        "dated snapshot of v4-flash"),
+     # Qwen
+     ("qwen/qwen3.8-max",                       ""),
++    ("qwen/qwen3.8-flash",                     ""),
+     # MoonshotAI
+     ("moonshotai/kimi-k3",                     "recommended"),
+     # MiniMax
+@@ -122,6 +123,7 @@
+     # Xiaomi
+     ("xiaomi/mimo-v2.5-pro",                   ""),
+     # Tencent
++    ("tencent/hy4-preview",                    ""),
+     ("tencent/hy3",                            ""),
+     # StepFun
+     ("stepfun/step-3.7-flash",                 ""),
+@@ -137,7 +139,6 @@
+     ("thinkingmachines/inkling:free",          "free"),
+     ("thinkingmachines/inkling-small:free",    "free"),
+     ("minimax/minimax-m3:free",                "free"),
+-    ("openrouter/elephant-alpha",              "free"),
+     ("z-ai/glm-5.2:free",                      "free"),
+     ("poolside/laguna-s-2.1:free",             "free"),
+     ("poolside/laguna-xs-2.1:free",            "free"),
+@@ -292,6 +293,7 @@
+         "deepseek/deepseek-v4-flash-0731",
+         # Qwen
+         "qwen/qwen3.8-max",
++        "qwen/qwen3.8-flash",
+         # MoonshotAI
+         "moonshotai/kimi-k3",
+         # MiniMax
+@@ -303,6 +305,7 @@
+         # Xiaomi
+         "xiaomi/mimo-v2.5-pro",
+         # Tencent
++        "tencent/hy4-preview",
+         "tencent/hy3",
+         # StepFun
+         "stepfun/step-3.7-flash",
+@@ -475,6 +478,13 @@
+         "mimo-v2-flash",
+     ],
+     "tencent-tokenhub": [
++        "hy4-preview",
++        "hy3",
++        "hy3-preview",
++    ],
++    "tencent-tokenplan": [
++        "hy4-preview",
++        "hy3",
+         "hy3-preview",
+     ],
+     "arcee": [
+@@ -496,16 +506,21 @@
+     # HTTP 403 to this honest external Hermes client, so the chat catalog
+     # fails closed. Jev 1.13 Free is usable through /systemone, not /model.
+     "opencode-zen": [],
+-    # OpenCode free tier — keyless (no OpenCode account needed). Synced
+-    # against live GET /zen/v1/models + anonymous probes (2026-08-21);
+-    # deepseek-v4-flash-free delisted (promo ended, now 401s).
+-    # big-pickle + mimo-v2.5-free delisted (UA-gated: the relay 429s
+-    # FreeUsageLimitError for every client except User-Agent
+-    # "opencode/latest"; we send honest Hermes attribution and don't
+-    # impersonate other clients — verified 2026-08-21).
++    # OpenCode free tier — keyless (no OpenCode account needed). This is the
++    # OFFLINE FLOOR only: provider_model_ids("opencode-free") revalidates live
++    # against GET /zen/v1/models (keyless) and filters to the anonymous free
++    # tier, so a relay-delisted model stops appearing in the picker and a
++    # newly-live one becomes selectable without a release. This floor keeps the
++    # picker populated when the relay is unreachable. Note: this floor may lag
++    # the live relay — that is intentional; the live revalidation is the
++    # source of truth when reachable. Known-delisted models are REMOVED from
++    # the floor (x-preview-f-free delisted 2026-08-26 — offline fallback must
++    # not offer a model that 401s). deepseek-v4-flash-free and mimo-v2.5-free
++    # are back on the live list.
+     "opencode-free": [
+-        "x-preview-f-free",  # "Ox Alpha" stealth model — free, 1M ctx, ZDR
++        "deepseek-v4-flash-free",
+         "hy3-free",
++        "mimo-v2.5-free",
+         "laguna-s-2.1-free",
+         "nemotron-3-ultra-free",
+         "nemotron-3.5-lightning-free",
+@@ -559,16 +574,41 @@
+     # to https://dashscope-intl.aliyuncs.com/compatible-mode/v1 (OpenAI-compat)
+     # or https://dashscope-intl.aliyuncs.com/apps/anthropic (Anthropic-compat).
+     "alibaba": [
++        # Qwen 千问系列 (DashScope / Qwen Cloud)
++        "qwen3.8-max",
+         "qwen3.7-max",
+         "qwen3.7-plus",
+         "qwen3.6-plus",
++        "qwen3.6-flash",
+         "kimi-k2.5",
+         "qwen3.5-plus",
+         "qwen3-coder-plus",
+         "qwen3-coder-next",
+-        # Third-party models available on coding-intl
++        # Third-party models available on coding-intl / DashScope
++        "glm-5.2",
+         "glm-5",
+         "glm-4.7",
++        "deepseek-v4-pro",
++        "deepseek-v4-flash-0731",
++        "MiniMax-M2.5",
++    ],
++    # Alibaba DashScope (China) — same platform as alibaba, domestic endpoint
++    # (dashscope.aliyuncs.com); same catalog as the international tier.
++    "alibaba-cn": [
++        "qwen3.8-max",
++        "qwen3.7-max",
++        "qwen3.7-plus",
++        "qwen3.6-plus",
++        "qwen3.6-flash",
++        "kimi-k2.5",
++        "qwen3.5-plus",
++        "qwen3-coder-plus",
++        "qwen3-coder-next",
++        "glm-5.2",
++        "glm-5",
++        "glm-4.7",
++        "deepseek-v4-pro",
++        "deepseek-v4-flash-0731",
+         "MiniMax-M2.5",
+     ],
+     # Alibaba Coding Plan — same platform as alibaba (DashScope coding-intl),
+@@ -584,6 +624,57 @@
+         "glm-5",
+         "glm-4.7",
+         "MiniMax-M2.5",
++    ],
++    # Alibaba Coding Plan (China) — domestic coding endpoint
++    # (coding.dashscope.aliyuncs.com); same catalog as the international tier.
++    "alibaba-coding-plan-cn": [
++        "qwen3.7-plus",
++        "qwen3.6-plus",
++        "qwen3.5-plus",
++        "qwen3-max-2026-01-23",
++        "qwen3-coder-plus",
++        "qwen3-coder-next",
++        "kimi-k2.5",
++        "glm-5",
++        "glm-4.7",
++        "MiniMax-M2.5",
++    ],
++    # Alibaba Token Plan (Personal Edition) — dedicated token-plan endpoint
++    # (token-plan.ap-southeast-1.maas.aliyuncs.com), key tier `sk-sp-...`.
++    # Catalog verified against a live Token Plan subscription (2026-08-03).
++    "alibaba-token-plan": [
++        "qwen3.8-max-preview",
++        "qwen3.7-max",
++        "qwen3.7-plus",
++        "qwen3.6-plus",
++        "qwen3.6-flash",
++        "deepseek-v4-pro",
++        "deepseek-v4-flash",
++        "deepseek-v3.2",
++        "kimi-k2.7-code",
++        "kimi-k2.6",
++        "kimi-k2.5",
++        "glm-5.2",
++        "glm-5.1",
++        "glm-5",
++    ],
++    # Alibaba Token Plan (China) — domestic token-plan endpoint
++    # (token-plan.cn-beijing.maas.aliyuncs.com); same catalog as intl.
++    "alibaba-token-plan-cn": [
++        "qwen3.8-max-preview",
++        "qwen3.7-max",
++        "qwen3.7-plus",
++        "qwen3.6-plus",
++        "qwen3.6-flash",
++        "deepseek-v4-pro",
++        "deepseek-v4-flash",
++        "deepseek-v3.2",
++        "kimi-k2.7-code",
++        "kimi-k2.6",
++        "kimi-k2.5",
++        "glm-5.2",
++        "glm-5.1",
++        "glm-5",
+     ],
+     # Curated HF model list — only agentic models that map to OpenRouter defaults.
+     "huggingface": [
+@@ -1159,7 +1250,8 @@
+     ProviderEntry("alibaba",        "Qwen Cloud",               "Qwen Cloud / DashScope (Qwen + multi-provider)"),
+     ProviderEntry("xai-oauth",      "xAI Grok OAuth (SuperGrok / Premium+)", "xAI Grok OAuth (SuperGrok / Premium+ subscription)"),
+     ProviderEntry("xiaomi",         "Xiaomi MiMo",              "Xiaomi MiMo (MiMo-V2.5 and V2 models: pro, omni, flash)"),
+-    ProviderEntry("tencent-tokenhub", "Tencent TokenHub",       "Tencent TokenHub (Hy3 Preview via tokenhub.tencentmaas.com)"),
++    ProviderEntry("tencent-tokenhub", "Tencent TokenHub",       "Tencent TokenHub (Hy4 preview via tokenhub.tencentmaas.com)"),
++    ProviderEntry("tencent-tokenplan", "Tencent TokenPlan",     "Tencent TokenPlan (Hy4 preview via api.lkeap.cloud.tencent.com, Anthropic Messages)"),
+     ProviderEntry("nvidia",         "NVIDIA NIM",               "NVIDIA NIM (Nemotron models via build.nvidia.com or local NIM)"),
+     ProviderEntry("copilot",        "GitHub Copilot",           "GitHub Copilot (Uses GITHUB_TOKEN or gh auth token)"),
+     ProviderEntry("copilot-acp",    "GitHub Copilot ACP",       "GitHub Copilot ACP (Spawns copilot --acp --stdio)"),
+@@ -1239,9 +1331,10 @@
+     "xai":      ("xAI Grok",        "Direct API or SuperGrok / Premium+ OAuth",        ["xai", "xai-oauth"]),
+     "google":   ("Google Gemini",   "Google AI Studio (API key)",                     ["gemini"]),
+     "openai":   ("OpenAI",          "ChatGPT/Codex subscription or direct OpenAI API", ["openai-codex", "openai-api"]),
+-    "qwen":     ("Qwen",            "Qwen Cloud / DashScope, Coding Plan & Qwen CLI OAuth", ["alibaba", "alibaba-coding-plan", "qwen-oauth"]),
++    "qwen":     ("Qwen",            "Qwen Cloud / DashScope, Coding Plan, Token Plan & Qwen CLI OAuth", ["alibaba", "alibaba-cn", "alibaba-coding-plan", "alibaba-coding-plan-cn", "alibaba-token-plan", "alibaba-token-plan-cn", "qwen-oauth"]),
+     "opencode": ("OpenCode",        "Zen pay-as-you-go, Go subscription, or free tier", ["opencode-zen", "opencode-go", "opencode-free"]),
+     "copilot":  ("GitHub Copilot",  "GitHub token API or copilot --acp process",       ["copilot", "copilot-acp"]),
++    "tencent":  ("Tencent Hy",      "Hy4 / Hy3 via TokenHub & TokenPlan", ["tencent-tokenhub", "tencent-tokenplan"]),
+ }
+ 
+ # Reverse index: member slug -> group_id. Built once at import.
+@@ -1348,6 +1441,11 @@
+     "actual-computer": "actual",
+     "actualcomputer": "actual",
+     "aci": "actual",
++    "nebius": "nebius-token-factory",
++    "nebius-tokenfactory": "nebius-token-factory",
++    "nebius-tf": "nebius-token-factory",
++    "token-factory": "nebius-token-factory",
++    "tokenfactory": "nebius-token-factory",
+     "minimax-china": "minimax-cn",
+     "minimax_cn": "minimax-cn",
+     "minimax-portal": "minimax-oauth",
+@@ -1384,6 +1482,8 @@
+     "tokenhub": "tencent-tokenhub",
+     "tencent-cloud": "tencent-tokenhub",
+     "tencentmaas": "tencent-tokenhub",
++    "tokenplan": "tencent-tokenplan",
++    "tencent-lkeap": "tencent-tokenplan",
+     "aws": "bedrock",
+     "aws-bedrock": "bedrock",
+     "amazon-bedrock": "bedrock",
+@@ -4035,12 +4135,18 @@
+         except Exception:
+             pass
+ 
+-    # OpenCode Free: curated keyless list only. models.dev's cost.input==0
+-    # filter lags reality (deepseek-v4-flash-free stayed "free" there after
+-    # its promo ended and the relay began 401ing keyless requests), so the
+-    # curated list — synced against anonymous live probes — is authoritative.
++    # OpenCode Free: keyless live catalog, revalidated against the Zen relay
++    # every TTL. models.dev's cost.input==0 filter lags reality
++    # (deepseek-v4-flash-free stayed "free" there after its promo ended and the
++    # relay began 401ing keyless requests), so we filter the live /zen/v1/models
++    # dump to the anonymous-servable `*-free` tier ourselves and fall back to
++    # the curated _PROVIDER_MODELS floor only when the live fetch fails or is
++    # empty. This is what keeps a relay-delisted model (e.g. x-preview-f-free)
++    # from lingering in the picker until a release re-syncs the snapshot.
+     if normalized == "opencode-free":
+-        return list(_PROVIDER_MODELS.get(normalized, []))
++        return _fetch_opencode_free_models(
++            force_refresh=force_refresh
++        ) or list(_PROVIDER_MODELS.get(normalized, []))
+ 
+     # ── Profile-based generic live fetch (all simple api-key providers) ──
+     # Handles any provider registered in providers/ with auth_type="api_key".
+@@ -4131,6 +4237,12 @@
+ #     to a live fetch — the picker keeps working.
+ 
+ _PROVIDER_MODELS_CACHE_TTL = 3600  # 1h
++# Providers whose catalog is served with NO credential and therefore gets a
++# stable (constant) credential fingerprint in the disk cache. The opencode-free
++# catalog is anonymous — its freshness comes from TTL revalidation, not from
++# user-rotatable credentials — so folding in unrelated auth.json mtimes would
++# only needlessly bust the SWR cache.
++_KEYLESS_STABLE_CACHE_PROVIDERS = frozenset({"opencode-free"})
+ # Stale-while-revalidate window: an expired-but-same-credentials entry is
+ # served IMMEDIATELY (picker opens stay instant) while a background daemon
+ # thread re-fetches the live catalog and rewrites the disk cache for the
+@@ -4230,6 +4342,14 @@
+     import os as _os
+ 
+     parts: list[str] = []
++
++    # Keyless providers have no credential to fingerprint: the catalog is
++    # served anonymously, so nothing the user rotates (env vars, auth files,
++    # base URLs) should invalidate the cached entry. A stable fingerprint keeps
++    # the SWR disk cache alive across unrelated re-auths and only busts on TTL
++    # expiry — matching how the live catalog genuinely changes.
++    if (provider or "").strip().lower() in _KEYLESS_STABLE_CACHE_PROVIDERS:
++        return "keyless:" + (provider or "").strip().lower()
+ 
+     # Env vars from PROVIDER_REGISTRY for this slug
+     try:
+@@ -5385,6 +5505,20 @@
+ # (big-pickle is OpenCode's rotating free stealth slot.)
+ _OPENCODE_KEYLESS_EXTRA_SLUGS = frozenset({"big-pickle"})
+ 
++# Models whose slug carries ``-free`` but are NOT anonymous-servable: they are
++# KEYED (Go-subscription) models and must be excluded from the keyless free
++# catalog even though the suffix looks free. ox-alpha-free is the Go relay's
++# subscription twin of the Zen keyless Ox Alpha (verified 2026-08-21).
++_OPENCODE_FREE_KEYED_SUFFIX_MODELS = frozenset({"ox-alpha-free"})
++
++# In-process memo for _fetch_opencode_free_models(): (fetched_at, ids-or-None).
++# Direct provider_model_ids("opencode-free") callers (model validation, healing)
++# can run several times per resolution — without this each would block on a
++# network round-trip. Failures are memoized too (negative caching) so an
++# unreachable relay doesn't stall every validation for `timeout` seconds.
++_opencode_free_live_memo: Optional[tuple[float, Optional[list[str]]]] = None
++_OPENCODE_FREE_LIVE_MEMO_TTL = 300.0  # 5 min; SWR disk cache handles the rest
++
+ 
+ def is_opencode_zen_free_model(model_id: Optional[str]) -> bool:
+     """True when ``model_id`` is an OpenCode Zen free-tier slug.
+@@ -5421,6 +5555,95 @@
+     }
+ 
+ 
++def _fetch_opencode_free_models(
++    timeout: float = 8.0, *, force_refresh: bool = False
++) -> Optional[list[str]]:
++    """Fetch the live keyless OpenCode Free catalog from the Zen relay.
++
++    GETs ``{_OPENCODE_ZEN_FREE_BASE_URL}/models`` ANONYMOUSLY (the free tier
++    rejects any unrecognized Authorization bearer with 401) and filters the
++    dump to the anonymous-servable ``*-free`` tier. Returns ``None`` on any
++    network/auth/parse failure so callers fall back to the curated
++    ``_PROVIDER_MODELS["opencode-free"]`` floor; an empty filtered result is
++    treated as a failure for the same reason (a relay with zero free models is
++    not worth trusting over the floor).
++
++    A short in-process memo (``_OPENCODE_FREE_LIVE_MEMO_TTL``) keeps direct
++    ``provider_model_ids("opencode-free")`` callers — model validation runs
++    it several times per resolution — from issuing one blocking network
++    round-trip each. The picker's cross-process freshness still comes from
++    the SWR disk cache one layer up; ``force_refresh=True`` (the SWR refresh
++    path) bypasses and repopulates the memo.
++
++    The Zen ``/models`` dump also lists paid/subscription IDs (e.g. Go
++    ``ox-alpha-free`` is KEYED despite the suffix), so a bare ``*-free`` suffix
++    filter is not safe on its own — this mirrors the existing
++    ``opencode_zen_free_runtime`` contract, which uses membership in the
++    verified keyless catalog as the routing criterion.
++    """
++    import urllib.request
++
++    from hermes_cli.urllib_security import open_credentialed_url
++
++    now = time.time()
++    if not force_refresh:
++        memo = _opencode_free_live_memo
++        if memo is not None and now - memo[0] < _OPENCODE_FREE_LIVE_MEMO_TTL:
++            return list(memo[1]) if memo[1] else None
++
++    url = f"{_OPENCODE_ZEN_FREE_BASE_URL.rstrip('/')}/models"
++    req = urllib.request.Request(url)
++    req.add_header("Accept", "application/json")
++    for k, v in opencode_zen_free_headers().items():
++        if k.lower() != "authorization":  # never send a bearer keylessly
++            req.add_header(k, v)
++    try:
++        with open_credentialed_url(req, timeout=timeout) as resp:
++            data = json.loads(resp.read().decode())
++        items = data if isinstance(data, list) else data.get("data", [])
++    except Exception:
++        _set_opencode_free_live_memo(None)
++        return None
++    ids = [m["id"] for m in items if isinstance(m, dict) and isinstance(m.get("id"), str)]
++    # Filter to the anonymous-servable free tier. The Zen dump can contain
++    # keyed/Go IDs; only the verified free set belongs in the keyless picker.
++    live_free = [
++        mid
++        for mid in ids
++        if mid.lower().endswith("-free")
++        and mid.lower() not in _OPENCODE_FREE_KEYED_SUFFIX_MODELS
++    ]
++    result = live_free if live_free else None
++    _set_opencode_free_live_memo(result)
++    return result
++
++
++def _set_opencode_free_live_memo(ids: Optional[list[str]]) -> None:
++    global _opencode_free_live_memo
++    _opencode_free_live_memo = (time.time(), list(ids) if ids else None)
++
++
++def _opencode_free_known_model_slugs() -> set[str]:
++    """Lowercased keyless free-tier slugs known right now — WITHOUT network I/O.
++
++    Union of the static ``_PROVIDER_MODELS["opencode-free"]`` floor, the
++    in-process live memo, and the SWR disk-cache entry. Used by the
++    ``opencode_zen_free_runtime`` healing path, which runs during model
++    resolution and must never block on a live fetch. Union (not replacement)
++    so a stale cache can only widen healing, never silently disable it.
++    """
++    known = {m.lower() for m in _PROVIDER_MODELS.get("opencode-free", [])}
++    memo = _opencode_free_live_memo
++    if memo is not None and memo[1]:
++        known.update(m.lower() for m in memo[1])
++    try:
++        entry = _load_provider_models_cache().get("opencode-free") or {}
++        known.update(str(m).lower() for m in entry.get("models", []) or [])
++    except Exception:
++        pass
++    return known
++
++
+ def opencode_zen_free_runtime(provider_id: Optional[str], model_id: Optional[str]) -> Optional[dict]:
+     """Keyless runtime entry for an OpenCode Zen free-tier model, or None.
+ 
+@@ -5438,13 +5661,16 @@
+     stopped being a reliable keyless signal when ``ox-alpha-free`` appeared
+     on the Go relay as a KEYED subscription model (2026-08-21) — suffix-based
+     healing would have routed it to a Zen relay that doesn't serve it.
++    Membership means the union of the cached LIVE keyless catalog (in-process
++    memo / SWR disk cache — never a blocking fetch on this hot path) and the
++    static floor, so a newly-live free model heals without a release.
+     """
+     family = opencode_provider_family(provider_id)
+     if family is None:
+         return None
+     if family != "opencode-free":
+         bare = normalize_opencode_model_id(provider_id, model_id).strip().lower()
+-        if bare not in {m.lower() for m in _PROVIDER_MODELS.get("opencode-free", [])}:
++        if bare not in _opencode_free_known_model_slugs():
+             return None
+     normalized = normalize_opencode_model_id(provider_id, model_id)
+     api_mode = opencode_model_api_mode("opencode-zen", normalized)
+@@ -6335,6 +6561,47 @@
+                 "the System One endpoint and is not a chat /model choice."
+             ),
+         }
++
++    # OpenRouter presets are account-scoped configurations, so direct
++    # ``@preset/<slug>`` references never appear in the public /v1/models
++    # listing. Combined ``<model>@preset/<slug>`` references are also valid;
++    # validate their base model normally and preserve the preset suffix if a
++    # close match is auto-corrected. OpenRouter validates the preset slug when
++    # the inference request is made.
++    preset_suffix = ""
++
++    def _with_preset_suffix(model_id: str) -> str:
++        """Re-attach a preserved ``@preset/<slug>`` suffix after auto-correction."""
++        return f"{model_id}{preset_suffix}"
++
++    if normalized == "openrouter":
++        marker = "@preset/"
++        if marker in requested:
++            if requested.count(marker) != 1:
++                preset_slug = ""
++                preset_base = requested
++            else:
++                preset_base, preset_slug = requested.split(marker, 1)
++            if re.fullmatch(r"[A-Za-z0-9._~-]+", preset_slug) is None:
++                return {
++                    "accepted": False,
++                    "persist": False,
++                    "recognized": False,
++                    "message": (
++                        "OpenRouter preset slugs must be non-empty URL-safe "
++                        "identifiers using only letters, digits, '.', '_', "
++                        "'~', or '-'."
++                    ),
++                }
++            preset_suffix = f"{marker}{preset_slug}"
++            if not preset_base:
++                return {
++                    "accepted": True,
++                    "persist": True,
++                    "recognized": False,
++                    "message": None,
++                }
++            requested_for_lookup = preset_base
+ 
+     if normalized == "lmstudio":
+         from hermes_cli.auth import AuthError
+@@ -6819,15 +7086,18 @@
+             # Auto-correct if the top match is very similar (e.g. typo)
+             auto = get_close_matches(requested_for_lookup, api_models, n=1, cutoff=0.9)
+             if auto:
++                corrected = _with_preset_suffix(auto[0])
+                 return {
+                     "accepted": True,
+                     "persist": True,
+                     "recognized": True,
+-                    "corrected_model": auto[0],
+-                    "message": f"Auto-corrected `{requested}` → `{auto[0]}`",
++                    "corrected_model": corrected,
++                    "message": f"Auto-corrected `{requested}` → `{corrected}`",
+                 }
+ 
+-            suggestions = get_close_matches(requested, api_models, n=3, cutoff=0.5)
++            suggestions = get_close_matches(
++                requested_for_lookup, api_models, n=3, cutoff=0.5
++            )
+             suggestion_text = ""
+             if suggestions:
+                 suggestion_text = "\n  Similar models: " + ", ".join(f"`{s}`" for s in suggestions)
+@@ -6863,6 +7133,41 @@
+                         f"but exists in the curated catalog — accepted."
+                     ),
+                 }
++
++            # Nous provider: also check the Portal's live
++            # /api/nous/recommended-models feed. That feed can list a model
++            # (e.g. a newly-promoted free/paid recommendation) before it's
++            # been added to the hardcoded _PROVIDER_MODELS["nous"] curated
++            # list or the docs-hosted catalog manifest has been rebuilt.
++            # `hermes chat` already accepts these models via
++            # union_with_portal_free/paid_recommendations() at model-list
++            # build time; this mirrors that same source of truth for the
++            # per-message /model validation path (messaging platform
++            # pickers, /model command), which previously only checked the
++            # curated catalog and rejected valid Portal-recommended models.
++            if normalized == "nous":
++                try:
++                    portal_payload = fetch_nous_recommended_models(
++                        _resolve_nous_portal_url()
++                    )
++                    portal_model_names = {
++                        name.lower()
++                        for tier in ("freeRecommendedModels", "paidRecommendedModels")
++                        for entry in (portal_payload.get(tier) or [])
++                        if (name := _extract_model_name(entry))
++                    }
++                except Exception:
++                    portal_model_names = set()
++                if requested_for_lookup.lower() in portal_model_names:
++                    return {
++                        "accepted": True,
++                        "persist": True,
++                        "recognized": True,
++                        "message": (
++                            f"Note: `{requested}` was not found in the live /v1/models "
++                            f"listing but is a current Nous Portal recommendation — accepted."
++                        ),
++                    }
+ 
+         return {
+             "accepted": False,
+@@ -6956,12 +7261,15 @@
+         )
+         if auto:
+             corrected = catalog_lower[auto[0]]
++            corrected_with_suffix = _with_preset_suffix(corrected)
+             return {
+                 "accepted": True,
+                 "persist": True,
+                 "recognized": True,
+-                "corrected_model": corrected,
+-                "message": f"Auto-corrected `{requested}` → `{corrected}`",
++                "corrected_model": corrected_with_suffix,
++                "message": (
++                    f"Auto-corrected `{requested}` → `{corrected_with_suffix}`"
++                ),
+             }
+         suggestions = get_close_matches(
+             requested_for_lookup.lower(), catalog_lower_list, n=3, cutoff=0.5
+diff --git a/tests/agent/test_model_metadata.py b/tests/agent/test_model_metadata.py
+--- a/tests/agent/test_model_metadata.py
++++ b/tests/agent/test_model_metadata.py
+@@ -1416,6 +1416,29 @@
+         fell through to None."""
+         assert parse_context_limit_from_error(msg) == expected
+ 
++    @pytest.mark.parametrize("msg,expected", [
++        # Google Gemini/Gemma overflow phrasing (#57275): the limit follows
++        # "supports up to"; the larger input count before it must NOT win.
++        ("Unable to submit request because the input token count is 32825 "
++         "but model only supports up to 32768. Reduce the input token count "
++         "and try again.", 32768),
++        ("input token count is 140000 but model only supports up to 131072", 131072),
++        ("model supports up to 65536 tokens", 65536),
++    ])
++    def test_google_supports_up_to_variants(self, msg, expected):
++        """Google's overflow error was previously unparseable — recovery kept
++        the wrong window and burned its attempts (#57275, residual claim 5)."""
++        assert parse_context_limit_from_error(msg) == expected
++
++    def test_google_supports_up_to_recalibrates_window(self):
++        from agent.model_metadata import get_context_length_from_provider_error
++
++        msg = ("Unable to submit request because the input token count is "
++               "32825 but model only supports up to 32768.")
++        assert get_context_length_from_provider_error(msg, 131072) == 32768
++        # Parsed limit not below current window → no recalibration.
++        assert get_context_length_from_provider_error(msg, 32768) is None
++
+     def test_get_context_length_from_vllm_max_model_len_error(self):
+         from agent.model_metadata import get_context_length_from_provider_error
+ 
+diff --git a/hermes_cli/model_switch.py b/hermes_cli/model_switch.py
+--- a/hermes_cli/model_switch.py
++++ b/hermes_cli/model_switch.py
+@@ -48,7 +48,7 @@
+     get_model_info,
+     list_provider_models,
+ )
+-from utils import base_url_host_matches, base_url_hostname
++from utils import base_url_host_matches, base_url_hostname, base_url_origin
+ 
+ # Providers whose picker model list should NOT be capped by max_models.
+ # OpenCode Zen / Go are aggregators whose full catalogs (70+ models each) must
+@@ -513,10 +513,21 @@
+ # ---------------------------------------------------------------------------
+ 
+ class DirectAlias(NamedTuple):
+-    """Exact model mapping that bypasses catalog resolution."""
++    """Exact model mapping that bypasses catalog resolution.
++
++    ``api_key`` / ``key_env`` carry the alias endpoint's OWN credential.
++    Without them the switch keeps whatever key the *default* provider
++    resolved, which 401s against the alias host and sends that provider's
++    secret to an unrelated third party (#83612).
++    """
+     model: str
+     provider: str
+     base_url: str
++    # Defaulted so existing positional construction —
++    # ``DirectAlias(model, provider, base_url)`` — keeps working for callers
++    # and for the string-format aliases built below.
++    api_key: str = ""
++    key_env: str = ""
+ 
+ 
+ # Built-in direct aliases (can be extended via config.yaml model_aliases:)
+@@ -540,6 +551,16 @@
+             model: "minimax-m2.7"
+             provider: custom
+             base_url: "https://ollama.com/v1"
++          theta:
++            model: "theta-1"
++            provider: custom
++            base_url: "https://theta.example.com/v1"
++            api_key: "sk-..."          # literal, or "${THETA_API_KEY}"
++            key_env: "THETA_API_KEY"   # read from the environment instead
++
++    ``api_key``/``key_env`` are the alias endpoint's own credential. When
++    neither is set the key is resolved from the alias HOST, never from the
++    previously active provider (#83612).
+ 
+     Also reads ``model.aliases`` (set by ``hermes config set model.aliases.xxx``)
+     and converts simple string entries (``ds-flash: deepseek/deepseek-v4-flash``)
+@@ -563,6 +584,8 @@
+                 if model:
+                     merged[name.strip().lower()] = DirectAlias(
+                         model=model, provider=provider, base_url=base_url,
++                        api_key=str(entry.get("api_key", "") or "").strip(),
++                        key_env=str(entry.get("key_env", "") or "").strip(),
+                     )
+ 
+         # --- model.aliases (string-based format, from config set) ---
+@@ -593,16 +616,132 @@
+     return merged
+ 
+ 
++# Identity of the config the cached aliases were built from. The cache is
++# process-global but its source is profile-local, so it must be keyed or the
++# first profile to resolve an alias pins its definitions — and, since entries
++# carry `api_key`, its credentials — for every later profile in the process.
++# Same shape `load_config()` already keys its own cache on, so a profile
++# switch (HERMES_HOME moves, so the path moves) and a config/key rotation
++# (mtime/size move) both invalidate.
++_DIRECT_ALIAS_IDENTITY: Optional[tuple] = None
++# A copy of what this loader last produced. Callers and tests seed
++# DIRECT_ALIASES both by rebinding the module attribute AND by editing it in
++# place, so neither the object's identity nor a "did we load" flag can tell
++# our own stale cache from someone else's contents. Comparing against what we
++# actually wrote does: if the dict no longer holds it, the entries are not
++# ours to discard.
++_DIRECT_ALIAS_LOADED: Optional[dict] = None
++
++
++def _direct_alias_source_identity() -> Optional[tuple]:
++    """Identity of the active profile's alias source, or None if unknowable.
++
++    None means "do not reuse the cache" — a source we cannot identify must
++    not be assumed to be the one already loaded.
++    """
++    try:
++        from hermes_constants import get_config_path
++
++        path = get_config_path()
++        try:
++            stat = path.stat()
++        except OSError:
++            # A missing config is still a definite identity for this profile.
++            return (str(path), None, None)
++        return (str(path), stat.st_mtime_ns, stat.st_size)
++    except Exception:
++        return None
++
++
+ def _ensure_direct_aliases() -> None:
+-    """Lazy-load direct aliases on first use.
++    """Load direct aliases for the ACTIVE profile, caching per config identity.
+ 
+     Mutates the existing DIRECT_ALIASES dict in place rather than rebinding
+     the module attribute. This keeps `from hermes_cli.model_switch import
+     DIRECT_ALIASES` references valid in callers — rebinding would leave them
+     pointing at a stale empty dict.
+     """
+-    if not DIRECT_ALIASES:
+-        DIRECT_ALIASES.update(_load_direct_aliases())
++    global _DIRECT_ALIAS_IDENTITY, _DIRECT_ALIAS_LOADED
++    identity = _direct_alias_source_identity()
++    if DIRECT_ALIASES and (
++        # Contents are not what we loaded — seeded or edited by a caller.
++        # Not ours to discard.
++        DIRECT_ALIASES != _DIRECT_ALIAS_LOADED
++        # Ours, and still the same config file at the same signature.
++        or (identity is not None and identity == _DIRECT_ALIAS_IDENTITY)
++    ):
++        return
++    loaded = _load_direct_aliases()
++    # clear()+update() rather than a rebind: callers hold this exact dict.
++    DIRECT_ALIASES.clear()
++    DIRECT_ALIASES.update(loaded)
++    _DIRECT_ALIAS_IDENTITY = identity
++    _DIRECT_ALIAS_LOADED = dict(loaded)
++
++
++def direct_alias_api_key(alias: DirectAlias) -> str:
++    """Resolve a direct alias's own credential, or "" when it has none.
++
++    Precedence, highest first — ``api_key`` always wins over ``key_env``, so
++    an entry carrying both is not ambiguous:
++
++    1. ``api_key: "${VAR}"`` — indirection, read from the environment.
++    2. ``api_key: "sk-..."`` — literal.
++    3. ``key_env: VAR`` — read from the environment.
++    4. otherwise "" — the caller resolves from the alias host instead.
++    Environment reads go through the per-profile secret scope for the same
++    reason the user-provider branch does: a raw ``os.environ`` read hands
++    this profile whatever key the process env holds — another profile's,
++    under the multiplexed gateway.
++    """
++    raw = (alias.api_key or "").strip()
++    if raw.startswith("${") and raw.endswith("}"):
++        return _scoped_key_env(raw[2:-1].strip())
++    if raw:
++        return raw
++    return _scoped_key_env((alias.key_env or "").strip())
++
++
++def direct_alias_runtime_request(alias: DirectAlias) -> tuple[str, Optional[str]]:
++    """Return ``(requested_provider, explicit_api_key)`` for resolving *alias*.
++
++    Single owner of the invariant that a URL-bearing direct alias resolves its
++    credential for the alias HOST, never for its provider label. A label like
++    ``anthropic`` on an unrelated URL would otherwise reach that provider's
++    explicit-runtime branch, keep the foreign URL, and fall back to the live
++    vendor token. Bare ``custom`` is host-gated (#28660), so an authoritative
++    URL still resolves its vendor key and a foreign one resolves none.
++
++    An alias with no base_url keeps its label: there is no foreign host to
++    protect against, and the label is the only routing information there is.
++    """
++    key = direct_alias_api_key(alias) or None
++    if alias.base_url:
++        return "custom", key
++    return (alias.provider or "custom"), key
++
++
++# Hosts where plaintext HTTP is not a downgrade — a local server has no
++# network hop to intercept.
++_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "0.0.0.0"})
++
++
++def _may_reuse_session_credential(session_base_url: str, alias_base_url: str) -> bool:
++    """Whether the session's key may follow a switch to *alias_base_url*.
++
++    Same hostname is NOT sufficient to authorise handing a bearer secret to a
++    new URL. ``http://h`` and ``https://h:8443`` are different origins and
++    different trust boundaries, so an alias that keeps the hostname but drops
++    the scheme would otherwise put a live session credential on the wire in
++    the clear. Require an identical (scheme, host, port), and refuse plaintext
++    outside loopback.
++    """
++    session = base_url_origin(session_base_url)
++    alias = base_url_origin(alias_base_url)
++    if not session[1] or session != alias:
++        return False
++    scheme, hostname, _ = alias
++    return scheme == "https" or hostname in _LOOPBACK_HOSTS
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -620,11 +759,13 @@
+     api_key: str = ""
+     base_url: str = ""
+     api_mode: str = ""
++    request_overrides: Optional[dict] = None
+     error_message: str = ""
+     warning_message: str = ""
+     provider_label: str = ""
+     resolved_via_alias: str = ""
+     capabilities: Optional[ModelCapabilities] = None
++    runtime_capabilities: Optional[dict[str, bool]] = None
+     model_info: Optional[ModelInfo] = None
+     is_global: bool = False
+ 
+@@ -1496,6 +1637,7 @@
+     from hermes_cli.runtime_provider import resolve_runtime_provider
+ 
+     resolved_alias = ""
++    request_overrides: dict = {}
+     new_model = raw_input.strip()
+     target_provider = current_provider
+     resolved_moa_preset = False
+@@ -1847,6 +1989,7 @@
+     api_key = current_api_key
+     base_url = current_base_url
+     api_mode = ""
++    runtime_capabilities: dict[str, bool] = {}
+     ollama_headers: dict[str, str] = {}
+     validation_headers: dict[str, str] = {}
+     suppress_ollama_headers = False
+@@ -1891,6 +2034,7 @@
+                 api_key = runtime.get("api_key", "") or _ukey
+                 base_url = runtime.get("base_url", "") or _user_pdef.base_url
+                 api_mode = runtime.get("api_mode", "")
++                runtime_capabilities = runtime.get("capabilities") or {}
+                 validation_headers = runtime.get("extra_headers") or validation_headers
+             except Exception:
+                 api_key = _ukey
+@@ -1909,6 +2053,7 @@
+                 api_key = runtime.get("api_key", "")
+                 base_url = runtime.get("base_url", "")
+                 api_mode = runtime.get("api_mode", "")
++                runtime_capabilities = runtime.get("capabilities") or {}
+                 validation_headers = runtime.get("extra_headers") or validation_headers
+             except Exception as e:
+                 return ModelSwitchResult(
+@@ -1969,6 +2114,7 @@
+                 api_key = runtime.get("api_key", "")
+                 base_url = runtime.get("base_url", "")
+                 api_mode = runtime.get("api_mode", "")
++                runtime_capabilities = runtime.get("capabilities") or {}
+                 validation_headers = runtime.get("extra_headers") or validation_headers
+             except Exception:
+                 pass
+@@ -1978,9 +2124,70 @@
+         _ensure_direct_aliases()
+         _da = DIRECT_ALIASES.get(resolved_alias)
+         if _da is not None and _da.base_url:
+-            base_url = _da.base_url
++            # Credentials above were resolved against the DEFAULT provider.
++            # Carrying that key onto the alias's endpoint both 401s and ships
++            # the default provider's secret to an unrelated third-party host
++            # (#83612). The alias's own endpoint decides the credential
++            # instead: its declared key when it has one, otherwise a fresh
++            # resolution against the alias base_url, whose env-key fallbacks
++            # are gated on authoritative hosts (#28660) — so OLLAMA_API_KEY
++            # still resolves for an ollama.com alias while OPENROUTER_API_KEY
++            # never reaches an unrelated host.
++            _alias_key = direct_alias_api_key(_da)
++            if _alias_key:
++                # The alias states its own credential: nothing left to
++                # resolve, and re-entering the resolver would only risk a
++                # second local-endpoint model probe.
++                base_url = _da.base_url
++                api_key = _alias_key
++            elif api_key and api_key != "no-key-required" and (
++                _may_reuse_session_credential(base_url, _da.base_url)
++            ):
++                # The alias points at the very origin the resolution above
++                # already produced a key for, so that key is the
++                # host-appropriate one and re-entering the resolver would only
++                # repeat the work — including, for a local endpoint with no
++                # configured model, a second bounded /models probe.
++                base_url = _da.base_url
++            else:
++                try:
++                    # Shared owner of the label-vs-host invariant; the one-shot
++                    # path resolves through the same helper.
++                    _req, _explicit = direct_alias_runtime_request(_da)
++                    _alias_runtime = resolve_runtime_provider(
++                        requested=_req,
++                        explicit_api_key=_explicit,
++                        explicit_base_url=_da.base_url,
++                        target_model=new_model,
++                    )
++                except Exception:
++                    _alias_runtime = {}
++                # The already-resolved key is reusable only when the alias
++                # points at the SAME ORIGIN it was resolved for (an alias that
++                # just pins a model on the endpoint already in use). Across
++                # origins it is the leak, so it is dropped, not carried.
++                _same_host = _may_reuse_session_credential(base_url, _da.base_url)
++                base_url = _alias_runtime.get("base_url", "") or _da.base_url
++                # The resolver reports "no key found" with the
++                # `no-key-required` placeholder rather than "". Normalise it
++                # so a same-host credential still outranks the placeholder.
++                _resolved_key = _alias_runtime.get("api_key", "")
++                if _resolved_key == "no-key-required":
++                    _resolved_key = ""
++                api_key = (
++                    _resolved_key
++                    or (api_key if _same_host else "")
++                    or "no-key-required"
++                )
+             api_mode = ""  # clear so determine_api_mode re-detects from URL
+-            if target_provider.strip().lower() == "ollama":
++            # Upstream's providers.ollama refinement: pick up the
++            # configured key only for the configured native root, and drop
++            # both the key and the provider-level headers for any other
++            # origin. Orthogonal to the resolution above and kept as-is —
++            # except that it is skipped when the alias declared its own
++            # credential, since an explicit api_key/key_env outranks a
++            # provider-level config key (this PR's documented precedence).
++            if not _alias_key and target_provider.strip().lower() == "ollama":
+                 _ollama_cfg = _get_provider_config_dict("ollama")
+                 _ollama_cfg_base = str(
+                     _ollama_cfg.get("base_url")
+@@ -2171,6 +2378,13 @@
+ 
+     # --- Get capabilities (legacy) ---
+     capabilities = get_model_capabilities(target_provider, new_model, allow_network=True)
++    from agent.native_compaction import resolve_native_compaction_capabilities
++    runtime_capabilities = resolve_native_compaction_capabilities(
++        model=new_model,
++        base_url=base_url,
++        provider=target_provider,
++        is_codex_backend=target_provider.strip().lower() == "openai-codex",
++    )
+ 
+     # --- Get full model info from models.dev ---
+     model_info = get_model_info(target_provider, new_model, allow_network=True)
+@@ -2182,6 +2396,22 @@
+     hermes_warn = _check_hermes_model_warning(new_model)
+     if hermes_warn:
+         warnings.append(hermes_warn)
++
++    # Carry the switched provider's request_overrides (e.g. a custom_providers
++    # ``extra_body`` such as chat_template_kwargs) so a ``/model`` switch to a
++    # custom provider applies it on the gateway, matching the default-provider
++    # path. resolve_runtime_provider surfaces these for named custom providers.
++    request_overrides = None
++    try:
++        from hermes_cli.runtime_provider import (
++            _get_named_custom_provider,
++            _custom_provider_request_overrides,
++        )
++        _cp_for_ro = _get_named_custom_provider(target_provider)
++        if _cp_for_ro:
++            request_overrides = _custom_provider_request_overrides(_cp_for_ro) or None
++    except Exception:
++        request_overrides = None
+ 
+     # --- Build result ---
+     return ModelSwitchResult(
+@@ -2192,10 +2422,16 @@
+         api_key=api_key,
+         base_url=base_url,
+         api_mode=api_mode,
++        request_overrides=dict(request_overrides or {}),
+         warning_message=" | ".join(warnings) if warnings else "",
+         provider_label=provider_label,
+         resolved_via_alias=resolved_alias,
+         capabilities=capabilities,
++        runtime_capabilities={
++            key: value
++            for key, value in runtime_capabilities.items()
++            if isinstance(key, str) and isinstance(value, bool)
++        },
+         model_info=model_info,
+         is_global=is_global,
+     )
+@@ -2643,10 +2879,18 @@
+         except Exception:
+             pass
+ 
++    from hermes_cli.config import coerce_provider_id, stringify_provider_map
++
+     results: List[dict] = []
+     seen_slugs: set = set()  # lowercase-normalized to catch case variants (#9545)
+-    _current_provider_norm = str(current_provider or "").strip().lower()
+-    _current_base_url_norm = str(current_base_url or "").strip().rstrip("/").lower()
++    # PyYAML parses unquoted numeric names (`provider: 2070`) as int. Later
++    # `.strip()` / `.lower()` on that raw value 500s GET /api/model/options.
++    current_provider = coerce_provider_id(current_provider)
++    current_base_url = str(current_base_url or "").strip()
++    current_model = str(current_model or "").strip()
++    _current_provider_norm = current_provider.lower()
++    _current_base_url_norm = current_base_url.rstrip("/").lower()
++    user_providers = stringify_provider_map(user_providers)
+ 
+     def _can_probe_custom_provider(*, row_is_current: bool) -> bool:
+         return bool(probe_custom_providers or (probe_current_custom_provider and row_is_current))
+@@ -3226,7 +3470,7 @@
+                 continue
+             if ep_name.lower() in seen_slugs:
+                 continue
+-            display_name = ep_cfg.get("name", "") or ep_name
++            display_name = coerce_provider_id(ep_cfg.get("name")) or ep_name
+             api_url = (
+                 ep_cfg.get("base_url", "")
+                 or ep_cfg.get("api", "")
+@@ -3574,8 +3818,8 @@
+             if not isinstance(entry, dict):
+                 continue
+ 
+-            raw_name = (entry.get("name") or "").strip()
+-            api_url = (
++            raw_name = coerce_provider_id(entry.get("name"))
++            api_url = str(
+                 entry.get("base_url", "")
+                 or entry.get("url", "")
+                 or entry.get("api", "")
+@@ -3583,8 +3827,8 @@
+             ).strip().rstrip("/")
+             if not raw_name or not api_url:
+                 continue
+-            inline_api_key = (entry.get("api_key") or "").strip()
+-            key_env = (entry.get("key_env") or "").strip()
++            inline_api_key = str(entry.get("api_key") or "").strip()
++            key_env = str(entry.get("key_env") or "").strip()
+             api_key = inline_api_key or _scoped_key_env(key_env)
+             api_mode = str(
+                 entry.get("api_mode")
+diff --git a/utils.py b/utils.py
+--- a/utils.py
++++ b/utils.py
+@@ -587,14 +587,30 @@
+         config = CommentedMap(config)
+ 
+     current = config
+-    keys = key_path.split(".")
+-    for key in keys[:-1]:
+-        next_value = current.get(key)
++    # Honor escaped dots and prefer existing literal dotted keys (e.g. model
++    # IDs like ``glm-5.3``) over blind splitting — same navigation as
++    # ``hermes config set``'s ``_set_nested`` (#91607: /model + TUI
++    # persistence route through here and used to write ``glm-5: {'3': ...}``
++    # phantom siblings while the runtime kept reading the literal key).
++    from hermes_cli.config import _greedy_literal_match, _split_key_path
++
++    keys = _split_key_path(key_path)
++    i = 0
++    while True:
++        remaining = keys[i:]
++        seg, consumed = remaining[0], 1
++        match = _greedy_literal_match(dict(current), remaining)
++        if match is not None:
++            seg, consumed = match
++        if i + consumed == len(keys):
++            current[seg] = value
++            break
++        next_value = current.get(seg)
+         if not isinstance(next_value, CommentedMap):
+             next_value = CommentedMap()
+-            current[key] = next_value
++            current[seg] = next_value
+         current = next_value
+-    current[keys[-1]] = value
++        i += consumed
+ 
+     original_mode = _preserve_file_mode(path)
+     original_owner = _preserve_file_owner(path)
+@@ -903,6 +919,36 @@
+     )
+ 
+ 
++def base_url_origin(base_url: str) -> tuple[str, str, int]:
++    """Return ``(scheme, hostname, effective_port)`` for a base URL.
++
++    Origin, not just host. ``https://h/v1`` and ``http://h/v1`` are different
++    trust boundaries, and so are two ports on the same host, so any decision
++    about handing a bearer secret to a new URL has to compare all three —
++    hostname equality alone would authorise an HTTPS→HTTP downgrade.
++
++    The port is normalised to the scheme default (443/80) when absent, so
++    ``https://h`` and ``https://h:443`` compare equal. Returns
++    ``("", "", 0)`` when the URL yields no usable hostname or a bad port.
++    """
++    raw = (base_url or "").strip()
++    if not raw:
++        return ("", "", 0)
++    parsed = urlparse(raw if "://" in raw else f"//{raw}")
++    scheme = (parsed.scheme or "").lower()
++    hostname = (parsed.hostname or "").lower().rstrip(".")
++    if not hostname:
++        return ("", "", 0)
++    try:
++        port = parsed.port
++    except ValueError:
++        # Out-of-range or non-numeric port — not a usable origin.
++        return ("", "", 0)
++    if port is None:
++        port = {"https": 443, "http": 80}.get(scheme, 0)
++    return (scheme, hostname, port)
++
++
+ def base_url_host_matches(base_url: str, domain: str) -> bool:
+     """Return True when the base URL's hostname is ``domain`` or a subdomain.
+ 
+diff --git a/hermes_cli/config.py b/hermes_cli/config.py
+--- a/hermes_cli/config.py
++++ b/hermes_cli/config.py
+@@ -958,17 +958,13 @@
+     home = get_hermes_home()
+     key = str(home)
+ 
++    # Named profiles must be created explicitly (e.g. ``hermes profile create``).
++    # Check tombstones before the memo so a stale empty shell cannot skip
++    # the deleted-profile guard.
++    from hermes_constants import assert_named_profile_home_live
++    assert_named_profile_home_live(home)
+     if key in _HERMES_HOME_ENSURED and home.is_dir():
+         return
+-    # Named profiles must be created explicitly (e.g. ``hermes profile create``).
+-    # If a stale process keeps running after the profile was renamed/deleted,
+-    # silently mkdir-ing the old HERMES_HOME would resurrect an empty skeleton
+-    # and make the deleted profile reappear in Desktop/profile lists.
+-    if home.parent.name == "profiles" and not home.exists():
+-        raise FileNotFoundError(
+-            f"Named profile home does not exist: {home}. "
+-            "Create the profile explicitly before using it."
+-        )
+     if is_managed():
+         old_umask = os.umask(0o007)
+         try:
+@@ -1025,7 +1021,6 @@
+     4: ["VOICE_TOOLS_OPENAI_KEY", "ELEVENLABS_API_KEY"],
+     5: ["WHATSAPP_ENABLED", "WHATSAPP_MODE", "WHATSAPP_ALLOWED_USERS",
+         "SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "SLACK_ALLOWED_USERS"],
+-    10: ["TAVILY_API_KEY"],
+     11: ["TERMINAL_MODAL_MODE"],
+ }
+ 
+@@ -1061,6 +1056,84 @@
+     return missing
+ 
+ 
++def _split_key_path(key: str) -> list[str]:
++    """Split a dotted config-key path, honoring backslash-escaped dots.
++
++    ``hermes config set`` uses ``.`` as the nesting separator, so a key that
++    itself contains a literal dot (e.g. provider names like
++    ``qwen3.5-397b-wafer``) was silently split into bogus nested segments
++    (#84064).  A backslash escapes a dot::
++
++        _split_key_path("providers.qwen3\\.5-397b.api_key")
++            -> ["providers", "qwen3.5-397b", "api_key"]
++
++    Backslashes before any other character are preserved verbatim.  Keys
++    without escapes behave exactly as ``key.split(".")``.
++    """
++    parts: list[str] = []
++    current: list[str] = []
++    i = 0
++    while i < len(key):
++        ch = key[i]
++        if ch == "\\" and i + 1 < len(key) and key[i + 1] == ".":
++            current.append(".")
++            i += 2
++            continue
++        if ch == ".":
++            parts.append("".join(current))
++            current = []
++            i += 1
++            continue
++        current.append(ch)
++        i += 1
++    parts.append("".join(current))
++    return parts
++
++
++def _greedy_literal_match(container: dict, parts: list) -> Optional[Tuple[str, int]]:
++    """Return ``(literal_key, n_consumed)`` for the longest dotted literal match.
++
++    Dots in config key names are the norm, not the exception — model IDs
++    (``grok-4.6``, ``glm-5.3``), Matrix room IDs (``!room:chat.example.cc``),
++    and versioned provider names all embed dots. Users typing
++    ``providers.myprov.models.grok-4.6.context_length`` do not know the
++    escape syntax exists, so when navigating an EXISTING mapping we prefer an
++    existing literal key equal to the dot-join of the next N path segments
++    (longest match wins) over blindly splitting. See #84064 / #80006 /
++    #91095 / #91607 / #99124.
++
++    Backward compatible: when no multi-segment literal key exists, the single
++    segment ``parts[0]`` is the only candidate, which is exactly the historic
++    plain-split behavior. Returns ``None`` when nothing matches.
++    """
++    if not isinstance(container, dict) or not parts:
++        return None
++    for n in range(len(parts), 0, -1):
++        candidate = ".".join(parts[:n])
++        if candidate in container:
++            return candidate, n
++    return None
++
++
++def _phantom_sibling(container: dict, part: str) -> Optional[str]:
++    """Return an existing sibling key that ``part`` would shadow, if any.
++
++    Called when a write is about to CREATE a new intermediate mapping named
++    ``part``. If the mapping already holds a literal dotted key that starts
++    with ``part + "."`` (e.g. creating ``grok-4`` beside an existing
++    ``grok-4.5``), the split almost certainly chopped a dotted leaf name and
++    the write would produce a phantom sibling the runtime never reads.
++    Fail loudly instead of silently corrupting (#84064 discussion).
++    """
++    if not isinstance(container, dict):
++        return None
++    prefix = part + "."
++    for k in container:
++        if isinstance(k, str) and k.startswith(prefix):
++            return k
++    return None
++
++
+ def _set_nested(config, dotted_key: str, value):
+     """Set a value at an arbitrarily nested dotted key path.
+ 
+@@ -1082,11 +1155,27 @@
+     replaced any non-dict value (including lists) with ``{}``, silently
+     destroying list-typed config like ``custom_providers`` whenever a
+     caller used an indexed path.
+-    """
+-    parts = dotted_key.split(".")
++
++    Dotted key names (#84064 family): when navigating an existing mapping,
++    an existing literal key equal to the dot-join of the next N segments is
++    preferred over blind splitting (see ``_greedy_literal_match``), so
++    ``models.grok-4.6.supports_vision`` lands on the real ``grok-4.6`` entry.
++    And when a write WOULD create a new intermediate mapping that shadows an
++    existing dotted sibling (``grok-4`` beside ``grok-4.5``), it raises
++    ``ValueError`` instead of silently writing a phantom the runtime never
++    reads.
++    """
++    parts = _split_key_path(dotted_key)
+     current = config
+-    for part in parts[:-1]:
++    i = 0
++    while i < len(parts):
++        remaining = parts[i:]
++        at_leaf = len(remaining) == 1
+         if isinstance(current, list):
++            part = remaining[0]
++            if at_leaf:
++                current[int(part)] = value
++                return
+             try:
+                 idx = int(part)
+             except (TypeError, ValueError):
+@@ -1095,21 +1184,43 @@
+                     f"segment {part!r} is not a numeric index"
+                 )
+             current = current[idx]
++            i += 1
+         elif isinstance(current, dict):
+-            existing = current.get(part)
+-            # Preserve dicts and lists; replace missing/scalar with a fresh dict.
+-            if part not in current or not isinstance(existing, (dict, list)):
+-                current[part] = {}
++            match = _greedy_literal_match(current, remaining)
++            if match is not None:
++                key, consumed = match
++                if i + consumed == len(parts):
++                    current[key] = value
++                    return
++                existing = current.get(key)
++                # Preserve dicts and lists; replace scalar with a fresh dict.
++                if not isinstance(existing, (dict, list)):
++                    current[key] = {}
++                current = current[key]
++                i += consumed
++                continue
++            part = remaining[0]
++            if at_leaf:
++                current[part] = value
++                return
++            # About to CREATE an intermediate mapping. Refuse when that would
++            # write a phantom sibling of an existing dotted literal key.
++            shadowed = _phantom_sibling(current, part)
++            if shadowed is not None:
++                escaped = shadowed.replace(".", "\\.")
++                raise ValueError(
++                    f"Refusing to create nested key {part!r} in {dotted_key!r}: "
++                    f"the mapping already contains a literal key {shadowed!r} "
++                    f"that contains a dot. If you meant that key, escape its "
++                    f"dots with a backslash (e.g. {escaped})."
++                )
++            current[part] = {}
+             current = current[part]
++            i += 1
+         else:
+             raise TypeError(
+                 f"Cannot navigate into {type(current).__name__} at key {dotted_key!r}"
+             )
+-    last = parts[-1]
+-    if isinstance(current, list):
+-        current[int(last)] = value
+-    else:
+-        current[last] = value
+ 
+ 
+ def clear_model_endpoint_credentials(
+@@ -1143,59 +1254,84 @@
+ 
+ 
+ def _get_nested(config, dotted_key: str):
+-    """Return a dotted-path value from nested dict/list config data."""
++    """Return a dotted-path value from nested dict/list config data.
++
++    Mirrors ``_set_nested``'s navigation: honors backslash-escaped dots and
++    prefers an existing literal dotted key over blind splitting, so
++    ``config get providers.p.models.grok-4.6.context_length`` reads the real
++    ``grok-4.6`` entry instead of reporting the key unset (#84064).
++    """
++    parts = _split_key_path(dotted_key)
+     current = config
+-    for part in dotted_key.split("."):
++    i = 0
++    while i < len(parts):
++        remaining = parts[i:]
+         if isinstance(current, list):
+             try:
+-                current = current[int(part)]
++                current = current[int(remaining[0])]
+             except (TypeError, ValueError, IndexError):
+                 return _MISSING
++            i += 1
+         elif isinstance(current, dict):
+-            if part not in current:
++            match = _greedy_literal_match(current, remaining)
++            if match is None:
+                 return _MISSING
+-            current = current[part]
++            key, consumed = match
++            current = current[key]
++            i += consumed
+         else:
+             return _MISSING
+     return current
+ 
+ 
+ def _unset_nested(config, dotted_key: str) -> bool:
+-    """Remove a dotted-path value from nested dict/list config data."""
+-    parts = dotted_key.split(".")
++    """Remove a dotted-path value from nested dict/list config data.
++
++    Same escape-aware, greedy-literal navigation as ``_set_nested`` /
++    ``_get_nested`` (#84064): unsetting an unescaped dotted key removes the
++    real literal entry rather than a phantom sibling.
++    """
++    parts = _split_key_path(dotted_key)
+     if not parts:
+         return False
+ 
+     parents = []
+     current = config
+-    for part in parts[:-1]:
+-        parents.append((current, part))
++    removed = False
++    i = 0
++    while i < len(parts):
++        remaining = parts[i:]
+         if isinstance(current, list):
++            part = remaining[0]
++            if len(remaining) == 1:
++                try:
++                    current.pop(int(part))
++                    removed = True
++                    break
++                except (TypeError, ValueError, IndexError):
++                    return False
++            parents.append((current, part))
+             try:
+                 current = current[int(part)]
+             except (TypeError, ValueError, IndexError):
+                 return False
++            i += 1
+         elif isinstance(current, dict):
+-            if part not in current:
++            match = _greedy_literal_match(current, remaining)
++            if match is None:
+                 return False
+-            current = current[part]
++            key, consumed = match
++            if i + consumed == len(parts):
++                del current[key]
++                removed = True
++                break
++            parents.append((current, key))
++            current = current[key]
++            i += consumed
+         else:
+             return False
+ 
+-    last = parts[-1]
+-    removed = False
+-    if isinstance(current, list):
+-        try:
+-            current.pop(int(last))
+-            removed = True
+-        except (TypeError, ValueError, IndexError):
+-            return False
+-    elif isinstance(current, dict):
+-        if last not in current:
+-            return False
+-        del current[last]
+-        removed = True
+-    else:
++    if not removed:
+         return False
+ 
+     # Drop empty dict containers left behind by the deletion while preserving
+@@ -1230,7 +1366,7 @@
+         'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'VOICE_TOOLS_OPENAI_KEY',
+         'EXA_API_KEY', 'PARALLEL_API_KEY', 'FIRECRAWL_API_KEY', 'FIRECRAWL_API_URL',
+         'FIRECRAWL_GATEWAY_URL', 'TOOL_GATEWAY_DOMAIN', 'TOOL_GATEWAY_SCHEME',
+-        'TOOL_GATEWAY_USER_TOKEN', 'TAVILY_API_KEY',
++        'TOOL_GATEWAY_USER_TOKEN',
+         'BROWSERBASE_API_KEY', 'BROWSERBASE_PROJECT_ID', 'BROWSER_USE_API_KEY',
+         'FAL_KEY', 'TELEGRAM_BOT_TOKEN', 'DISCORD_BOT_TOKEN',
+         'TERMINAL_SSH_HOST', 'TERMINAL_SSH_USER', 'TERMINAL_SSH_KEY',
+@@ -1389,6 +1525,54 @@
+     return _API_MODE_ALIASES.get(cleaned.lower(), cleaned)
+ 
+ 
++def coerce_provider_id(value: Any) -> str:
++    """Provider identity fields are strings.
++
++    PyYAML loads unquoted scalars like ``provider: 2070`` / ``2070:`` as int,
++    and later ``.strip()`` / ``.lower()`` on that value 500s the Model tab.
++    """
++    if value is None:
++        return ""
++    return str(value).strip()
++
++
++def stringify_provider_map(providers: Any) -> dict:
++    """Copy a ``providers:`` mapping so keys are strings.
++
++    Desktop Custom Endpoints store the name as the dict key. An unquoted
++    YAML key ``2070:`` loads as int; picker code then calls ``ep_name.lower()``
++    and CRUD looks up ``"2070"`` and misses.
++    """
++    if not isinstance(providers, dict):
++        return {}
++    out: Dict[str, Any] = {}
++    for stored, value in providers.items():
++        key = coerce_provider_id(stored)
++        if key:
++            out[key] = value
++    return out
++
++
++def find_provider_entry(providers: Any, key: Any) -> Tuple[Any, Optional[Dict[str, Any]]]:
++    """Return ``(stored_key, entry)`` matching *key* by string identity.
++
++    Needed because PyYAML may have stored the key as ``2070`` (int) while
++    Desktop looks up ``"2070"``. Prefer an exact string hit, then scan.
++    """
++    if not isinstance(providers, dict):
++        return None, None
++    want = coerce_provider_id(key)
++    if not want:
++        return None, None
++    exact = providers.get(want)
++    if isinstance(exact, dict):
++        return want, exact
++    for stored, entry in providers.items():
++        if coerce_provider_id(stored) == want and isinstance(entry, dict):
++            return stored, entry
++    return None, None
++
++
+ def _normalize_custom_provider_entry(
+     entry: Any,
+     *,
+@@ -1406,6 +1590,7 @@
+     # alias keys back into config.yaml through any later
+     # save_config(load_config()) round-trip.
+     entry = dict(entry)
++    provider_key = coerce_provider_id(provider_key)
+ 
+     # Accept camelCase aliases commonly used in hand-written configs.
+     _CAMEL_ALIASES: Dict[str, str] = {
+@@ -1435,7 +1620,7 @@
+         "models_discovered",
+         "context_length", "rate_limit_delay",
+         "request_timeout_seconds", "stale_timeout_seconds",
+-        "discover_models", "extra_body", "extra_headers",
++        "discover_models", "extra_body", "extra_headers", "capabilities",
+         "ssl_ca_cert", "ssl_verify",
+     }
+     for camel, snake in _CAMEL_ALIASES.items():
+@@ -1483,12 +1668,7 @@
+     if not base_url:
+         return None
+ 
+-    name = ""
+-    raw_name = entry.get("name")
+-    if isinstance(raw_name, str) and raw_name.strip():
+-        name = raw_name.strip()
+-    elif provider_key.strip():
+-        name = provider_key.strip()
++    name = coerce_provider_id(entry.get("name")) or provider_key
+     if not name:
+         return None
+ 
+@@ -1565,6 +1745,16 @@
+     if models_discovered:
+         normalized["models_discovered"] = True
+ 
++    capabilities = entry.get("capabilities")
++    if isinstance(capabilities, dict):
++        normalized_capabilities = {
++            key: value
++            for key, value in capabilities.items()
++            if isinstance(key, str) and isinstance(value, bool)
++        }
++        if normalized_capabilities:
++            normalized["capabilities"] = normalized_capabilities
++
+     context_length = entry.get("context_length")
+     if isinstance(context_length, int) and context_length > 0:
+         normalized["context_length"] = context_length
+@@ -1650,7 +1840,9 @@
+     for key, entry in providers_dict.items():
+         if isinstance(entry, dict) and not is_provider_enabled(entry):
+             continue
+-        normalized = _normalize_custom_provider_entry(entry, provider_key=str(key))
++        normalized = _normalize_custom_provider_entry(
++            entry, provider_key=coerce_provider_id(key)
++        )
+         if normalized is not None:
+             custom_providers.append(normalized)
+ 
+@@ -2447,9 +2639,12 @@
+     try:
+         from toolsets import validate_toolset
+         from hermes_cli.toolset_validation import validate_platform_toolsets
++        from hermes_cli.toolset_scope import toolset_allowed_for_platform
+ 
+         ts_warnings = validate_platform_toolsets(
+-            read_raw_config().get("platform_toolsets"), validate_toolset
++            read_raw_config().get("platform_toolsets"),
++            validate_toolset,
++            toolset_allowed_for_platform,
+         )
+         for w in ts_warnings:
+             results["warnings"].append(w)
+@@ -3133,49 +3328,6 @@
+ #     value, and
+ #   - is large enough that no real conversation will ever reach it (a turn
+ #     takes seconds; 9.2e18 turns would take ~10^11 years).
+-
+-
+-def resolve_auto_continue_config(agent_cfg: Any) -> Dict[str, Any]:
+-    """Normalize the bounded main-turn auto-continuation policy.
+-
+-    The feature is deliberately fail-closed: malformed or non-positive bounds
+-    disable the policy and return the safe built-in bound/prompt. This helper
+-    only normalizes configuration; it does not decide whether a live turn has
+-    made progress.
+-    """
+-    default = {
+-        "enabled": False,
+-        "max_auto_continues": 2,
+-        "prompt": (
+-            "Continue from the current state. Do not repeat completed work. "
+-            "Stop if blocked, approval is required, or before destructive "
+-            "or externally visible actions."
+-        ),
+-    }
+-    if not isinstance(agent_cfg, dict):
+-        return default
+-    raw = agent_cfg.get("auto_continue_on_max_iterations")
+-    if not isinstance(raw, dict):
+-        return default
+-    try:
+-        bound = int(raw.get("max_auto_continues", default["max_auto_continues"]))
+-    except (TypeError, ValueError):
+-        return default
+-    prompt = raw.get("prompt", default["prompt"])
+-    if bound <= 0 or not isinstance(prompt, str) or not prompt.strip():
+-        return default
+-    enabled = raw.get("enabled", False)
+-    if isinstance(enabled, str):
+-        enabled = enabled.strip().lower() in {"1", "true", "yes", "on"}
+-    elif not isinstance(enabled, bool):
+-        enabled = False
+-    return {
+-        "enabled": enabled,
+-        "max_auto_continues": bound,
+-        "prompt": prompt.strip(),
+-    }
+-
+-
+ TURN_LIMIT_UNLIMITED = sys.maxsize
+ 
+ # String spellings that mean "no limit".  Lowercased, whitespace-stripped
+@@ -3641,6 +3793,7 @@
+     "modal_mode": "TERMINAL_MODAL_MODE",
+     "degraded_mode": "TERMINAL_DEGRADED_MODE",
+     "cwd": "TERMINAL_CWD",
++    "temp_dir": "TERMINAL_TEMP_DIR",
+     "timeout": "TERMINAL_TIMEOUT",
+     "lifetime_seconds": "TERMINAL_LIFETIME_SECONDS",
+     "docker_image": "TERMINAL_DOCKER_IMAGE",
+@@ -4378,8 +4531,12 @@
+     assigned_key, separator, _value = stripped.partition("=")
+     if not separator:
+         return False
++    # load_env() strips whitespace around the parsed name, so `KEY = value`
++    # IS a live assignment. The writers must match the same shape, or a
++    # hand-edited spaced line is invisible to save (duplicate appended) and
++    # remove (line survives -> value resurrects on next load). #67488.
+     return _env_var_policy_name(
+-        assigned_key,
++        assigned_key.strip(),
+         is_windows=is_windows,
+     ) == _env_var_policy_name(key, is_windows=is_windows)
+ 
+@@ -4817,7 +4974,6 @@
+         ("EXA_API_KEY", "Exa"),
+         ("PARALLEL_API_KEY", "Parallel"),
+         ("FIRECRAWL_API_KEY", "Firecrawl"),
+-        ("TAVILY_API_KEY", "Tavily"),
+         ("BROWSERBASE_API_KEY", "Browserbase"),
+         ("BROWSER_USE_API_KEY", "Browser Use"),
+         ("FAL_KEY", "FAL"),
+@@ -5309,7 +5465,7 @@
+     best-effort coercion used by ``config set``.
+     """
+     node = DEFAULT_CONFIG
+-    for part in dotted_key.split("."):
++    for part in _split_key_path(dotted_key):
+         if not isinstance(node, dict) or part not in node:
+             return None
+         node = node[part]
+@@ -5421,7 +5577,7 @@
+     if not key:
+         return False, None
+ 
+-    segments = key.split(".")
++    segments = _split_key_path(key)
+     top = segments[0]
+ 
+     # ── Underscore-prefixed keys are internal/test markers ───────────
+@@ -5592,7 +5748,7 @@
+         print(f"✗ Invalid config key: {key!r} (empty or surrounding whitespace).",
+               file=sys.stderr)
+         sys.exit(1)
+-    if any(seg == "" for seg in key.split(".")):
++    if any(seg == "" for seg in _split_key_path(key)):
+         print(
+             f"✗ Invalid config key: {key!r} — contains an empty path segment "
+             "(leading, trailing, or doubled '.').",
+@@ -5772,7 +5928,11 @@
+                     file=sys.stderr,
+                 )
+                 sys.exit(1)
+-    _set_nested(user_config, key, value)
++    try:
++        _set_nested(user_config, key, value)
++    except ValueError as e:
++        print(f"✗ {e}", file=sys.stderr)
++        sys.exit(1)
+     # Normalize the api_base → base_url alias at set-time too (issue #8919),
+     # so a fresh `hermes config set model.api_base ...` lands on the canonical
+     # key the runtime resolver actually reads, instead of being silently
+diff --git a/hermes_constants.py b/hermes_constants.py
+--- a/hermes_constants.py
++++ b/hermes_constants.py
+@@ -225,6 +225,114 @@
+                 result = env_path
+     _default_hermes_root_memo = (str(native_home), env_home, result)
+     return result
++
++
++# Named-profile deletion must survive stale mkdir from live serve/logging.
++# The marker lives beside the profile dir, not inside it, so rmtree cannot
++# erase the fact that the profile was deleted.
++_DELETED_PROFILES_DIR = ".deleted"
++
++# Files whose presence marks a directory as a real Hermes home. A fresh home
++# always gains at least one of these on first use (config save, env backfill,
++# session DB), while arbitrary directories that merely contain a ``profiles``
++# path segment (e.g. ``/srv/profiles/buildcache``) do not.
++_HERMES_HOME_MARKERS = ("config.yaml", ".env", "state.db")
++
++
++def _is_hermes_profiles_root(profiles_dir: Path) -> bool:
++    """Return True when *profiles_dir* is a canonical ``<hermes-home>/profiles``.
++
++    Anchors named-profile recognition so it only fires for directories that
++    provably live under a Hermes home: the classic ``~/.hermes`` layout, a
++    root carrying Hermes-home marker files (Docker/custom ``HERMES_HOME``
++    like ``/opt/data``), a ``profiles/.deleted`` tombstone directory (only
++    ever created by ``hermes profile delete``), or the process's resolved
++    default Hermes root.
++    """
++    root = profiles_dir.parent
++    if root.name == ".hermes":
++        return True
++    try:
++        if (profiles_dir / _DELETED_PROFILES_DIR).is_dir():
++            return True
++        if any((root / marker).exists() for marker in _HERMES_HOME_MARKERS):
++            return True
++    except OSError:
++        pass
++    try:
++        return root.resolve(strict=False) == get_default_hermes_root().resolve(
++            strict=False
++        )
++    except OSError:
++        return False
++
++
++def named_profile_home(path: str | Path) -> Path | None:
++    """Return ``<root>/profiles/<name>`` when *path* is that home or under it.
++
++    A named profile home is only ``.../profiles/<id>`` where ``<id>`` does
++    not start with ``.`` AND the ``profiles`` directory's parent is a real
++    Hermes home (see :func:`_is_hermes_profiles_root`). A default Hermes home
++    whose path merely contains a ``profiles`` segment
++    (e.g. ``/tmp/foo/profiles/notahome/.hermes``) is not a named profile,
++    and neither is an unrelated custom home like
++    ``/srv/profiles/buildcache`` — those must keep mkdir-ing normally.
++    ``.../profiles/worker/logs`` still resolves to ``.../profiles/worker``.
++    """
++    current = Path(path)
++    for candidate in (current, *current.parents):
++        if (
++            candidate.parent.name == "profiles"
++            and not candidate.name.startswith(".")
++            and _is_hermes_profiles_root(candidate.parent)
++        ):
++            return candidate
++        # Stop at a default Hermes home so a coincidental ``profiles/``
++        # ancestor is not treated as a named-profile root.
++        if candidate.name == ".hermes":
++            return None
++    return None
++
++
++def profile_tombstone_path(profile_home: Path) -> Path:
++    return profile_home.parent / _DELETED_PROFILES_DIR / profile_home.name
++
++
++def named_profile_is_deleted(profile_home: str | Path) -> bool:
++    return profile_tombstone_path(Path(profile_home)).exists()
++
++
++def mark_named_profile_deleted(profile_home: str | Path) -> None:
++    marker = profile_tombstone_path(Path(profile_home))
++    marker.parent.mkdir(parents=True, exist_ok=True)
++    marker.write_text("deleted\n", encoding="utf-8")
++
++
++def clear_named_profile_deleted(profile_home: str | Path) -> None:
++    profile_tombstone_path(Path(profile_home)).unlink(missing_ok=True)
++
++
++def assert_named_profile_home_live(path: str | Path) -> None:
++    """Refuse missing or tombstoned named profile homes.
++
++    Default ``HERMES_HOME`` (not under ``profiles/``) is unchanged.
++    """
++    home = named_profile_home(path)
++    if home is None:
++        return
++    if named_profile_is_deleted(home) or not home.exists():
++        raise FileNotFoundError(
++            f"Named profile home does not exist: {home}. "
++            "Create the profile explicitly before using it."
++        )
++
++
++def mkdir_under_hermes_home(path: str | Path) -> Path:
++    """Create *path*, but never materialize a deleted/missing named profile."""
++    target = Path(path)
++    assert_named_profile_home_live(target)
++    target.mkdir(parents=True, exist_ok=True)
++    return target
+ 
+ 
+ def get_optional_skills_dir(default: Path | None = None) -> Path:
+@@ -797,9 +905,18 @@
+                     timeout=10,
+                     creationflags=windows_hide_flags(),
+                 )
+-                major = int(result.stdout.decode().strip().lstrip("v").split(".")[0])
++                version = result.stdout.decode().strip().lstrip("v")
++                major = int(version.split(".")[0])
+             except (OSError, subprocess.TimeoutExpired, ValueError, IndexError):
+                 return False  # broken, not outdated — the runnable probe handles it
++            # A pre-release tree counts as outdated however high its major:
++            # nodejs.org publishes a headers tarball only for final releases, so
++            # node-gyp cannot build node-pty against one. Without this, an
++            # install that adopted such a tree stays broken forever — the heal
++            # only fires below the target major, and a pre-release is above it.
++            # Mirrors node_satisfies_build() in scripts/install.sh.
++            if "-" in version:
++                return True
+             return major < _HERMES_NODE_TARGET_MAJOR
+     return False
+ 
+@@ -1009,7 +1126,13 @@
+     """
+     home = get_hermes_home()
+     try:
+-        return "~/" + str(home.relative_to(Path.home()))
++        # as_posix(): on Windows, str() of a relative Path renders
++        # backslashes, producing mixed-separator chimeras like
++        # ``~/AppData\Local\hermes/skills/`` once callers append
++        # sub-paths. ``~/`` shorthand implies POSIX rendering; keep the
++        # whole string consistent (forward slashes work everywhere,
++        # including Windows shells and Python APIs).
++        return "~/" + home.relative_to(Path.home()).as_posix()
+     except ValueError:
+         return str(home)
+ 
+@@ -1737,3 +1860,19 @@
+         "    hermes update",
+         "If that also fails, reinstall: https://hermes-agent.nousresearch.com",
+     ]
++
++
++def emit_partial_update_hint(exc: BaseException, *, file=None) -> bool:
++    """Print recovery guidance for a half-updated tree.
++
++    Returns True when guidance was written (caller should then exit), False
++    when *exc* is not a first-party ``ImportError`` (caller should re-raise).
++    """
++    lines = partial_update_hint(exc)
++    if not lines:
++        return False
++    out = sys.stderr if file is None else file
++    print(f"Error: {exc}", file=out)
++    for line in lines:
++        print(line, file=out)
++    return True
