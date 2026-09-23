@@ -302,13 +302,13 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-source-lock.json",
-      "source_sha256": "8535a00a94d55e0d4d825ac14b4c5e07eb75dbf83071043e7204fdf7b79decc6"
+      "source_sha256": "f2fa0eb7417389dab42580ff09ae602c34453fa77bda2ed11591de5cb783823f"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-tree-manifest.json",
-      "source_sha256": "2b9bb4225077e278ac2280f294550a328c360f45eca48ea48ece999de56ede4d"
+      "source_sha256": "e358d76962ffaae943b0e4bd2de5962df6eb9a97160ebe251140f1c157cb8896"
     },
     {
       "destination": null,
@@ -511,8 +511,14 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "patches/upstream-hermes/2026-09-23_opencode_zen_free_only.patch",
+      "source_sha256": "0c77301186e3f6049d3a3e185dbc46b7b9cf606144ce4bb0e6047c99af3b8714"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "patches/upstream-hermes/README.md",
-      "source_sha256": "e392b031fada8bf210fe787de6c6b4061a9428f829ad714f55c2fece1b6c0ad6"
+      "source_sha256": "6d008c40a90bc0761538e2eba1826101404060bc907ca6b4a7849a3d313be47b"
     },
     {
       "destination": null,
@@ -4154,7 +4160,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_hermes_runtime_reconstruction.py",
-      "source_sha256": "08965c7e11f36afe3d57780e2ab109cb8f183a53eafaf484b71c825b78de38b8"
+      "source_sha256": "4ad6d2460cf8337ef6d0745dc035fbc383276ec45989a24e101e97664a864d93"
     },
     {
       "destination": null,
@@ -4219,6 +4225,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "fbcdc2e7ceab555d060c72f1cb638f611e05d515c672cc0e4a783a1c9029e4a1",
+  "payload_sha256": "468a01bb70aeeb85a882492a55d47c974745b635e0b16bbdc8da713f67c2d431",
   "schema_version": 1
 }

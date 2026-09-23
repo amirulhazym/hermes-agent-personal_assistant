@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8",
-  "patch_series_digest": "6e60fb7b2e841a7064b84b4e12ce0e673387d74d0920e1c904deaf4c9cda3c46",
+  "patch_series_digest": "f0b46c58bb49307724bb51cd6a879aedeb2c376c47cf8644c90d3a4b83a0128a",
   "destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "entries": [
     {
@@ -21841,13 +21841,13 @@
     {
       "source": "hermes_cli/model_switch.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/model_switch.py",
-      "sha256": "490ad4ace5c4959200fe04f3ef1d19ad85a1916a2a04ede93354a012565dd661",
+      "sha256": "5dee1cb9e39eaa6a7b21756c3edc8844a3aef71bc005ef2f85303d2c2cb02ee2",
       "mode": "0644"
     },
     {
       "source": "hermes_cli/models.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/models.py",
-      "sha256": "f1b897512eafed39855ca58410724014a4138ca5e0142892a03f347d92d153c1",
+      "sha256": "0c7379dd125663763cd3f99432efe45c48ae3457d009c39ba5f4a78d77599569",
       "mode": "0644"
     },
     {
@@ -43637,9 +43637,15 @@
       "mode": "0644"
     },
     {
+      "source": "tests/hermes_cli/test_opencode_zen_free_only_20260923.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_opencode_zen_free_only_20260923.py",
+      "sha256": "5d5a577a35ce09b5abb7470608f9a73b49dfa03b7bfe6ac2b47e17d390046513",
+      "mode": "0664"
+    },
+    {
       "source": "tests/hermes_cli/test_opencode_zen_model_limit.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_opencode_zen_model_limit.py",
-      "sha256": "0a9c267cfea99beb0b362cd196db88570c82614347ac95a21429ffa622a68145",
+      "sha256": "c40cef103f0bc93be032c4eb76add00b4038580c796f200a6343d2fb26c64d39",
       "mode": "0644"
     },
     {
@@ -44005,7 +44011,7 @@
     {
       "source": "tests/hermes_cli/test_provider_live_curated_merge.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_provider_live_curated_merge.py",
-      "sha256": "97fd4e1084733058e6fd90a31efcd20596c8356e03f0aa33d69f21cdf06a9a97",
+      "sha256": "dc7d31d966759baf8f36860b1e614eaebb9d9062c167a7dbf1574ace5dd1b5cf",
       "mode": "0644"
     },
     {
@@ -62969,5 +62975,5 @@
       "mode": "0644"
     }
   ],
-  "tree_sha256": "24ac5a41e0377e64e97285614b78910870fd99dddb060fbfadd2d6567fdf3c87"
+  "tree_sha256": "21002f76312a177861d28719a662cb1d457321de61064b9346a273e752fa01df"
 }

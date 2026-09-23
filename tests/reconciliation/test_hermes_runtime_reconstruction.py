@@ -146,6 +146,13 @@ def test_active_runtime_overlays_are_ordered_and_hash_pinned():
             "sha256": "28d77f0ddf1364adc261e269acedf103e26c29ed782325d7926f3107a3096d8d",
             "description": "Native DeepSeek refresh: canonical V4.1 Flash catalog/normalization, current reasoning-effort mapping, 1M context metadata, and current peak pricing while retaining V4 Pro.",
         },
+        {
+            "order": 8,
+            "id": "candidate-runtime-opencode-zen-free-only-20260923",
+            "path": "patches/upstream-hermes/2026-09-23_opencode_zen_free_only.patch",
+            "sha256": "0c77301186e3f6049d3a3e185dbc46b7b9cf606144ce4bb0e6047c99af3b8714",
+            "description": "OpenCode Zen owner policy: free-tier-only chat picker fails closed against live/stale/typed bypasses; Jev remains excluded from /model because it is a System One route.",
+        },
     ]
 
 

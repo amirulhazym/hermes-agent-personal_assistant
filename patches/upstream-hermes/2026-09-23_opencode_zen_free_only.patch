@@ -1,0 +1,340 @@
+diff --git a/hermes_cli/models.py b/hermes_cli/models.py
+--- a/hermes_cli/models.py
++++ b/hermes_cli/models.py
+@@ -491,78 +491,11 @@
+         "anthropic/claude-sonnet-4.6",
+         "openai/gpt-5.4",
+     ],
+-    # Synced against https://opencode.ai/docs/zen/ + live GET /zen/v1/models
+-    # (2026-08-20). Zen/Go are _LIVE_FIRST_PICKER_PROVIDERS, so this list is a
+-    # discovery floor — live entries lead in the picker and stale curated
+-    # names never pollute the top.
+-    "opencode-zen": [
+-        "x-preview-f-free",  # "Ox Alpha" stealth model — free, 1M ctx, ZDR
+-        "kimi-k3",
+-        "kimi-k2.5",
+-        "kimi-k2.6",
+-        "gpt-5.6-sol",
+-        "gpt-5.6-terra",
+-        "gpt-5.6-luna",
+-        "gpt-5.5",
+-        "gpt-5.5-pro",
+-        "gpt-5.4-pro",
+-        "gpt-5.4",
+-        "gpt-5.4-mini",
+-        "gpt-5.4-nano",
+-        "gpt-5.3-codex",
+-        "gpt-5.3-codex-spark",
+-        "gpt-5.2",
+-        "gpt-5.2-codex",
+-        "gpt-5.1",
+-        "gpt-5.1-codex",
+-        "gpt-5.1-codex-max",
+-        "gpt-5.1-codex-mini",
+-        "gpt-5",
+-        "gpt-5-codex",
+-        "gpt-5-nano",
+-        "claude-fable-5",
+-        "claude-opus-5",
+-        "claude-sonnet-5",
+-        "claude-opus-4-8",
+-        "claude-opus-4-7",
+-        "claude-opus-4-6",
+-        "claude-opus-4-5",
+-        "claude-sonnet-4-6",
+-        "claude-sonnet-4-5",
+-        "claude-sonnet-4",
+-        "claude-haiku-4-5",
+-        "gemini-3.7-flash",
+-        "gemini-3.6-flash",
+-        "gemini-3.5-flash",
+-        "gemini-3.5-flash-lite",
+-        "gemini-3.1-pro",
+-        "gemini-3-flash",
+-        "grok-4.6",
+-        "grok-4.5",
+-        "grok-build-0.1",
+-        "muse-spark-1.2",
+-        "minimax-m3",
+-        "minimax-m2.7",
+-        "minimax-m2.5",
+-        "glm-5.3",
+-        "glm-5.3-flash",
+-        "glm-5.2",
+-        "glm-5.1",
+-        "glm-5",
+-        "kimi-k2.7-code",
+-        "deepseek-v4-pro",
+-        "deepseek-v4-flash",
+-        "deepseek-v4-flash-free",
+-        "qwen3.6-plus",
+-        "qwen3.5-plus",
+-        "big-pickle",
+-        "mimo-v2.5-free",
+-        "hy3-free",
+-        "laguna-s-2.1-free",
+-        "nemotron-3-ultra-free",
+-        "nemotron-3.5-lightning-free",
+-        "muse-spark-1.2-contributor-free",
+-    ],
++    # Owner-locked 2026-09-23 policy: this Hermes exposes OpenCode Zen
++    # as free-tier only. Current official free chat SKUs return provider-side
++    # HTTP 403 to this honest external Hermes client, so the chat catalog
++    # fails closed. Jev 1.13 Free is usable through /systemone, not /model.
++    "opencode-zen": [],
+     # OpenCode free tier — keyless (no OpenCode account needed). Synced
+     # against live GET /zen/v1/models + anonymous probes (2026-08-21);
+     # deepseek-v4-flash-free delisted (promo ended, now 401s).
+@@ -3922,6 +3855,11 @@
+         return fallback_models or []
+ 
+     normalized = normalize_provider(provider)
++    if normalized == "opencode-zen":
++        # Free-only policy: every current official free generative Zen SKU
++        # rejects this external Hermes client with HTTP 403. Paid Zen models
++        # and the non-chat System One/Jev endpoint are intentionally excluded.
++        return []
+     if normalized == "openrouter":
+         return model_ids(force_refresh=force_refresh)
+     if normalized == "openai-codex":
+@@ -4416,7 +4354,7 @@
+     """
+     try:
+         normalized = normalize_provider(provider) or (provider or "")
+-        if not normalized or not models:
++        if not normalized or not models or normalized == "opencode-zen":
+             return
+         fp = _credential_fingerprint(normalized)
+         with _cache_write_lock:
+@@ -4445,6 +4383,9 @@
+     requested = str(provider or "").strip().lower()
+     normalized = requested if requested == "ollama" else (normalize_provider(provider) or (provider or ""))
+     if not normalized:
++        return []
++    if normalized == "opencode-zen":
++        # Free-only fail-closed policy outranks any stale disk cache.
+         return []
+     if normalized == "ollama":
+         ttl_seconds = min(ttl_seconds, _OLLAMA_LOCAL_MODELS_CACHE_TTL)
+@@ -6380,6 +6321,19 @@
+             "persist": False,
+             "recognized": False,
+             "message": "Model names cannot contain spaces.",
++        }
++
++    if normalized == "opencode-zen":
++        return {
++            "accepted": False,
++            "persist": False,
++            "recognized": False,
++            "message": (
++                "OpenCode Zen is configured free-only on this Hermes instance. "
++                "Its current free chat models are restricted to the OpenCode client; "
++                "paid Zen models are intentionally excluded. Jev 1.13 Free uses "
++                "the System One endpoint and is not a chat /model choice."
++            ),
+         }
+ 
+     if normalized == "lmstudio":
+diff --git a/hermes_cli/model_switch.py b/hermes_cli/model_switch.py
+--- a/hermes_cli/model_switch.py
++++ b/hermes_cli/model_switch.py
+@@ -3970,6 +3970,10 @@
+     filtered: List[dict] = []
+     for p in providers:
+         slug = str(p.get("slug", "")).lower()
++        if slug == "opencode-zen":
++            # Free-only policy: hide Zen even if stale/current model state was
++            # injected upstream. Jev is System One, not a chat picker model.
++            continue
+         if slug == "openrouter":
+             try:
+                 live = fetch_openrouter_models()
+diff --git a/tests/hermes_cli/test_opencode_zen_free_only_20260923.py b/tests/hermes_cli/test_opencode_zen_free_only_20260923.py
+new file mode 100644
+--- /dev/null
++++ b/tests/hermes_cli/test_opencode_zen_free_only_20260923.py
+@@ -0,0 +1,97 @@
++from __future__ import annotations
++
++import time
++from unittest.mock import patch
++
++import hermes_cli.model_switch as switch_mod
++import hermes_cli.models as models_mod
++from hermes_cli.model_switch import list_picker_providers
++from hermes_cli.models import (
++    cached_provider_model_ids,
++    provider_model_ids,
++    validate_requested_model,
++)
++
++
++def test_zen_provider_catalog_fails_closed_even_if_live_or_curated_has_models(monkeypatch):
++    class _Profile:
++        auth_type = "api_key"
++        base_url = "https://opencode.ai/zen/v1"
++        fallback_models = ("gpt-6-sol", "big-pickle")
++
++        def fetch_models(self, **_kwargs):
++            return ["gpt-6-sol", "big-pickle", "jev-1.13-free"]
++
++    monkeypatch.setattr("providers.get_provider_profile", lambda _name: _Profile())
++    monkeypatch.setattr(
++        "hermes_cli.auth.resolve_api_key_provider_credentials",
++        lambda _name: {"api_key": "test", "base_url": "https://opencode.ai/zen/v1"},
++    )
++    monkeypatch.setattr(models_mod, "_merge_with_models_dev", lambda _provider, curated: list(curated))
++    assert provider_model_ids("opencode-zen", force_refresh=True) == []
++
++
++def test_zen_stale_cache_cannot_resurrect_models(monkeypatch):
++    monkeypatch.setattr(
++        models_mod,
++        "_load_provider_models_cache",
++        lambda: {
++            "opencode-zen": {
++                "fp": "same",
++                "at": time.time(),
++                "models": ["gpt-6-sol", "big-pickle"],
++            }
++        },
++    )
++    monkeypatch.setattr(models_mod, "_credential_fingerprint", lambda _provider: "same")
++    assert cached_provider_model_ids("opencode-zen") == []
++def test_zen_typed_model_requests_are_rejected_before_live_validation():
++    for model in (
++        "gpt-6-sol",
++        "big-pickle",
++        "space-bunny-free",
++        "mimo-v2.6-flash-free",
++        "muse-spark-1.3-contributor-free",
++        "jev-1.13-free",
++    ):
++        result = validate_requested_model(
++            model,
++            "opencode-zen",
++            api_key="test-key",
++            base_url="https://opencode.ai/zen/v1",
++        )
++        assert result["accepted"] is False
++        assert result["persist"] is False
++        assert result["recognized"] is False
++        assert "free-only" in (result["message"] or "").lower()
++
++
++def test_shared_picker_hides_zen_even_if_current_provider_row_contains_old_model(monkeypatch):
++    monkeypatch.setattr(
++        switch_mod,
++        "list_authenticated_providers",
++        lambda **_kwargs: [
++            {
++                "slug": "opencode-zen",
++                "name": "OpenCode Zen",
++                "models": ["gpt-6-sol"],
++                "total_models": 1,
++                "is_current": True,
++                "is_user_defined": False,
++            },
++            {
++                "slug": "deepseek",
++                "name": "DeepSeek",
++                "models": ["deepseek-flash"],
++                "total_models": 1,
++                "is_current": False,
++                "is_user_defined": False,
++            },
++        ],
++    )
++    rows = list_picker_providers(
++        current_provider="opencode-zen",
++        current_model="gpt-6-sol",
++    )
++    assert all(row["slug"] != "opencode-zen" for row in rows)
++    assert any(row["slug"] == "deepseek" for row in rows)
+diff --git a/tests/hermes_cli/test_opencode_zen_model_limit.py b/tests/hermes_cli/test_opencode_zen_model_limit.py
+--- a/tests/hermes_cli/test_opencode_zen_model_limit.py
++++ b/tests/hermes_cli/test_opencode_zen_model_limit.py
+@@ -1,15 +1,14 @@
+-"""Regression tests for OpenCode Zen model picker limits."""
++"""Regression tests for the OpenCode Zen free-only picker policy."""
+ 
+ import os
+ from unittest.mock import patch
+ 
+ import hermes_cli.providers as providers_mod
+-from hermes_cli.model_switch import list_authenticated_providers
++from hermes_cli.model_switch import list_picker_providers
+ 
+ 
+-def test_opencode_zen_lists_all_models_while_other_providers_remain_capped(monkeypatch):
+-    """OpenCode Zen is an aggregator product, so the picker must expose its full catalog."""
+-    zen_models = [f"zen-model-{i}" for i in range(57)]
++def test_opencode_zen_is_hidden_while_other_providers_remain_capped(monkeypatch):
++    """Zen has no callable free chat models from Hermes, so hide its picker row."""
+     deepseek_models = [f"deepseek-model-{i}" for i in range(57)]
+ 
+     monkeypatch.setattr(
+@@ -27,7 +26,7 @@
+     monkeypatch.setattr(
+         "hermes_cli.models.cached_provider_model_ids",
+         lambda provider: {
+-            "opencode-zen": zen_models,
++            "opencode-zen": [],
+             "deepseek": deepseek_models,
+         }.get(provider, []),
+     )
+@@ -40,12 +39,9 @@
+         },
+         clear=False,
+     ):
+-        providers = list_authenticated_providers(max_models=50)
++        providers = list_picker_providers(max_models=50)
+ 
+-    opencode_zen = next(p for p in providers if p["slug"] == "opencode-zen")
++    assert all(p["slug"] != "opencode-zen" for p in providers)
+     deepseek = next(p for p in providers if p["slug"] == "deepseek")
+-
+-    assert opencode_zen["models"] == zen_models
+-    assert opencode_zen["total_models"] == len(zen_models)
+     assert deepseek["models"] == deepseek_models[:50]
+     assert deepseek["total_models"] == len(deepseek_models)
+diff --git a/tests/hermes_cli/test_provider_live_curated_merge.py b/tests/hermes_cli/test_provider_live_curated_merge.py
+--- a/tests/hermes_cli/test_provider_live_curated_merge.py
++++ b/tests/hermes_cli/test_provider_live_curated_merge.py
+@@ -7,9 +7,8 @@
+   still appear in the merged result (nothing is dropped).
+ * #46309 / #49129 — merge *order* is per-provider. Single providers
+   (kimi, zai) stay **curated-first** so a deliberately surfaced newest model
+-  leads even when the live API lags. ``_LIVE_FIRST_PICKER_PROVIDERS``
+-  (OpenCode Zen / Go) flip to **live-first** because their live API is the
+-  authoritative catalog and stale curated entries must not lead the picker.
++  leads even when the live API lags. OpenCode Go remains live-first. This
++  installation treats OpenCode Zen separately as free-only and fail-closed.
+ """
+ 
+ from unittest.mock import MagicMock, patch
+@@ -102,15 +101,13 @@
+             zai_result = set(provider_model_ids("zai"))
+         assert {"a", "b", "c"} <= zai_result
+ 
+-        # opencode-zen = live-first
+-        with (
+-            patch("providers.get_provider_profile", return_value=self._make_profile(live)),
+-            patch(
+-                "hermes_cli.auth.resolve_api_key_provider_credentials",
+-                return_value={"api_key": "k", "base_url": ""},
+-            ),
+-            patch.dict("hermes_cli.models._PROVIDER_MODELS", {"opencode-zen": ["c", "b"]}),
++        # opencode-zen is owner-locked free-only. Its current free chat
++        # models are provider-restricted to OpenCode clients, so generic
++        # live+curated merge must never resurrect paid/stale picker choices.
++        with patch.dict(
++            "hermes_cli.models._PROVIDER_MODELS",
++            {"opencode-zen": ["c", "b"]},
+         ):
+-            zen_result = set(provider_model_ids("opencode-zen"))
+-        assert {"a", "b", "c"} <= zen_result
++            zen_result = provider_model_ids("opencode-zen")
++        assert zen_result == []
+ 
