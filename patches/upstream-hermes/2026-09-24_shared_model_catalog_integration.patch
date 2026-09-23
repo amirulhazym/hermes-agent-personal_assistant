@@ -1,0 +1,66 @@
+diff --git a/hermes_cli/model_switch.py b/hermes_cli/model_switch.py
+--- a/hermes_cli/model_switch.py
++++ b/hermes_cli/model_switch.py
+@@ -3879,6 +3879,17 @@
+     except Exception:
+         pass
+ 
++    # Owner-locked OpenCode Zen policy is free-only. Current free chat SKUs
++    # are not callable from this external Hermes client, so the base catalog
++    # must hide Zen too. This keeps text-fallback platforms (including
++    # WhatsApp Cloud) aligned with interactive pickers instead of surfacing an
++    # empty/dead provider row. The interactive filter below remains as
++    # defense-in-depth against injected/stale rows.
++    results = [
++        row for row in results
++        if str(row.get("slug", "")).strip().lower() != "opencode-zen"
++    ]
++
+     # Surface a custom / uncurated model the user selected via the CLI.
+     # Each row's model list is its curated/live catalog, so a model the user set
+     # with `/model <provider>/<uncurated-name>` would otherwise be invisible in
+diff --git a/tests/hermes_cli/test_opencode_zen_model_limit.py b/tests/hermes_cli/test_opencode_zen_model_limit.py
+--- a/tests/hermes_cli/test_opencode_zen_model_limit.py
++++ b/tests/hermes_cli/test_opencode_zen_model_limit.py
+@@ -4,7 +4,7 @@
+ from unittest.mock import patch
+ 
+ import hermes_cli.providers as providers_mod
+-from hermes_cli.model_switch import list_picker_providers
++from hermes_cli.model_switch import list_authenticated_providers, list_picker_providers
+ 
+ 
+ def test_opencode_zen_is_hidden_while_other_providers_remain_capped(monkeypatch):
+@@ -45,3 +45,32 @@
+     deepseek = next(p for p in providers if p["slug"] == "deepseek")
+     assert deepseek["models"] == deepseek_models[:50]
+     assert deepseek["total_models"] == len(deepseek_models)
++
++
++def test_opencode_zen_is_hidden_from_text_fallback_catalog(monkeypatch):
++    """WhatsApp/text fallback must not surface a dead Zen provider row."""
++    monkeypatch.setattr(
++        "agent.models_dev.PROVIDER_TO_MODELS_DEV",
++        {"opencode-zen": "opencode"},
++    )
++    monkeypatch.setattr(
++        "agent.models_dev.fetch_models_dev",
++        lambda: {"opencode": {}},
++    )
++    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
++    monkeypatch.setattr(
++        "hermes_cli.models.cached_provider_model_ids",
++        lambda provider: [] if provider == "opencode-zen" else [],
++    )
++
++    with patch.dict(
++        os.environ,
++        {"OPENCODE_ZEN_API_KEY": "test-zen-key"},
++        clear=False,
++    ):
++        providers = list_authenticated_providers(
++            max_models=50,
++            probe_custom_providers=False,
++        )
++
++    assert all(p["slug"] != "opencode-zen" for p in providers)

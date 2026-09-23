@@ -60,6 +60,13 @@
       "path": "patches/upstream-hermes/2026-09-23_opencode_zen_free_only.patch",
       "sha256": "0c77301186e3f6049d3a3e185dbc46b7b9cf606144ce4bb0e6047c99af3b8714",
       "description": "OpenCode Zen owner policy: free-tier-only chat picker fails closed against live/stale/typed bypasses; Jev remains excluded from /model because it is a System One route."
+    },
+    {
+      "order": 9,
+      "id": "candidate-runtime-shared-model-catalog-integration-20260924",
+      "path": "patches/upstream-hermes/2026-09-24_shared_model_catalog_integration.patch",
+      "sha256": "5755e7b77d4fcdbcdb3368f5aec55562c4f2bacb4a3e8d2329f937d6eb45311a",
+      "description": "Shared /model integration: hide OpenCode Zen from the base authenticated provider list so WhatsApp text fallback and Telegram interactive picker share the same free-only fail-closed catalog."
     }
   ],
   "runtime_tree_manifest": "docs/reconciliation/hermes-runtime-tree-manifest.json",
