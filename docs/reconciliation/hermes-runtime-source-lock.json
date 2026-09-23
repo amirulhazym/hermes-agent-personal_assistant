@@ -39,6 +39,13 @@
       "path": "patches/upstream-hermes/2026-09-11_profile-routing-fail-closed.patch",
       "sha256": "d9990d2e55bbb7553e6f6563e55a8afb65f805b8078208d9007997d67695234e",
       "description": "Profile-routing safety overlay: reject explicit missing or unserved profiles before provider resolution."
+    },
+    {
+      "order": 6,
+      "id": "candidate-runtime-codex-gpt6-fallback-20260923",
+      "path": "patches/upstream-hermes/2026-09-23_codex_gpt6_fallback.patch",
+      "sha256": "fc5cd55df7ec1d986b70a3feb971c92e3dd4acfd45c2f8560e8c3ece45d737c8",
+      "description": "Codex OAuth refresh: add live-verified GPT-6 Astra/Sol/Luna to offline fallback while preserving live discovery authority and avoiding unverified GPT-6 900K aliases."
     }
   ],
   "runtime_tree_manifest": "docs/reconciliation/hermes-runtime-tree-manifest.json",

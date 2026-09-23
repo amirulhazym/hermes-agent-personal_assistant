@@ -88,3 +88,5 @@ series is authoritative.
    CLI/gateway bounded progress-aware continuation after a 300-iteration window;
    max two additional windows; not live-applied. SHA-256:
    `dd6db0f5690297e236d23697cfa27e2b54c09ecc363f894a208446e1933165a8`.
+
+10. `2026-09-23_codex_gpt6_fallback.patch` — active candidate overlay for the Codex OAuth model picker. It adds the live-verified `gpt-6-astra`, `gpt-6-sol`, and `gpt-6-luna` slugs to the offline fallback only; live OAuth discovery remains authoritative and no GPT-6 `-900k` variants are synthesized. SHA-256: `fc5cd55df7ec1d986b70a3feb971c92e3dd4acfd45c2f8560e8c3ece45d737c8`.

@@ -302,13 +302,13 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-source-lock.json",
-      "source_sha256": "fc7fd24096382f0d28db08819fe90389482932d1ad4d8ba8699195d73cd85200"
+      "source_sha256": "d5ae6bdfd1e4279cfe95af917319dc736e0673fb8fc238f4dfcd7ed3f837f308"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-tree-manifest.json",
-      "source_sha256": "9673913df50d223589c539c8e377c467d5c7c5dba126bddf824b342e8bd03e1e"
+      "source_sha256": "e67706b6e2c6d35f60ff40d8d722b1a72e8ada834c60b2a992c4be92bf7fb2ab"
     },
     {
       "destination": null,
@@ -499,8 +499,14 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "patches/upstream-hermes/2026-09-23_codex_gpt6_fallback.patch",
+      "source_sha256": "fc5cd55df7ec1d986b70a3feb971c92e3dd4acfd45c2f8560e8c3ece45d737c8"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "patches/upstream-hermes/README.md",
-      "source_sha256": "6b28de2f6b3dcf741ad3a11bf2515797a4d0533d5e7db06d6fee0b0b1ddb3cdd"
+      "source_sha256": "e57c7b3a6b31adf57fda09a6bd546b0d7880329f6d93e14810486f3e58a6bae2"
     },
     {
       "destination": null,
@@ -3119,6 +3125,12 @@
       "source_sha256": "ae1ed24fcfe9f9a297fce444711b62f1b965fdfe4c866b54dd9d37932d52d633"
     },
     {
+      "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/akurit4-timing-empty-stomach.md",
+      "kind": "runtime-deploy",
+      "source": "skills/research/medication-safety-research/references/akurit4-timing-empty-stomach.md",
+      "source_sha256": "0a5a159e97294de550fb14b2784f1f1d6d8ff851fe6d91bc3fba071c43de5fc1"
+    },
+    {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/calcium-calcitriol-food-timing.md",
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/references/calcium-calcitriol-food-timing.md",
@@ -3129,18 +3141,6 @@
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/references/contradictory-institution-labels-taper-vs-dispense.md",
       "source_sha256": "62ac4b20e68b1e79793a1d5e2e7ce9bfd1ff63b532a374aeebeac6b39c098472"
-    },
-    {
-      "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/same-day-short-dose-swapping-and-pharmacy-briefing.md",
-      "kind": "runtime-deploy",
-      "source": "skills/research/medication-safety-research/references/same-day-short-dose-swapping-and-pharmacy-briefing.md",
-      "source_sha256": "d3ecfdbf4d4d5eb05d6bbbc2981ed37e2c7580130abbb4488c18d7c4ad247afa"
-    },
-    {
-      "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/akurit4-timing-empty-stomach.md",
-      "kind": "runtime-deploy",
-      "source": "skills/research/medication-safety-research/references/akurit4-timing-empty-stomach.md",
-      "source_sha256": "0a5a159e97294de550fb14b2784f1f1d6d8ff851fe6d91bc3fba071c43de5fc1"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/dexamethasone-interaction-profile.md",
@@ -3171,6 +3171,12 @@
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/references/ppi-tb-steroid-interactions.md",
       "source_sha256": "9f3b2571e0babad9a64fdf79ccad9fe87f1712e1a187d0b989682ac673ff25fb"
+    },
+    {
+      "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/same-day-short-dose-swapping-and-pharmacy-briefing.md",
+      "kind": "runtime-deploy",
+      "source": "skills/research/medication-safety-research/references/same-day-short-dose-swapping-and-pharmacy-briefing.md",
+      "source_sha256": "d3ecfdbf4d4d5eb05d6bbbc2981ed37e2c7580130abbb4488c18d7c4ad247afa"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/references/supply-gap-pyridoxine-inh.md",
@@ -4142,7 +4148,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_hermes_runtime_reconstruction.py",
-      "source_sha256": "d1bd264d156b5cf17db26f929e93cbba53d2db35063837d93708e1b6f530e81c"
+      "source_sha256": "e234c4e496fb1d4955387a4a1844f00e139615990663ad5069c8e2068108fabe"
     },
     {
       "destination": null,
@@ -4207,6 +4213,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "0dced18cd6b88924fbdeb3db36e74e5a8b1c248f13c0c8a8c4ef9ad6a5d999f1",
+  "payload_sha256": "b36b37ee73a7ff6a7f0ec17cf75bcf78e1cecdddddb24404d109488265d493f3",
   "schema_version": 1
 }
