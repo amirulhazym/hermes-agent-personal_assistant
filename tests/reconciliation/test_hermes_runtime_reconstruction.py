@@ -139,6 +139,13 @@ def test_active_runtime_overlays_are_ordered_and_hash_pinned():
             "sha256": "fc5cd55df7ec1d986b70a3feb971c92e3dd4acfd45c2f8560e8c3ece45d737c8",
             "description": "Codex OAuth refresh: add live-verified GPT-6 Astra/Sol/Luna to offline fallback while preserving live discovery authority and avoiding unverified GPT-6 900K aliases.",
         },
+        {
+            "order": 7,
+            "id": "candidate-runtime-deepseek-v41-refresh-20260923",
+            "path": "patches/upstream-hermes/2026-09-23_deepseek_v41_refresh.patch",
+            "sha256": "28d77f0ddf1364adc261e269acedf103e26c29ed782325d7926f3107a3096d8d",
+            "description": "Native DeepSeek refresh: canonical V4.1 Flash catalog/normalization, current reasoning-effort mapping, 1M context metadata, and current peak pricing while retaining V4 Pro.",
+        },
     ]
 
 

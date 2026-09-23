@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8",
-  "patch_series_digest": "ca650da02def6afa9f940dfe6c843c9079da62ff22eb18f77be6c4b074d4b5a9",
+  "patch_series_digest": "6e60fb7b2e841a7064b84b4e12ce0e673387d74d0920e1c904deaf4c9cda3c46",
   "destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "entries": [
     {
@@ -979,7 +979,7 @@
     {
       "source": "agent/model_metadata.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/model_metadata.py",
-      "sha256": "30494e6e733d387c726d1ec13d86ef16cd86a211b2c445e5ea3d0621527bb88a",
+      "sha256": "8259e40be852889c2987c8f8e458763427ed873cbd2d1dce0f62e06361113aa5",
       "mode": "0644"
     },
     {
@@ -1225,7 +1225,7 @@
     {
       "source": "agent/reasoning_effort.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/reasoning_effort.py",
-      "sha256": "c9089c010d23fae682c2a71c62239ba2e943dc5aa8deea343ff299c09d2dc722",
+      "sha256": "dcd26c539adc9b54964876dc65e233639486fc8811240c77f538f4718f0fa36e",
       "mode": "0644"
     },
     {
@@ -1615,7 +1615,7 @@
     {
       "source": "agent/usage_pricing.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/agent/usage_pricing.py",
-      "sha256": "c6dae9eec7a77c41b9b82d37ffbc0cf58adda081780689131b71c6c10fd699b0",
+      "sha256": "f5805c27b9985ba811f99aebd8c2afd6cb352495db3b2cb73bea7490248e0c72",
       "mode": "0644"
     },
     {
@@ -21817,7 +21817,7 @@
     {
       "source": "hermes_cli/model_normalize.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/model_normalize.py",
-      "sha256": "3bd044eb3aea056e52128424a293a4c1ac6646e20bdeb2839a8e3b7c365ac98b",
+      "sha256": "825d6e4b370064c76a934b9951bc8ee4eda68cb0d18e8b8b1c4782c3e251d556",
       "mode": "0644"
     },
     {
@@ -21847,7 +21847,7 @@
     {
       "source": "hermes_cli/models.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/models.py",
-      "sha256": "6e32862ac2daabe24f1dd63e127abcdfc3317e8c54e840770b47c031c1fec2c5",
+      "sha256": "f1b897512eafed39855ca58410724014a4138ca5e0142892a03f347d92d153c1",
       "mode": "0644"
     },
     {
@@ -27793,7 +27793,7 @@
     {
       "source": "plugins/model-providers/deepseek/__init__.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/plugins/model-providers/deepseek/__init__.py",
-      "sha256": "0a67eef0f9961db4420ca034470a345e6beb32aa248756c54f587a808aaff8c0",
+      "sha256": "dd2044a3d49330479bab35b634dd147df05239932c11dcbcf11f3748b3bb1dde",
       "mode": "0644"
     },
     {
@@ -34201,7 +34201,7 @@
     {
       "source": "tests/agent/test_model_metadata.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/agent/test_model_metadata.py",
-      "sha256": "12b7e15e52f526a424c38eb0512e06ebae41a2e470a7298009479c66b059193f",
+      "sha256": "5c8a984c3900844e89f8220c29ee975818aefbcd7fcd89fbc9eb3641f2f54e64",
       "mode": "0644"
     },
     {
@@ -35083,7 +35083,7 @@
     {
       "source": "tests/agent/test_usage_pricing.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/agent/test_usage_pricing.py",
-      "sha256": "db666b29265d43739b99df3631d3821cd21492efef889d4612dad4a5643d946e",
+      "sha256": "0805d8815ecd2740658cadd53e3e39bb43df1b73bd8964188d6b9fd4b1cde05b",
       "mode": "0644"
     },
     {
@@ -43321,7 +43321,7 @@
     {
       "source": "tests/hermes_cli/test_model_normalize.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_model_normalize.py",
-      "sha256": "d76dd7545a3c6a5168fa26c039f1af25929bc8265abfd66cc6e9d426e598ee6e",
+      "sha256": "39bcb1d49ec4fb2bf1620a32a80673e6c02373df6a974a4b368a007622f8650d",
       "mode": "0644"
     },
     {
@@ -44005,7 +44005,7 @@
     {
       "source": "tests/hermes_cli/test_provider_live_curated_merge.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_provider_live_curated_merge.py",
-      "sha256": "5741fb56dfa59ab4319adf64965ad41e7b218a2f351ed1edf1d29d4b30f6b47c",
+      "sha256": "97fd4e1084733058e6fd90a31efcd20596c8356e03f0aa33d69f21cdf06a9a97",
       "mode": "0644"
     },
     {
@@ -46183,7 +46183,7 @@
     {
       "source": "tests/plugins/model_providers/test_deepseek_profile.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/plugins/model_providers/test_deepseek_profile.py",
-      "sha256": "5e9b9081fd19b993414f29c9fcf03c67a5d52d041fdae21829047d57f56ff42d",
+      "sha256": "2091404ddad54a4fcf3ca449b234932a02499b17efc4c7f753e27dd2eaff7dee",
       "mode": "0644"
     },
     {
@@ -62969,5 +62969,5 @@
       "mode": "0644"
     }
   ],
-  "tree_sha256": "ec89880da3c3ff6b798140ce6416154698c528c4d4b85db1a68de4468c929441"
+  "tree_sha256": "24ac5a41e0377e64e97285614b78910870fd99dddb060fbfadd2d6567fdf3c87"
 }
