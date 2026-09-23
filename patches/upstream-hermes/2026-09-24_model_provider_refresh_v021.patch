@@ -1,0 +1,989 @@
+diff --git a/agent/model_metadata.py b/agent/model_metadata.py
+index af6467c..7e7b240 100644
+--- a/agent/model_metadata.py
++++ b/agent/model_metadata.py
+@@ -479,15 +479,15 @@ DEFAULT_CONTEXT_LENGTHS = {
+     "gemma-4-31b": 256000,
+     "gemma-3": 131072,
+     "gemma": 8192,  # fallback for older gemma models
+-    # DeepSeek — V4 family ships with a 1M context window. The legacy
+-    # aliases ``deepseek-chat`` / ``deepseek-reasoner`` are server-side
+-    # mapped to the non-thinking / thinking modes of ``deepseek-v4-flash``
+-    # and inherit the same 1M window. The ``deepseek`` substring entry
++    # DeepSeek — current V4.1 Flash and V4 Pro ship with a 1M context window.
++    # Legacy chat/reasoner/V4 Flash identifiers remain compatibility aliases
++    # for V4.1 Flash and inherit the same 1M window. The ``deepseek`` substring entry
+     # below remains as a 128K fallback for older / unknown DeepSeek model
+     # ids (e.g. via custom endpoints).
+     # https://api-docs.deepseek.com/zh-cn/quick_start/pricing
++    "deepseek-flash": 1_000_000,
+     "deepseek-v4-pro": 1_000_000,
+-    "deepseek-v4-flash": 1_000_000,
++    "deepseek-v4-flash": 1_000_000,  # retired compatibility ID
+     "deepseek-chat": 1_000_000,
+     "deepseek-reasoner": 1_000_000,
+     "deepseek": 128000,
+diff --git a/agent/reasoning_effort.py b/agent/reasoning_effort.py
+index b6d89b0..efa2ba2 100644
+--- a/agent/reasoning_effort.py
++++ b/agent/reasoning_effort.py
+@@ -127,10 +127,15 @@ GLM52_OVERRIDES: dict[str, str] = {"xhigh": "max"}
+ GLM53_EFFORTS: tuple[str, ...] = ("low", "medium", "high", "max")
+ GLM53_OVERRIDES: dict[str, str] = {"xhigh": "max"}
+ 
+-#: DeepSeek V4 OpenAI-compat endpoint: low/medium/high/max; ``xhigh``
+-#: requests the top tier (matches the shipped profile mapping).
+-DEEPSEEK_V4_EFFORTS: tuple[str, ...] = ("low", "medium", "high", "max")
+-DEEPSEEK_V4_OVERRIDES: dict[str, str] = {"xhigh": "max"}
++#: DeepSeek V4.1 Flash / V4 Pro: enabled reasoning accepts low/high/max.
++#: Compatibility: minimal->low, medium->high, xhigh->high; Hermes ultra->max.
++DEEPSEEK_V4_EFFORTS: tuple[str, ...] = ("low", "high", "max")
++DEEPSEEK_V4_OVERRIDES: dict[str, str] = {
++    "minimal": "low",
++    "medium": "high",
++    "xhigh": "high",
++    "ultra": "max",
++}
+ 
+ #: Ollama Cloud /v1/chat/completions: accepts {none, low, medium, high, max};
+ #: rejects ``minimal`` with HTTP 400. ``xhigh`` requests the top tier.
+diff --git a/agent/usage_pricing.py b/agent/usage_pricing.py
+index 9af08f6..98943ab 100644
+--- a/agent/usage_pricing.py
++++ b/agent/usage_pricing.py
+@@ -516,52 +516,62 @@ _OFFICIAL_DOCS_PRICING: Dict[tuple[str, str], PricingEntry] = {
+         pricing_version="anthropic-pricing-2026-05",
+     ),
+     # DeepSeek
+-    # Snapshot of https://api-docs.deepseek.com/quick_start/pricing (2026-07).
+-    # deepseek-chat / deepseek-reasoner are deprecated 2026-07-24 and now alias
+-    # deepseek-v4-flash's non-thinking / thinking modes — same rates.
++    # Current snapshot 2026-09-23. DeepSeek publishes peak/off-peak rates;
++    # this static estimator uses peak rates so it does not under-report.
++    (
++        "deepseek",
++        "deepseek-flash",
++    ): PricingEntry(
++        input_cost_per_million=Decimal("0.30"),
++        output_cost_per_million=Decimal("1.20"),
++        cache_read_cost_per_million=Decimal("0.006"),
++        source="official_docs_snapshot",
++        source_url="https://api-docs.deepseek.com/quick_start/pricing",
++        pricing_version="deepseek-pricing-2026-09-peak",
++    ),
+     (
+         "deepseek",
+         "deepseek-chat",
+     ): PricingEntry(
+-        input_cost_per_million=Decimal("0.14"),
+-        output_cost_per_million=Decimal("0.28"),
+-        cache_read_cost_per_million=Decimal("0.0028"),
++        input_cost_per_million=Decimal("0.30"),
++        output_cost_per_million=Decimal("1.20"),
++        cache_read_cost_per_million=Decimal("0.006"),
+         source="official_docs_snapshot",
+         source_url="https://api-docs.deepseek.com/quick_start/pricing",
+-        pricing_version="deepseek-pricing-2026-07",
++        pricing_version="deepseek-pricing-2026-09-peak",
+     ),
+     (
+         "deepseek",
+         "deepseek-reasoner",
+     ): PricingEntry(
+-        input_cost_per_million=Decimal("0.14"),
+-        output_cost_per_million=Decimal("0.28"),
+-        cache_read_cost_per_million=Decimal("0.0028"),
++        input_cost_per_million=Decimal("0.30"),
++        output_cost_per_million=Decimal("1.20"),
++        cache_read_cost_per_million=Decimal("0.006"),
+         source="official_docs_snapshot",
+         source_url="https://api-docs.deepseek.com/quick_start/pricing",
+-        pricing_version="deepseek-pricing-2026-07",
++        pricing_version="deepseek-pricing-2026-09-peak",
+     ),
+     (
+         "deepseek",
+-        "deepseek-v4-pro",
++        "deepseek-v4-flash",
+     ): PricingEntry(
+-        input_cost_per_million=Decimal("0.435"),
+-        output_cost_per_million=Decimal("0.87"),
+-        cache_read_cost_per_million=Decimal("0.003625"),
++        input_cost_per_million=Decimal("0.30"),
++        output_cost_per_million=Decimal("1.20"),
++        cache_read_cost_per_million=Decimal("0.006"),
+         source="official_docs_snapshot",
+         source_url="https://api-docs.deepseek.com/quick_start/pricing",
+-        pricing_version="deepseek-pricing-2026-07",
++        pricing_version="deepseek-pricing-2026-09-peak",
+     ),
+     (
+         "deepseek",
+-        "deepseek-v4-flash",
++        "deepseek-v4-pro",
+     ): PricingEntry(
+-        input_cost_per_million=Decimal("0.14"),
+-        output_cost_per_million=Decimal("0.28"),
+-        cache_read_cost_per_million=Decimal("0.0028"),
++        input_cost_per_million=Decimal("1.32"),
++        output_cost_per_million=Decimal("3.96"),
++        cache_read_cost_per_million=Decimal("0.044"),
+         source="official_docs_snapshot",
+         source_url="https://api-docs.deepseek.com/quick_start/pricing",
+-        pricing_version="deepseek-pricing-2026-07",
++        pricing_version="deepseek-pricing-2026-09-peak",
+     ),
+     # Google Gemini
+     (
+diff --git a/hermes_cli/codex_models.py b/hermes_cli/codex_models.py
+index 2b17802..2344080 100644
+--- a/hermes_cli/codex_models.py
++++ b/hermes_cli/codex_models.py
+@@ -13,6 +13,11 @@ import os
+ logger = logging.getLogger(__name__)
+ 
+ DEFAULT_CODEX_MODELS: List[str] = [
++    # GPT-6 family: live-verified through this account's Codex OAuth catalog.
++    # Keep these as offline fallbacks only; live OAuth discovery stays authoritative.
++    "gpt-6-astra",
++    "gpt-6-sol",
++    "gpt-6-luna",
+     # GPT-5.6 series (Sol/Terra/Luna). The public API exposes "-pro"
+     # variants, but the ChatGPT Codex OAuth backend rejects them with HTTP 400,
+     # so the curated offline fallback must not surface those dead choices.
+diff --git a/hermes_cli/model_normalize.py b/hermes_cli/model_normalize.py
+index 21d10c5..c2ae07a 100644
+--- a/hermes_cli/model_normalize.py
++++ b/hermes_cli/model_normalize.py
+@@ -147,17 +147,19 @@ _DEEPSEEK_REASONER_KEYWORDS: frozenset[str] = frozenset({
+     "cot",
+ })
+ 
+-# Retired on 2026-07-24 15:59 UTC. Official docs: both aliases mapped to
+-# deepseek-v4-flash (chat = non-thinking, reasoner = thinking). Thinking
+-# mode itself is controlled by extra_body.thinking on the DeepSeek profile.
++# Legacy chat/reasoner aliases and the retired V4 Flash identifiers map to
++# the current canonical ``deepseek-flash`` route. Thinking mode itself is
++# controlled by extra_body.thinking on the DeepSeek profile.
+ _DEEPSEEK_RETIRED_ALIASES: frozenset[str] = frozenset({
+     "deepseek-chat",
+     "deepseek-reasoner",
++    "deepseek-v4-flash",
++    "deepseek-v4-flash-vision-exp",
+ })
+ 
+ _DEEPSEEK_CANONICAL_MODELS: frozenset[str] = frozenset({
+-    "deepseek-v4-pro",     # V4 Pro — first-class model ID
+-    "deepseek-v4-flash",   # V4 Flash — first-class model ID
++    "deepseek-flash",      # V4.1 Flash — canonical current model ID
++    "deepseek-v4-pro",     # V4 Pro — still served
+ })
+ 
+ # First-class V-series IDs (``deepseek-v4-pro``, ``deepseek-v4-flash``,
+@@ -173,15 +175,10 @@ def _normalize_for_deepseek(model_name: str) -> str:
+     """Map a model input to a DeepSeek-accepted identifier.
+ 
+     Rules:
+-    - Retired aliases ``deepseek-chat`` / ``deepseek-reasoner`` (cut off
+-      2026-07-24) -> ``deepseek-v4-flash``.
+-    - Already a known canonical (``deepseek-v4-pro``/``deepseek-v4-flash``)
+-      -> pass through.
+-    - Matches the V-series pattern ``deepseek-v<digit>...`` -> pass through
+-      (covers future ``deepseek-v5-*`` and dated variants without a release).
+-    - Contains a reasoner keyword (r1, think, reasoning, cot, reasoner)
+-      -> ``deepseek-v4-flash``.
+-    - Everything else -> ``deepseek-v4-flash``.
++    - Legacy chat/reasoner and retired V4 Flash identifiers -> ``deepseek-flash``.
++    - Current canonical ``deepseek-flash`` / ``deepseek-v4-pro`` -> pass through.
++    - Other V-series IDs -> pass through for forward compatibility.
++    - Reasoner-like or unknown DeepSeek names -> ``deepseek-flash``.
+ 
+     Args:
+         model_name: The bare model name (vendor prefix already stripped).
+@@ -194,7 +191,7 @@ def _normalize_for_deepseek(model_name: str) -> str:
+     # Retired aliases must rewrite — DeepSeek returns HTTP 400 after the
+     # 2026-07-24 cut-off if these IDs are sent on the wire.
+     if bare in _DEEPSEEK_RETIRED_ALIASES:
+-        return "deepseek-v4-flash"
++        return "deepseek-flash"
+ 
+     if bare in _DEEPSEEK_CANONICAL_MODELS:
+         return bare
+@@ -206,9 +203,9 @@ def _normalize_for_deepseek(model_name: str) -> str:
+     # Check for reasoner-like keywords anywhere in the name
+     for keyword in _DEEPSEEK_REASONER_KEYWORDS:
+         if keyword in bare:
+-            return "deepseek-v4-flash"
++            return "deepseek-flash"
+ 
+-    return "deepseek-v4-flash"
++    return "deepseek-flash"
+ 
+ 
+ # ---------------------------------------------------------------------------
+diff --git a/hermes_cli/model_switch.py b/hermes_cli/model_switch.py
+index 6a13ce7..60c87a4 100644
+--- a/hermes_cli/model_switch.py
++++ b/hermes_cli/model_switch.py
+@@ -4123,6 +4123,17 @@ def list_authenticated_providers(
+     except Exception:
+         pass
+ 
++    # Owner-locked OpenCode Zen policy is free-only. Current free chat SKUs
++    # are not callable from this external Hermes client, so the base catalog
++    # must hide Zen too. This keeps text-fallback platforms (including
++    # WhatsApp Cloud) aligned with interactive pickers instead of surfacing an
++    # empty/dead provider row. The interactive filter below remains as
++    # defense-in-depth against injected/stale rows.
++    results = [
++        row for row in results
++        if str(row.get("slug", "")).strip().lower() != "opencode-zen"
++    ]
++
+     # Surface a custom / uncurated model the user selected via the CLI.
+     # Each row's model list is its curated/live catalog, so a model the user set
+     # with `/model <provider>/<uncurated-name>` would otherwise be invisible in
+@@ -4214,6 +4225,10 @@ def list_picker_providers(
+     filtered: List[dict] = []
+     for p in providers:
+         slug = str(p.get("slug", "")).lower()
++        if slug == "opencode-zen":
++            # Free-only policy: hide Zen even if stale/current model state was
++            # injected upstream. Jev is System One, not a chat picker model.
++            continue
+         if slug == "openrouter":
+             try:
+                 live = fetch_openrouter_models()
+diff --git a/hermes_cli/models.py b/hermes_cli/models.py
+index eac78f4..6433c02 100644
+--- a/hermes_cli/models.py
++++ b/hermes_cli/models.py
+@@ -467,8 +467,8 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
+         "claude-haiku-4-5-20251001",
+     ],
+     "deepseek": [
++        "deepseek-flash",
+         "deepseek-v4-pro",
+-        "deepseek-v4-flash",
+     ],
+     "xiaomi": [
+         "mimo-v2.5-pro",
+@@ -501,78 +501,11 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
+         "anthropic/claude-sonnet-4.6",
+         "openai/gpt-5.4",
+     ],
+-    # Synced against https://opencode.ai/docs/zen/ + live GET /zen/v1/models
+-    # (2026-08-20). Zen/Go are _LIVE_FIRST_PICKER_PROVIDERS, so this list is a
+-    # discovery floor — live entries lead in the picker and stale curated
+-    # names never pollute the top.
+-    "opencode-zen": [
+-        "x-preview-f-free",  # "Ox Alpha" stealth model — free, 1M ctx, ZDR
+-        "kimi-k3",
+-        "kimi-k2.5",
+-        "kimi-k2.6",
+-        "gpt-5.6-sol",
+-        "gpt-5.6-terra",
+-        "gpt-5.6-luna",
+-        "gpt-5.5",
+-        "gpt-5.5-pro",
+-        "gpt-5.4-pro",
+-        "gpt-5.4",
+-        "gpt-5.4-mini",
+-        "gpt-5.4-nano",
+-        "gpt-5.3-codex",
+-        "gpt-5.3-codex-spark",
+-        "gpt-5.2",
+-        "gpt-5.2-codex",
+-        "gpt-5.1",
+-        "gpt-5.1-codex",
+-        "gpt-5.1-codex-max",
+-        "gpt-5.1-codex-mini",
+-        "gpt-5",
+-        "gpt-5-codex",
+-        "gpt-5-nano",
+-        "claude-fable-5",
+-        "claude-opus-5",
+-        "claude-sonnet-5",
+-        "claude-opus-4-8",
+-        "claude-opus-4-7",
+-        "claude-opus-4-6",
+-        "claude-opus-4-5",
+-        "claude-sonnet-4-6",
+-        "claude-sonnet-4-5",
+-        "claude-sonnet-4",
+-        "claude-haiku-4-5",
+-        "gemini-3.7-flash",
+-        "gemini-3.6-flash",
+-        "gemini-3.5-flash",
+-        "gemini-3.5-flash-lite",
+-        "gemini-3.1-pro",
+-        "gemini-3-flash",
+-        "grok-4.6",
+-        "grok-4.5",
+-        "grok-build-0.1",
+-        "muse-spark-1.2",
+-        "minimax-m3",
+-        "minimax-m2.7",
+-        "minimax-m2.5",
+-        "glm-5.3",
+-        "glm-5.3-flash",
+-        "glm-5.2",
+-        "glm-5.1",
+-        "glm-5",
+-        "kimi-k2.7-code",
+-        "deepseek-v4-pro",
+-        "deepseek-v4-flash",
+-        "deepseek-v4-flash-free",
+-        "qwen3.6-plus",
+-        "qwen3.5-plus",
+-        "big-pickle",
+-        "mimo-v2.5-free",
+-        "hy3-free",
+-        "laguna-s-2.1-free",
+-        "nemotron-3-ultra-free",
+-        "nemotron-3.5-lightning-free",
+-        "muse-spark-1.2-contributor-free",
+-    ],
++    # Owner-locked 2026-09-23 policy: this Hermes exposes OpenCode Zen
++    # as free-tier only. Current official free chat SKUs return provider-side
++    # HTTP 403 to this honest external Hermes client, so the chat catalog
++    # fails closed. Jev 1.13 Free is usable through /systemone, not /model.
++    "opencode-zen": [],
+     # OpenCode free tier — keyless (no OpenCode account needed). This is the
+     # OFFLINE FLOOR only: provider_model_ids("opencode-free") revalidates live
+     # against GET /zen/v1/models (keyless) and filters to the anonymous free
+@@ -4022,6 +3955,11 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False)
+         return fallback_models or []
+ 
+     normalized = normalize_provider(provider)
++    if normalized == "opencode-zen":
++        # Free-only policy: every current official free generative Zen SKU
++        # rejects this external Hermes client with HTTP 403. Paid Zen models
++        # and the non-chat System One/Jev endpoint are intentionally excluded.
++        return []
+     if normalized == "openrouter":
+         return model_ids(force_refresh=force_refresh)
+     if normalized == "openai-codex":
+@@ -4536,7 +4474,7 @@ def update_provider_cache_entry(provider: str, models: list[str]) -> None:
+     """
+     try:
+         normalized = normalize_provider(provider) or (provider or "")
+-        if not normalized or not models:
++        if not normalized or not models or normalized == "opencode-zen":
+             return
+         fp = _credential_fingerprint(normalized)
+         with _cache_write_lock:
+@@ -4566,6 +4504,9 @@ def cached_provider_model_ids(
+     normalized = requested if requested == "ollama" else (normalize_provider(provider) or (provider or ""))
+     if not normalized:
+         return []
++    if normalized == "opencode-zen":
++        # Free-only fail-closed policy outranks any stale disk cache.
++        return []
+     if normalized == "ollama":
+         ttl_seconds = min(ttl_seconds, _OLLAMA_LOCAL_MODELS_CACHE_TTL)
+ 
+@@ -6608,6 +6549,19 @@ def validate_requested_model(
+             "message": "Model names cannot contain spaces.",
+         }
+ 
++    if normalized == "opencode-zen":
++        return {
++            "accepted": False,
++            "persist": False,
++            "recognized": False,
++            "message": (
++                "OpenCode Zen is configured free-only on this Hermes instance. "
++                "Its current free chat models are restricted to the OpenCode client; "
++                "paid Zen models are intentionally excluded. Jev 1.13 Free uses "
++                "the System One endpoint and is not a chat /model choice."
++            ),
++        }
++
+     # OpenRouter presets are account-scoped configurations, so direct
+     # ``@preset/<slug>`` references never appear in the public /v1/models
+     # listing. Combined ``<model>@preset/<slug>`` references are also valid;
+diff --git a/plugins/model-providers/deepseek/__init__.py b/plugins/model-providers/deepseek/__init__.py
+index 1273f51..2af672f 100644
+--- a/plugins/model-providers/deepseek/__init__.py
++++ b/plugins/model-providers/deepseek/__init__.py
+@@ -16,9 +16,9 @@ Moonshot wire shape that DeepSeek's OpenAI-compat endpoint expects:
+ Non-thinking models (``deepseek-v3-*`` variants) are left as no-ops so we
+ don't perturb the V3 wire format.
+ 
+-The legacy aliases ``deepseek-chat`` / ``deepseek-reasoner`` were retired on
+-2026-07-24.  Use ``deepseek-v4-flash`` or ``deepseek-v4-pro``; Hermes remaps
+-the retired IDs in ``hermes_cli.model_normalize``.
++The current canonical Flash route is ``deepseek-flash``. Legacy chat/reasoner
++and retired V4 Flash identifiers are normalized to it; ``deepseek-v4-pro``
++remains separately served by the native API.
+ """
+ 
+ from __future__ import annotations
+@@ -39,6 +39,8 @@ def _model_supports_thinking(model: str | None) -> bool:
+     m = (model or "").strip().lower()
+     if not m:
+         return False
++    if m == "deepseek-flash":
++        return True
+     if m.startswith("deepseek-v") and not m.startswith("deepseek-v3"):
+         # deepseek-v4-*, deepseek-v5-*, etc. — every V4+ generation has
+         # thinking. v3 explicitly excluded.
+@@ -46,8 +48,26 @@ def _model_supports_thinking(model: str | None) -> bool:
+     return False
+ 
+ 
++_RETIRED_PICKER_MODELS = frozenset({
++    "deepseek-chat",
++    "deepseek-reasoner",
++    "deepseek-v4-flash",
++    "deepseek-v4-flash-vision-exp",
++})
++
++
+ class DeepSeekProfile(ProviderProfile):
+-    """DeepSeek — extra_body.thinking + top-level reasoning_effort."""
++    """DeepSeek — current catalog filtering plus thinking controls."""
++
++    def fetch_models(self, **kwargs: Any) -> list[str] | None:
++        raw = super().fetch_models(**kwargs)
++        if not raw:
++            return raw
++        return [
++            model
++            for model in raw
++            if str(model).strip().lower() not in _RETIRED_PICKER_MODELS
++        ]
+ 
+     def build_api_kwargs_extras(
+         self, *, reasoning_config: dict | None = None, model: str | None = None, **context
+@@ -71,10 +91,9 @@ class DeepSeekProfile(ProviderProfile):
+         if not enabled:
+             return extra_body, top_level
+ 
+-        # Effort mapping via the shared vocabulary in agent.reasoning_effort
+-        # (DeepSeek V4: low/medium/high/max, xhigh rounds up to max). When no
+-        # effort is set we omit reasoning_effort so DeepSeek applies its
+-        # server default (currently high).
++        # Effort mapping via the shared vocabulary in agent.reasoning_effort.
++        # Native levels are low/high/max; minimal->low, medium/xhigh->high,
++        # and Hermes ultra->max. Unset still defers to the server default.
+         if isinstance(reasoning_config, dict):
+             from agent.reasoning_effort import (
+                 DEEPSEEK_V4_EFFORTS,
+@@ -101,11 +120,11 @@ deepseek = DeepSeekProfile(
+     description="DeepSeek — native DeepSeek API",
+     signup_url="https://platform.deepseek.com/",
+     fallback_models=(
++        "deepseek-flash",
+         "deepseek-v4-pro",
+-        "deepseek-v4-flash",
+     ),
+     base_url="https://api.deepseek.com/v1",
+-    default_aux_model="deepseek-v4-flash",
++    default_aux_model="deepseek-flash",
+ )
+ 
+ register_provider(deepseek)
+diff --git a/tests/agent/test_model_metadata.py b/tests/agent/test_model_metadata.py
+index a6334eb..1baa974 100644
+--- a/tests/agent/test_model_metadata.py
++++ b/tests/agent/test_model_metadata.py
+@@ -334,11 +334,12 @@ class TestDefaultContextLengths:
+                 api_key="oauth-token",
+             ) == 256000
+ 
+-    def test_deepseek_v4_models_1m_context(self):
++    def test_deepseek_current_and_legacy_models_1m_context(self):
+         from agent.model_metadata import get_model_context_length
+         from unittest.mock import patch as mock_patch
+ 
+         expected_keys = {
++            "deepseek-flash": 1_000_000,
+             "deepseek-v4-pro": 1_000_000,
+             "deepseek-v4-flash": 1_000_000,
+             "deepseek-chat": 1_000_000,
+@@ -358,8 +359,10 @@ class TestDefaultContextLengths:
+              mock_patch("agent.model_metadata.fetch_endpoint_model_metadata", return_value={}), \
+              mock_patch("agent.model_metadata.get_cached_context_length", return_value=None):
+             cases = [
++                ("deepseek-flash", 1_000_000),
+                 ("deepseek-v4-pro", 1_000_000),
+                 ("deepseek-v4-flash", 1_000_000),
++                ("deepseek/deepseek-flash", 1_000_000),
+                 ("deepseek/deepseek-v4-pro", 1_000_000),
+                 ("deepseek/deepseek-v4-flash", 1_000_000),
+                 ("deepseek-chat", 1_000_000),
+diff --git a/tests/agent/test_usage_pricing.py b/tests/agent/test_usage_pricing.py
+index 1b6862a..cd44209 100644
+--- a/tests/agent/test_usage_pricing.py
++++ b/tests/agent/test_usage_pricing.py
+@@ -84,13 +84,23 @@ def test_normalize_usage_openai_reads_top_level_anthropic_cache_fields():
+ 
+ 
+ 
++def test_deepseek_v41_flash_peak_pricing_entry_exists():
++    """Static estimator uses the documented peak rate for current Flash."""
++    entry = get_pricing_entry("deepseek-flash", provider="deepseek")
++    assert entry is not None
++    assert float(entry.input_cost_per_million) == 0.30
++    assert float(entry.output_cost_per_million) == 1.20
++    assert float(entry.cache_read_cost_per_million) == 0.006
++
++
++
+ def test_deepseek_v4_pro_pricing_entry_exists():
+     """Regression test: deepseek-v4-pro must have a pricing entry.
+ 
+     Before this fix, deepseek-v4-pro sessions showed as unknown cost
+     in hermes insights because the _OFFICIAL_DOCS_PRICING table had no
+-    entry for that model.  See #24218.  Rates track the 2026-07 price cut
+-    ($1.74/$3.48 → $0.435/$0.87).
++    entry for that model. See #24218. Current 2026-09 pricing is time-tiered;
++    Hermes' static estimator uses conservative peak rates.
+     """
+     entry = get_pricing_entry(
+         "deepseek-v4-pro",
+@@ -100,21 +110,18 @@ def test_deepseek_v4_pro_pricing_entry_exists():
+     assert entry is not None
+     assert entry.input_cost_per_million is not None
+     assert entry.output_cost_per_million is not None
+-    assert float(entry.input_cost_per_million) == 0.435
+-    assert float(entry.output_cost_per_million) == 0.87
+-    assert float(entry.cache_read_cost_per_million) == 0.003625
++    assert float(entry.input_cost_per_million) == 1.32
++    assert float(entry.output_cost_per_million) == 3.96
++    assert float(entry.cache_read_cost_per_million) == 0.044
+ 
+ 
+ 
+ 
+-def test_deepseek_deprecated_aliases_price_as_v4_flash():
+-    """Invariant: deepseek-chat / deepseek-reasoner are deprecated aliases for
+-    deepseek-v4-flash's non-thinking / thinking modes (deprecation 2026-07-24)
+-    — they must bill at identical rates to the flash entry, or sessions on the
+-    legacy names over/under-report cost."""
+-    flash = get_pricing_entry("deepseek-v4-flash", provider="deepseek")
++def test_deepseek_deprecated_aliases_price_as_current_flash():
++    """Retired DeepSeek aliases must bill at the canonical V4.1 Flash rate."""
++    flash = get_pricing_entry("deepseek-flash", provider="deepseek")
+     assert flash is not None
+-    for alias in ("deepseek-chat", "deepseek-reasoner"):
++    for alias in ("deepseek-chat", "deepseek-reasoner", "deepseek-v4-flash"):
+         entry = get_pricing_entry(alias, provider="deepseek")
+         assert entry is not None, alias
+         assert entry.input_cost_per_million == flash.input_cost_per_million, alias
+diff --git a/tests/hermes_cli/test_codex_models.py b/tests/hermes_cli/test_codex_models.py
+index 50a5d51..76f8078 100644
+--- a/tests/hermes_cli/test_codex_models.py
++++ b/tests/hermes_cli/test_codex_models.py
+@@ -35,6 +35,18 @@ def test_curated_codex_fallback_excludes_chatgpt_rejected_pro_slugs(monkeypatch)
+     assert CHATGPT_REJECTED_CODEX_PRO_SLUGS.isdisjoint(model_ids)
+ 
+ 
++def test_gpt6_offline_fallback_matches_live_catalog_without_synthetic_900k():
++    expected = {"gpt-6-astra", "gpt-6-sol", "gpt-6-luna"}
++
++    assert expected.issubset(DEFAULT_CODEX_MODELS)
++    offline = get_codex_model_ids(access_token=None)
++    assert expected.issubset(offline)
++    assert not any(
++        model.startswith("gpt-6-") and model.endswith("-900k")
++        for model in offline
++    )
++
++
+ def test_picker_synthesizes_900k_variants_for_verified_slugs():
+     """Every live-verified large-context slug gets an explicit ``-900k``
+     picker variant directly after its base entry; slugs that genuinely
+diff --git a/tests/hermes_cli/test_model_normalize.py b/tests/hermes_cli/test_model_normalize.py
+index 765525f..e9b235d 100644
+--- a/tests/hermes_cli/test_model_normalize.py
++++ b/tests/hermes_cli/test_model_normalize.py
+@@ -124,9 +124,17 @@ class TestDeepseekCanonicalAndReasonerMapping:
+     def test_provider_path_rewrites_reasoner(self):
+         assert (
+             normalize_model_for_provider("deepseek-reasoner", "deepseek")
+-            == "deepseek-v4-flash"
++            == "deepseek-flash"
+         )
+ 
++    @pytest.mark.parametrize("model", [
++        "deepseek-v4-flash",
++        "deepseek-v4-flash-vision-exp",
++        "deepseek/deepseek-v4-flash",
++    ])
++    def test_retired_v4_flash_ids_rewrite_to_current_flash(self, model):
++        assert normalize_model_for_provider(model, "deepseek") == "deepseek-flash"
++
+     @pytest.mark.parametrize("model", [
+         "deepseek-r1",
+         "deepseek-r1-0528",
+@@ -134,8 +142,8 @@ class TestDeepseekCanonicalAndReasonerMapping:
+         "deepseek-reasoning-preview",
+         "deepseek-cot-experimental",
+     ])
+-    def test_reasoner_keywords_map_to_v4_flash(self, model):
+-        assert _normalize_for_deepseek(model) == "deepseek-v4-flash"
++    def test_reasoner_keywords_map_to_current_flash(self, model):
++        assert _normalize_for_deepseek(model) == "deepseek-flash"
+ 
+ 
+ # ── Regression: issue #78796 ───────────────────────────────────────────
+@@ -186,4 +194,3 @@ class TestIssue78796NvidiaPrefixRepair:
+             normalize_model_for_provider("claude-sonnet-4.6", "openrouter")
+             == "anthropic/claude-sonnet-4.6"
+         )
+-
+diff --git a/tests/hermes_cli/test_opencode_zen_free_only_20260923.py b/tests/hermes_cli/test_opencode_zen_free_only_20260923.py
+new file mode 100644
+index 0000000..5e0a2ef
+--- /dev/null
++++ b/tests/hermes_cli/test_opencode_zen_free_only_20260923.py
+@@ -0,0 +1,97 @@
++from __future__ import annotations
++
++import time
++from unittest.mock import patch
++
++import hermes_cli.model_switch as switch_mod
++import hermes_cli.models as models_mod
++from hermes_cli.model_switch import list_picker_providers
++from hermes_cli.models import (
++    cached_provider_model_ids,
++    provider_model_ids,
++    validate_requested_model,
++)
++
++
++def test_zen_provider_catalog_fails_closed_even_if_live_or_curated_has_models(monkeypatch):
++    class _Profile:
++        auth_type = "api_key"
++        base_url = "https://opencode.ai/zen/v1"
++        fallback_models = ("gpt-6-sol", "big-pickle")
++
++        def fetch_models(self, **_kwargs):
++            return ["gpt-6-sol", "big-pickle", "jev-1.13-free"]
++
++    monkeypatch.setattr("providers.get_provider_profile", lambda _name: _Profile())
++    monkeypatch.setattr(
++        "hermes_cli.auth.resolve_api_key_provider_credentials",
++        lambda _name: {"api_key": "test", "base_url": "https://opencode.ai/zen/v1"},
++    )
++    monkeypatch.setattr(models_mod, "_merge_with_models_dev", lambda _provider, curated: list(curated))
++    assert provider_model_ids("opencode-zen", force_refresh=True) == []
++
++
++def test_zen_stale_cache_cannot_resurrect_models(monkeypatch):
++    monkeypatch.setattr(
++        models_mod,
++        "_load_provider_models_cache",
++        lambda: {
++            "opencode-zen": {
++                "fp": "same",
++                "at": time.time(),
++                "models": ["gpt-6-sol", "big-pickle"],
++            }
++        },
++    )
++    monkeypatch.setattr(models_mod, "_credential_fingerprint", lambda _provider: "same")
++    assert cached_provider_model_ids("opencode-zen") == []
++def test_zen_typed_model_requests_are_rejected_before_live_validation():
++    for model in (
++        "gpt-6-sol",
++        "big-pickle",
++        "space-bunny-free",
++        "mimo-v2.6-flash-free",
++        "muse-spark-1.3-contributor-free",
++        "jev-1.13-free",
++    ):
++        result = validate_requested_model(
++            model,
++            "opencode-zen",
++            api_key="test-key",
++            base_url="https://opencode.ai/zen/v1",
++        )
++        assert result["accepted"] is False
++        assert result["persist"] is False
++        assert result["recognized"] is False
++        assert "free-only" in (result["message"] or "").lower()
++
++
++def test_shared_picker_hides_zen_even_if_current_provider_row_contains_old_model(monkeypatch):
++    monkeypatch.setattr(
++        switch_mod,
++        "list_authenticated_providers",
++        lambda **_kwargs: [
++            {
++                "slug": "opencode-zen",
++                "name": "OpenCode Zen",
++                "models": ["gpt-6-sol"],
++                "total_models": 1,
++                "is_current": True,
++                "is_user_defined": False,
++            },
++            {
++                "slug": "deepseek",
++                "name": "DeepSeek",
++                "models": ["deepseek-flash"],
++                "total_models": 1,
++                "is_current": False,
++                "is_user_defined": False,
++            },
++        ],
++    )
++    rows = list_picker_providers(
++        current_provider="opencode-zen",
++        current_model="gpt-6-sol",
++    )
++    assert all(row["slug"] != "opencode-zen" for row in rows)
++    assert any(row["slug"] == "deepseek" for row in rows)
+diff --git a/tests/hermes_cli/test_opencode_zen_model_limit.py b/tests/hermes_cli/test_opencode_zen_model_limit.py
+index d766b04..060e158 100644
+--- a/tests/hermes_cli/test_opencode_zen_model_limit.py
++++ b/tests/hermes_cli/test_opencode_zen_model_limit.py
+@@ -1,15 +1,14 @@
+-"""Regression tests for OpenCode Zen model picker limits."""
++"""Regression tests for the OpenCode Zen free-only picker policy."""
+ 
+ import os
+ from unittest.mock import patch
+ 
+ import hermes_cli.providers as providers_mod
+-from hermes_cli.model_switch import list_authenticated_providers
++from hermes_cli.model_switch import list_authenticated_providers, list_picker_providers
+ 
+ 
+-def test_opencode_zen_lists_all_models_while_other_providers_remain_capped(monkeypatch):
+-    """OpenCode Zen is an aggregator product, so the picker must expose its full catalog."""
+-    zen_models = [f"zen-model-{i}" for i in range(57)]
++def test_opencode_zen_is_hidden_while_other_providers_remain_capped(monkeypatch):
++    """Zen has no callable free chat models from Hermes, so hide its picker row."""
+     deepseek_models = [f"deepseek-model-{i}" for i in range(57)]
+ 
+     monkeypatch.setattr(
+@@ -27,7 +26,7 @@ def test_opencode_zen_lists_all_models_while_other_providers_remain_capped(monke
+     monkeypatch.setattr(
+         "hermes_cli.models.cached_provider_model_ids",
+         lambda provider: {
+-            "opencode-zen": zen_models,
++            "opencode-zen": [],
+             "deepseek": deepseek_models,
+         }.get(provider, []),
+     )
+@@ -40,12 +39,38 @@ def test_opencode_zen_lists_all_models_while_other_providers_remain_capped(monke
+         },
+         clear=False,
+     ):
+-        providers = list_authenticated_providers(max_models=50)
++        providers = list_picker_providers(max_models=50)
+ 
+-    opencode_zen = next(p for p in providers if p["slug"] == "opencode-zen")
++    assert all(p["slug"] != "opencode-zen" for p in providers)
+     deepseek = next(p for p in providers if p["slug"] == "deepseek")
+-
+-    assert opencode_zen["models"] == zen_models
+-    assert opencode_zen["total_models"] == len(zen_models)
+     assert deepseek["models"] == deepseek_models[:50]
+     assert deepseek["total_models"] == len(deepseek_models)
++
++
++def test_opencode_zen_is_hidden_from_text_fallback_catalog(monkeypatch):
++    """WhatsApp/text fallback must not surface a dead Zen provider row."""
++    monkeypatch.setattr(
++        "agent.models_dev.PROVIDER_TO_MODELS_DEV",
++        {"opencode-zen": "opencode"},
++    )
++    monkeypatch.setattr(
++        "agent.models_dev.fetch_models_dev",
++        lambda: {"opencode": {}},
++    )
++    monkeypatch.setattr(providers_mod, "HERMES_OVERLAYS", {})
++    monkeypatch.setattr(
++        "hermes_cli.models.cached_provider_model_ids",
++        lambda provider: [] if provider == "opencode-zen" else [],
++    )
++
++    with patch.dict(
++        os.environ,
++        {"OPENCODE_ZEN_API_KEY": "test-zen-key"},
++        clear=False,
++    ):
++        providers = list_authenticated_providers(
++            max_models=50,
++            probe_custom_providers=False,
++        )
++
++    assert all(p["slug"] != "opencode-zen" for p in providers)
+diff --git a/tests/hermes_cli/test_provider_live_curated_merge.py b/tests/hermes_cli/test_provider_live_curated_merge.py
+index d4493ba..5ca4e65 100644
+--- a/tests/hermes_cli/test_provider_live_curated_merge.py
++++ b/tests/hermes_cli/test_provider_live_curated_merge.py
+@@ -7,9 +7,8 @@ Guards two contracts:
+   still appear in the merged result (nothing is dropped).
+ * #46309 / #49129 — merge *order* is per-provider. Single providers
+   (kimi, zai) stay **curated-first** so a deliberately surfaced newest model
+-  leads even when the live API lags. ``_LIVE_FIRST_PICKER_PROVIDERS``
+-  (OpenCode Zen / Go) flip to **live-first** because their live API is the
+-  authoritative catalog and stale curated entries must not lead the picker.
++  leads even when the live API lags. OpenCode Go remains live-first. This
++  installation treats OpenCode Zen separately as free-only and fail-closed.
+ """
+ 
+ from unittest.mock import MagicMock, patch
+@@ -59,6 +58,34 @@ class TestGenericProviderLiveCuratedMerge:
+         assert result.count("glm-5") == 1
+ 
+ 
++    def test_deepseek_native_picker_filters_retired_flash_aliases(self):
++        import model_tools  # noqa: F401
++        import providers
++        from providers.base import ProviderProfile
++
++        profile = providers.get_provider_profile("deepseek")
++        assert profile is not None
++        live = [
++            "deepseek-v4-flash",
++            "deepseek-v4-flash-vision-exp",
++            "deepseek-flash",
++            "deepseek-v4-pro",
++        ]
++        with (
++            patch.object(ProviderProfile, "fetch_models", return_value=live),
++            patch("providers.get_provider_profile", return_value=profile),
++            patch(
++                "hermes_cli.auth.resolve_api_key_provider_credentials",
++                return_value={"api_key": "k", "base_url": "https://api.deepseek.com/v1"},
++            ),
++        ):
++            result = provider_model_ids("deepseek", force_refresh=True)
++
++        assert result[:2] == ["deepseek-flash", "deepseek-v4-pro"]
++        assert "deepseek-v4-flash" not in result
++        assert "deepseek-v4-flash-vision-exp" not in result
++
++
+     def test_no_models_dropped_either_direction(self):
+         """Every live AND curated model survives the merge for both modes."""
+         live = ["a", "b"]
+@@ -74,15 +101,13 @@ class TestGenericProviderLiveCuratedMerge:
+             zai_result = set(provider_model_ids("zai"))
+         assert {"a", "b", "c"} <= zai_result
+ 
+-        # opencode-zen = live-first
+-        with (
+-            patch("providers.get_provider_profile", return_value=self._make_profile(live)),
+-            patch(
+-                "hermes_cli.auth.resolve_api_key_provider_credentials",
+-                return_value={"api_key": "k", "base_url": ""},
+-            ),
+-            patch.dict("hermes_cli.models._PROVIDER_MODELS", {"opencode-zen": ["c", "b"]}),
++        # opencode-zen is owner-locked free-only. Its current free chat
++        # models are provider-restricted to OpenCode clients, so generic
++        # live+curated merge must never resurrect paid/stale picker choices.
++        with patch.dict(
++            "hermes_cli.models._PROVIDER_MODELS",
++            {"opencode-zen": ["c", "b"]},
+         ):
+-            zen_result = set(provider_model_ids("opencode-zen"))
+-        assert {"a", "b", "c"} <= zen_result
++            zen_result = provider_model_ids("opencode-zen")
++        assert zen_result == []
+ 
+diff --git a/tests/plugins/model_providers/test_deepseek_profile.py b/tests/plugins/model_providers/test_deepseek_profile.py
+index db974f6..9598f26 100644
+--- a/tests/plugins/model_providers/test_deepseek_profile.py
++++ b/tests/plugins/model_providers/test_deepseek_profile.py
+@@ -45,21 +45,31 @@ class TestDeepSeekThinkingWireShape:
+         assert top_level == {}
+ 
+ 
+-    @pytest.mark.parametrize("effort", ["low", "medium", "high"])
+-    def test_standard_efforts_pass_through(self, deepseek_profile, effort):
++    @pytest.mark.parametrize(
++        "effort,expected",
++        [("minimal", "low"), ("low", "low"), ("medium", "high"), ("high", "high")],
++    )
++    def test_standard_efforts_follow_current_deepseek_mapping(
++        self, deepseek_profile, effort, expected
++    ):
+         _, top_level = deepseek_profile.build_api_kwargs_extras(
+             reasoning_config={"enabled": True, "effort": effort},
+-            model="deepseek-v4-pro",
++            model="deepseek-flash",
+         )
+-        assert top_level == {"reasoning_effort": effort}
++        assert top_level == {"reasoning_effort": expected}
+ 
+-    @pytest.mark.parametrize("effort", ["xhigh", "max", "MAX", "  Max  "])
+-    def test_xhigh_and_max_normalize_to_max(self, deepseek_profile, effort):
++    @pytest.mark.parametrize(
++        "effort,expected",
++        [("xhigh", "high"), ("max", "max"), ("MAX", "max"), ("  Max  ", "max"), ("ultra", "max")],
++    )
++    def test_upper_efforts_follow_current_deepseek_mapping(
++        self, deepseek_profile, effort, expected
++    ):
+         _, top_level = deepseek_profile.build_api_kwargs_extras(
+             reasoning_config={"enabled": True, "effort": effort},
+-            model="deepseek-v4-pro",
++            model="deepseek-flash",
+         )
+-        assert top_level == {"reasoning_effort": "max"}
++        assert top_level == {"reasoning_effort": expected}
+ 
+     def test_explicitly_disabled_sends_disabled_marker(self, deepseek_profile):
+         """``reasoning_config.enabled=False`` → ``thinking.type=disabled``.
+@@ -104,6 +114,7 @@ class TestDeepSeekModelGating:
+     @pytest.mark.parametrize(
+         "model",
+         [
++            "deepseek-flash",
+             "deepseek-v4-pro",
+             "deepseek-v4-flash",
+             "deepseek-v4-future-variant",
+@@ -186,16 +197,38 @@ class TestDeepSeekAuxModel:
+     system.
+     """
+ 
+-    def test_profile_advertises_deepseek_v4_flash(self, deepseek_profile):
+-        assert deepseek_profile.default_aux_model == "deepseek-v4-flash"
++    def test_profile_advertises_current_deepseek_flash(self, deepseek_profile):
++        assert deepseek_profile.default_aux_model == "deepseek-flash"
+ 
+-    def test_fallback_models_are_v4_only(self, deepseek_profile):
++    def test_fallback_models_use_current_canonical_ids(self, deepseek_profile):
+         assert deepseek_profile.fallback_models == (
++            "deepseek-flash",
+             "deepseek-v4-pro",
+-            "deepseek-v4-flash",
+         )
+ 
+-    def test_consumer_api_returns_deepseek_v4_flash(self):
++    def test_consumer_api_returns_current_deepseek_flash(self):
+         from agent.auxiliary_client import _get_aux_model_for_provider
+-        assert _get_aux_model_for_provider("deepseek") == "deepseek-v4-flash"
++        assert _get_aux_model_for_provider("deepseek") == "deepseek-flash"
++
++
++
++def test_deepseek_live_catalog_filters_retired_flash_aliases(monkeypatch, deepseek_profile):
++    from providers.base import ProviderProfile
++
++    monkeypatch.setattr(
++        ProviderProfile,
++        "fetch_models",
++        lambda self, **kwargs: [
++            "deepseek-v4-flash",
++            "deepseek-v4-flash-vision-exp",
++            "deepseek-flash",
++            "deepseek-v4-pro",
++            "deepseek-v5-preview",
++        ],
++    )
+ 
++    assert deepseek_profile.fetch_models(api_key="test", base_url="https://api.deepseek.com/v1") == [
++        "deepseek-flash",
++        "deepseek-v4-pro",
++        "deepseek-v5-preview",
++    ]

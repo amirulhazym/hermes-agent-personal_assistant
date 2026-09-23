@@ -98,3 +98,25 @@ series is authoritative.
 13. `2026-09-24_shared_model_catalog_integration.patch` — active integration overlay for shared `/model` behavior. It removes the dead OpenCode Zen row from the base authenticated provider list so WhatsApp Cloud text fallback and Telegram interactive picker consume the same free-only fail-closed catalog. SHA-256: `5755e7b77d4fcdbcdb3368f5aec55562c4f2bacb4a3e8d2329f937d6eb45311a`.
 
 14. `2026-09-24_live_model_surface_reconciliation.patch` — active pre-release reconciliation overlay. It preserves current live upstream model-surface bytes and the minimal transitive live dependencies (`utils.py`, `hermes_cli/config.py`, `hermes_constants.py`) while retaining the Codex, DeepSeek, OpenCode Zen, and shared `/model` refresh changes. This avoids overwriting newer live source-like changes during selective deployment. SHA-256: `afb474028bd55dea66cab13ef95f1c1ef505239fc5fa6f0ecf119d629e387601`.
+
+## 2026-09-24 v0.21 live-base reconciliation
+
+The model-refresh release candidate now uses official Hermes v0.21.0 commit
+`29112bef099274229cadff79cdff7bf7b99c4b77` as the live-common base. Direct
+comparison proved 10,923 of 10,925 official source files byte-identical to the
+current live runtime; the two remaining live differences are the existing
+profile-routing overlay in `gateway/run.py` and a release-out-of-scope local
+`pyproject.toml` line removal.
+
+Active overlay replacements:
+- `2026-09-24_bounded-main-turn-auto-continue-v021.patch` — v0.21-compatible
+  rebase of the existing bounded auto-continue overlay. SHA-256:
+  `d034d3ef302d870e24be933b3fe27300d727da506763d9b0644f5a01ab362699`.
+- `2026-09-24_model_provider_refresh_v021.patch` — consolidated provider refresh
+  for Codex, DeepSeek, OpenCode Zen and shared Telegram/WhatsApp `/model`
+  catalog behavior. SHA-256:
+  `a8b114de926d7b948eb9b5de6238e3c0fab23e490288c8df1767993ce49d111a`.
+
+The earlier provider-specific overlays and the temporary stale-base live-surface
+bridge are retained as historical/source-only evidence and are not active
+deployment inputs.

@@ -14,7 +14,7 @@ RECONSTRUCT = REPO / "scripts" / "reconstruct_hermes_runtime.py"
 # The live destination is a materialized source tree without Git metadata.
 # Use the SSOT's Git object store as the pinned official-base repository.
 BASE_REPO = REPO
-LIVE_BASE = "a9611f3c6f7ff287a4f10f71a77d7c5a808ea1c8"
+LIVE_BASE = "29112bef099274229cadff79cdff7bf7b99c4b77"
 
 
 def run_reconstruct(output: Path) -> subprocess.CompletedProcess[str]:
@@ -96,76 +96,49 @@ def test_tree_manifest_is_explicit_and_matches_lock():
 
 def test_active_runtime_overlays_are_ordered_and_hash_pinned():
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
+    assert lock["official_base_sha"] == "29112bef099274229cadff79cdff7bf7b99c4b77"
     assert lock["patch_series"] == [
         {
             "order": 1,
             "id": "live-runtime-auxiliary-middleware-route",
             "path": "patches/upstream-hermes/2026-08-28_live-auxiliary-middleware-route.patch",
             "sha256": "e6f42cfc76ecf9b8c9c75a665ebe79b7ffc16f708056de3646cef6936b785f41",
-            "description": "Current live runtime overlay: route auxiliary sync completions through llm_execution middleware.",
+            "description": "Existing SSOT overlay: route auxiliary sync completions through llm_execution middleware.",
         },
         {
             "order": 2,
             "id": "live-runtime-goal-resume-counter-reset",
             "path": "patches/upstream-hermes/2026-08-28_live-goal-resume-counter-reset.patch",
             "sha256": "52b0827a7c04fa4e2a7e8247597465af6f2666bc61d437eab78c46bde8981e96",
-            "description": "Current live runtime overlay: reset goal transport/parse failure counters on resume.",
+            "description": "Existing SSOT overlay: reset goal transport/parse failure counters on resume.",
         },
         {
             "order": 3,
             "id": "candidate-runtime-harden-auxiliary-middleware-fail-closed",
             "path": "patches/upstream-hermes/2026-08-28_harden-auxiliary-middleware-fail-closed.patch",
             "sha256": "afa7cfdfc0c73b179543336496097e3193d2e8b3203031dfd9a29aed9d075eb3",
-            "description": "Candidate hardening overlay: fail closed when auxiliary execution middleware raises; not live-applied.",
+            "description": "Existing candidate hardening overlay: fail closed when auxiliary execution middleware raises.",
         },
         {
             "order": 4,
-            "id": "candidate-runtime-bounded-main-turn-auto-continue",
-            "path": "patches/upstream-hermes/2026-09-05_bounded-main-turn-auto-continue.patch",
-            "sha256": "dd6db0f5690297e236d23697cfa27e2b54c09ecc363f894a208446e1933165a8",
-            "description": "Live runtime overlay: main CLI/gateway bounded progress-aware continuation after a 300-iteration window; live-applied 2026-09-05.",
+            "id": "candidate-runtime-bounded-main-turn-auto-continue-v021",
+            "path": "patches/upstream-hermes/2026-09-24_bounded-main-turn-auto-continue-v021.patch",
+            "sha256": "d034d3ef302d870e24be933b3fe27300d727da506763d9b0644f5a01ab362699",
+            "description": "v0.21-compatible rebase of the existing bounded progress-aware main-turn auto-continue overlay.",
         },
         {
             "order": 5,
             "id": "candidate-runtime-profile-routing-fail-closed",
             "path": "patches/upstream-hermes/2026-09-11_profile-routing-fail-closed.patch",
             "sha256": "d9990d2e55bbb7553e6f6563e55a8afb65f805b8078208d9007997d67695234e",
-            "description": "Profile-routing safety overlay: reject explicit missing or unserved profiles before provider resolution.",
+            "description": "Existing profile-routing safety overlay: reject explicit missing or unserved profiles before provider resolution.",
         },
         {
             "order": 6,
-            "id": "candidate-runtime-codex-gpt6-fallback-20260923",
-            "path": "patches/upstream-hermes/2026-09-23_codex_gpt6_fallback.patch",
-            "sha256": "fc5cd55df7ec1d986b70a3feb971c92e3dd4acfd45c2f8560e8c3ece45d737c8",
-            "description": "Codex OAuth refresh: add live-verified GPT-6 Astra/Sol/Luna to offline fallback while preserving live discovery authority and avoiding unverified GPT-6 900K aliases.",
-        },
-        {
-            "order": 7,
-            "id": "candidate-runtime-deepseek-v41-refresh-20260923",
-            "path": "patches/upstream-hermes/2026-09-23_deepseek_v41_refresh.patch",
-            "sha256": "28d77f0ddf1364adc261e269acedf103e26c29ed782325d7926f3107a3096d8d",
-            "description": "Native DeepSeek refresh: canonical V4.1 Flash catalog/normalization, current reasoning-effort mapping, 1M context metadata, and current peak pricing while retaining V4 Pro.",
-        },
-        {
-            "order": 8,
-            "id": "candidate-runtime-opencode-zen-free-only-20260923",
-            "path": "patches/upstream-hermes/2026-09-23_opencode_zen_free_only.patch",
-            "sha256": "0c77301186e3f6049d3a3e185dbc46b7b9cf606144ce4bb0e6047c99af3b8714",
-            "description": "OpenCode Zen owner policy: free-tier-only chat picker fails closed against live/stale/typed bypasses; Jev remains excluded from /model because it is a System One route.",
-        },
-        {
-            "order": 9,
-            "id": "candidate-runtime-shared-model-catalog-integration-20260924",
-            "path": "patches/upstream-hermes/2026-09-24_shared_model_catalog_integration.patch",
-            "sha256": "5755e7b77d4fcdbcdb3368f5aec55562c4f2bacb4a3e8d2329f937d6eb45311a",
-            "description": "Shared /model integration: hide OpenCode Zen from the base authenticated provider list so WhatsApp text fallback and Telegram interactive picker share the same free-only fail-closed catalog.",
-        },
-        {
-            "order": 10,
-            "id": "candidate-runtime-live-model-surface-reconciliation-20260924",
-            "path": "patches/upstream-hermes/2026-09-24_live_model_surface_reconciliation.patch",
-            "sha256": "afb474028bd55dea66cab13ef95f1c1ef505239fc5fa6f0ecf119d629e387601",
-            "description": "Preserve current live upstream model-surface bytes and transitive dependencies while retaining the Codex, DeepSeek, Zen, and shared /model refresh changes.",
+            "id": "candidate-runtime-model-provider-refresh-v021-20260924",
+            "path": "patches/upstream-hermes/2026-09-24_model_provider_refresh_v021.patch",
+            "sha256": "a8b114de926d7b948eb9b5de6238e3c0fab23e490288c8df1767993ce49d111a",
+            "description": "Consolidated v0.21 model-provider refresh: Codex GPT-6 fallback, DeepSeek V4.1, OpenCode Zen free-only fail-closed, and shared Telegram/WhatsApp catalog parity.",
         },
     ]
 
@@ -178,4 +151,10 @@ def test_historical_overlays_are_retained_as_source_only():
         "patches/upstream-hermes/2026-08-19_c3-unbounded-cycle-safe-lineage.patch",
         "patches/upstream-hermes/2026-08-19_c4-shared-session-identity.patch",
         "patches/upstream-hermes/2026-08-28_live-core-usage-and-billing-route.patch",
+        "patches/upstream-hermes/2026-09-05_bounded-main-turn-auto-continue.patch",
+        "patches/upstream-hermes/2026-09-23_codex_gpt6_fallback.patch",
+        "patches/upstream-hermes/2026-09-23_deepseek_v41_refresh.patch",
+        "patches/upstream-hermes/2026-09-23_opencode_zen_free_only.patch",
+        "patches/upstream-hermes/2026-09-24_shared_model_catalog_integration.patch",
+        "patches/upstream-hermes/2026-09-24_live_model_surface_reconciliation.patch",
     }
