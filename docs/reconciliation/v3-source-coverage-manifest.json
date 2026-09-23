@@ -289,6 +289,12 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "docs/reconciliation/antigravity-model-refresh-deploy-manifest.json",
+      "source_sha256": "e133fd12518c21b3f79a1c0fa7a4b07904738027f2db9f55dae7690322e16456"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "docs/reconciliation/core-live-source-closure-20260828.md",
       "source_sha256": "51f32fa39976eafa5525c292ec8e09593b10a6cb118df7172adc139e5a48cf82"
     },
@@ -297,6 +303,12 @@
       "kind": "source-only",
       "source": "docs/reconciliation/g1-source-closure-inventory-20260828.json",
       "source_sha256": "a938dc3ec435d50cbb12efb9cf65f510658a26e8068823a2b8782c1f363b3564"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "docs/reconciliation/hermes-runtime-model-refresh-deploy-manifest.json",
+      "source_sha256": "bc90660e8fa1001420acc0e3eb1ae05bd32c1055ca06a3b561dc25036bc26dab"
     },
     {
       "destination": null,
@@ -4189,6 +4201,12 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "tests/reconciliation/test_model_refresh_selective_deploy.py",
+      "source_sha256": "70f57ba941f98f8bbf5657814e22ed404f8ee93e9620d56272e204f51d3ba9ca"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_autofix_context.py",
       "source_sha256": "c35f4813ab5c9cd609cb69a2ee71b2adef7963a6cac67fb1f0167b3877ede8a6"
     },
@@ -4249,6 +4267,6 @@
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
-  "payload_sha256": "17f8b68afcdcf1d89a22e7d7a9d772b04032112902c7f84074fc1daf3c3242a7",
+  "payload_sha256": "f735deed3d5ad87ad0056e096c5130e30befe529cd36d444ce76479c143a302d",
   "schema_version": 1
 }

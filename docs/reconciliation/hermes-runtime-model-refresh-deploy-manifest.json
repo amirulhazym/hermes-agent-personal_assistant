@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "base_sha": "29112bef099274229cadff79cdff7bf7b99c4b77",
+  "patch_series_digest": "6e6a7849ec4037f2a25cb1d2a47f10e122acf19a04730a888970356463f367de",
+  "destination_root": "/home/ubuntu/.hermes/hermes-agent",
+  "entries": [
+    {
+      "source": "agent/model_metadata.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/agent/model_metadata.py",
+      "sha256": "3caa662fa9d5d2bc3794392d1eb4db6eb9ea5ccc4d35207edaf7fabc44267340",
+      "mode": "0644"
+    },
+    {
+      "source": "agent/reasoning_effort.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/agent/reasoning_effort.py",
+      "sha256": "3e8895675db9a29922ef87becffa3dc1b14a49f9ef7b641a9969546713e85e6c",
+      "mode": "0644"
+    },
+    {
+      "source": "agent/usage_pricing.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/agent/usage_pricing.py",
+      "sha256": "f5805c27b9985ba811f99aebd8c2afd6cb352495db3b2cb73bea7490248e0c72",
+      "mode": "0644"
+    },
+    {
+      "source": "hermes_cli/codex_models.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/codex_models.py",
+      "sha256": "a770a79c88db2e9c38e87b7eeb05e9c0ae6f4f3e4743945b7804c102f2b6522e",
+      "mode": "0644"
+    },
+    {
+      "source": "hermes_cli/model_normalize.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/model_normalize.py",
+      "sha256": "bdbe47eac85b2f280dd26156c7781e78f3030694c924517255e7c2e49c18032a",
+      "mode": "0644"
+    },
+    {
+      "source": "hermes_cli/model_switch.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/model_switch.py",
+      "sha256": "94b106ef1c762820f5ac74c7021a372aa7a9aaa59e42dbfc47fcfd54a162d8f7",
+      "mode": "0644"
+    },
+    {
+      "source": "hermes_cli/models.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/models.py",
+      "sha256": "0b2a29e89cdf6f68dd94c44907fb9d06f5c93e2842344aa8d0939d1c19a0cfa0",
+      "mode": "0644"
+    },
+    {
+      "source": "plugins/model-providers/deepseek/__init__.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/plugins/model-providers/deepseek/__init__.py",
+      "sha256": "dd2044a3d49330479bab35b634dd147df05239932c11dcbcf11f3748b3bb1dde",
+      "mode": "0644"
+    }
+  ],
+  "tree_sha256": "d81c08a41d029196e533fe2db595a2570859396958da968ea6590b331e79f55c"
+}

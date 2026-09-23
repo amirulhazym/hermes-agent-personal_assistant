@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "authority": "antigravity-model-refresh-selective-deploy",
+  "upstream_base_sha": "097db5303a610d7e5d75a2fef58d4aefb18436d6",
+  "destination_root": "/home/ubuntu/.hermes/plugins/antigravity-provider",
+  "patch_chain": [
+    {
+      "path": "patches/antigravity-provider/2026-09-23_local_dependency_commits_base.patch",
+      "sha256": "50ed309a7a9a9a542aec6b361c0280f9317ac839e8d1c8e44ba9b766d1e102c3"
+    },
+    {
+      "path": "patches/antigravity-provider/2026-09-04_custom_antigravity_features.patch",
+      "sha256": "f5f726808dd1935f9551dea258432c2450be2a013798dd393273042002844520"
+    },
+    {
+      "path": "patches/antigravity-provider/2026-09-23_gemini_3_8_default.patch",
+      "sha256": "35fa5040e7886cf233614ee2248fcf5cb86d152d905efb8f77f251b7d8c6d016"
+    }
+  ],
+  "entries": [
+    {
+      "source": "src/antigravity_provider/models.py",
+      "destination": "/home/ubuntu/.hermes/plugins/antigravity-provider/src/antigravity_provider/models.py",
+      "sha256": "206c223ce82c36d5926e1ad382472e04642239cc8617a8ed813e96749b2f5428",
+      "mode": "0664"
+    }
+  ],
+  "payload_sha256": "be4e7a6c02f572265d75785477f550a7ca628b2ba226ec1a513d06b155a16339"
+}
