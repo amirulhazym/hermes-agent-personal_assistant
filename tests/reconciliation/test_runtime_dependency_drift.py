@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
 
 ANTIGRAVITY_BASE_SHA = "097db5303a610d7e5d75a2fef58d4aefb18436d6"
 ANTIGRAVITY_LOCAL_HEAD = "8cccbb6b891164f7aeceb09695e43b4a12d6a83e"
+ANTIGRAVITY_LOCAL_COMMIT_PATCH_COUNT = 1
+ANTIGRAVITY_LIVE_BASE_PATCH_COUNT = 2
 ANTIGRAVITY_PATCH_CHAIN = (
     (
         "patches/antigravity-provider/2026-09-23_local_dependency_commits_base.patch",
@@ -24,33 +27,135 @@ ANTIGRAVITY_PATCH_CHAIN = (
 )
 
 
-def test_antigravity_provider_live_parity_with_main_repo_patch():
-    """Verify live antigravity-provider checkout has zero unrepresented drift."""
+def test_antigravity_provider_live_parity_with_main_repo_patch(tmp_path: Path):
+    """Verify live checkout parity at the dependency and selective-deploy boundaries."""
+    repo = Path(__file__).resolve().parents[2]
     live_agy = Path("/home/ubuntu/.hermes/plugins/antigravity-provider")
-    patch_agy = Path("/home/ubuntu/hermes-agent-personal_assistant-work/patches/antigravity-provider/2026-09-04_custom_antigravity_features.patch")
+    manifest_path = repo / "docs/reconciliation/antigravity-model-refresh-deploy-manifest.json"
+    marker_name = "DO_NOT_EDIT_LIVE_RUNTIME.md"
 
     assert live_agy.exists(), "live antigravity-provider directory must exist"
-    assert patch_agy.exists(), "antigravity-provider patch must exist in main repo"
+    assert manifest_path.is_file(), "antigravity selective-deploy manifest must exist"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["upstream_base_sha"] == ANTIGRAVITY_BASE_SHA
+    assert manifest["destination_root"] == str(live_agy)
+    assert len(manifest["patch_chain"]) == len(ANTIGRAVITY_PATCH_CHAIN)
+    assert tuple(
+        (item["path"], item["sha256"])
+        for item in manifest["patch_chain"]
+    ) == ANTIGRAVITY_PATCH_CHAIN
+    assert len(manifest["patch_chain"]) > ANTIGRAVITY_LIVE_BASE_PATCH_COUNT
 
-    # 1. Reverse check against current live working tree (must cleanly match 0)
-    res = subprocess.run(
-        ["git", "apply", "--check", "--reverse", str(patch_agy)],
-        cwd=live_agy,
+    deployed_sources = [entry["source"] for entry in manifest["entries"]]
+    assert deployed_sources
+    for entry in manifest["entries"]:
+        destination = Path(entry["destination"])
+        assert destination == live_agy / entry["source"]
+        assert hashlib.sha256(destination.read_bytes()).hexdigest() == entry["sha256"]
+
+    # Rebuild the live dependency commits plus the represented personal overlay
+    # from the pinned base. This is the pre-release live checkout state.
+    candidate = tmp_path / "antigravity-provider"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--no-hardlinks", str(live_agy), str(candidate)],
+        check=True,
         capture_output=True,
         text=True,
     )
-    assert res.returncode == 0, f"Live antigravity tree drifted from main repo patch: {res.stderr}"
-
-    # 2. Check that no uncommitted modifications exist outside the patch
-    res_status = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=live_agy,
+    subprocess.run(
+        ["git", "checkout", "--quiet", "--detach", ANTIGRAVITY_BASE_SHA],
+        cwd=candidate,
+        check=True,
         capture_output=True,
         text=True,
     )
-    # The only untracked file permitted is DO_NOT_EDIT_LIVE_RUNTIME.md
-    untracked = [line for line in res_status.stdout.splitlines() if line.startswith("??") and not line.endswith("DO_NOT_EDIT_LIVE_RUNTIME.md")]
-    assert not untracked, f"Unrepresented untracked files in live antigravity checkout: {untracked}"
+
+    for index, (relative_patch, expected_sha) in enumerate(ANTIGRAVITY_PATCH_CHAIN):
+        patch = repo / relative_patch
+        assert patch.is_file(), f"Antigravity patch missing: {patch}"
+        assert hashlib.sha256(patch.read_bytes()).hexdigest() == expected_sha
+        subprocess.run(["git", "apply", "--check", str(patch)], cwd=candidate, check=True)
+        subprocess.run(["git", "apply", str(patch)], cwd=candidate, check=True)
+        if index + 1 == ANTIGRAVITY_LOCAL_COMMIT_PATCH_COUNT:
+            subprocess.run(["git", "add", "-A"], cwd=candidate, check=True)
+            rebuilt_local_tree = subprocess.run(
+                ["git", "write-tree"], cwd=candidate, check=True, capture_output=True, text=True
+            ).stdout.strip()
+            live_local_tree = subprocess.run(
+                ["git", "-C", str(live_agy), "rev-parse", f"{ANTIGRAVITY_LOCAL_HEAD}^{{tree}}"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            assert rebuilt_local_tree == live_local_tree
+
+    # Later release overlays are intentionally selective: only manifest-listed
+    # production paths were deployed, while their test hunks remain source-only.
+    # Apply those exact paths to the reconstructed candidate before comparing its
+    # Git tree with a temporary index of the live working tree.
+    candidate = tmp_path / "antigravity-provider-selective"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--no-hardlinks", str(live_agy), str(candidate)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "checkout", "--quiet", "--detach", ANTIGRAVITY_BASE_SHA],
+        cwd=candidate,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for relative_patch, _ in ANTIGRAVITY_PATCH_CHAIN[:ANTIGRAVITY_LIVE_BASE_PATCH_COUNT]:
+        patch = repo / relative_patch
+        subprocess.run(["git", "apply", str(patch)], cwd=candidate, check=True)
+    include_args = [f"--include={source}" for source in deployed_sources]
+    for relative_patch, _ in ANTIGRAVITY_PATCH_CHAIN[ANTIGRAVITY_LIVE_BASE_PATCH_COUNT:]:
+        patch = repo / relative_patch
+        check = subprocess.run(
+            ["git", "apply", "--check", *include_args, str(patch)],
+            cwd=candidate,
+            capture_output=True,
+            text=True,
+        )
+        assert check.returncode == 0, f"Selective Antigravity patch does not apply: {check.stderr}"
+        subprocess.run(["git", "apply", *include_args, str(patch)], cwd=candidate, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=candidate, check=True)
+    expected_tree = subprocess.run(
+        ["git", "write-tree"], cwd=candidate, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+    status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=live_agy,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    unexpected_untracked = [
+        line for line in status.stdout.splitlines()
+        if line.startswith("?? ") and line[3:] != marker_name
+    ]
+    assert not unexpected_untracked, f"Unrepresented untracked files in live antigravity checkout: {unexpected_untracked}"
+
+    live_index = tmp_path / "live-index"
+    live_env = os.environ.copy()
+    live_env["GIT_INDEX_FILE"] = str(live_index)
+    subprocess.run(["git", "read-tree", "HEAD"], cwd=live_agy, env=live_env, check=True)
+    subprocess.run(
+        ["git", "add", "-A", "--", ".", f":(exclude){marker_name}"],
+        cwd=live_agy,
+        env=live_env,
+        check=True,
+    )
+    live_tree = subprocess.run(
+        ["git", "write-tree"], cwd=live_agy, env=live_env, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    assert live_tree == expected_tree, (
+        "Live antigravity checkout has tracked drift outside the represented "
+        f"dependency/selective-deploy chain: expected {expected_tree}, got {live_tree}"
+    )
 
 
 def test_antigravity_provider_candidate_reconstruction_chain(tmp_path: Path):
