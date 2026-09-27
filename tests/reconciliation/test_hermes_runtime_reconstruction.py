@@ -140,6 +140,13 @@ def test_active_runtime_overlays_are_ordered_and_hash_pinned():
             "sha256": "a8b114de926d7b948eb9b5de6238e3c0fab23e490288c8df1767993ce49d111a",
             "description": "Consolidated v0.21 model-provider refresh: Codex GPT-6 fallback, DeepSeek V4.1, OpenCode Zen free-only fail-closed, and shared Telegram/WhatsApp catalog parity.",
         },
+        {
+            "order": 7,
+            "id": "candidate-runtime-opencode-free-compression-recovery-20260927",
+            "path": "patches/upstream-hermes/2026-09-27_opencode_free_compression_recovery.patch",
+            "sha256": "e6f813333d6054b0255c0425efeaefb4d23e342baa81e79aedca92534e9c4e5c",
+            "description": "Fail closed external Hermes chat routing for opencode-free and add focused regression coverage for the restored Antigravity auxiliary middleware path.",
+        },
     ]
 
 

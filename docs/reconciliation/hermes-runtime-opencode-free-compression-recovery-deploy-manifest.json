@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "base_sha": "29112bef099274229cadff79cdff7bf7b99c4b77",
+  "patch_series_digest": "5dbf589e8cdb06782697fca2d5b77f6cb5cbb749fabbf4e797d87c77239914b4",
+  "destination_root": "/home/ubuntu/.hermes/hermes-agent",
+  "entries": [
+    {
+      "source": "agent/auxiliary_client.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/agent/auxiliary_client.py",
+      "sha256": "ccd50504928c5c5c347517e087e487373a9fd46082523559149eb593942d598b",
+      "mode": "0644"
+    },
+    {
+      "source": "hermes_cli/model_switch.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/model_switch.py",
+      "sha256": "f83d3e5999186ed7a6de11b807e7325bf8d98bfe49abfa378b703094c1ba31e7",
+      "mode": "0644"
+    }
+  ],
+  "tree_sha256": "7e52d7483ce569eca2f2bd1712772fcb917599f6ad124def8c6acae86d8f61bc"
+}

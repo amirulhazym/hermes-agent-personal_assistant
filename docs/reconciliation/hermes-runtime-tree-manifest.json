@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "29112bef099274229cadff79cdff7bf7b99c4b77",
-  "patch_series_digest": "6e6a7849ec4037f2a25cb1d2a47f10e122acf19a04730a888970356463f367de",
+  "patch_series_digest": "5dbf589e8cdb06782697fca2d5b77f6cb5cbb749fabbf4e797d87c77239914b4",
   "destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "entries": [
     {
@@ -23077,7 +23077,7 @@
     {
       "source": "hermes_cli/model_switch.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/hermes_cli/model_switch.py",
-      "sha256": "94b106ef1c762820f5ac74c7021a372aa7a9aaa59e42dbfc47fcfd54a162d8f7",
+      "sha256": "f83d3e5999186ed7a6de11b807e7325bf8d98bfe49abfa378b703094c1ba31e7",
       "mode": "0644"
     },
     {
@@ -34197,6 +34197,12 @@
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/agent/test_auxiliary_anthropic_pool_fallback_regression.py",
       "sha256": "6197101df7ee4b00236c52d0cf53e426257e6b6cbae31f5824e6353442a939ba",
       "mode": "0644"
+    },
+    {
+      "source": "tests/agent/test_auxiliary_antigravity_middleware_20260927.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/agent/test_auxiliary_antigravity_middleware_20260927.py",
+      "sha256": "06330a56555c74a51549bf2c07c7b5e8b0a2be072461e15e33699be6fdd0a5ec",
+      "mode": "0664"
     },
     {
       "source": "tests/agent/test_auxiliary_client.py",
@@ -45497,6 +45503,12 @@
       "mode": "0644"
     },
     {
+      "source": "tests/hermes_cli/test_opencode_free_chat_fail_closed_20260927.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_opencode_free_chat_fail_closed_20260927.py",
+      "sha256": "696a02a1df292b8b0515d530198e91d062ca8c16370c29d27b884a364e35cdfb",
+      "mode": "0664"
+    },
+    {
       "source": "tests/hermes_cli/test_opencode_free_live_catalog.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_opencode_free_live_catalog.py",
       "sha256": "a1c10ac1f2231effd8aed59184b02852ffb97954fcf4bae88977cd84b4d42189",
@@ -45523,7 +45535,7 @@
     {
       "source": "tests/hermes_cli/test_opencode_zen_free_keyless.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/hermes_cli/test_opencode_zen_free_keyless.py",
-      "sha256": "afd2cdbbb890aa824cb00885fe97d3106afd334d983796a41e272d708cb60d88",
+      "sha256": "ce5398c78255bda0b05b26a46ca006537bfbac9c228cfb0bac49aec6eb79626a",
       "mode": "0644"
     },
     {
@@ -65603,5 +65615,5 @@
       "mode": "0644"
     }
   ],
-  "tree_sha256": "58a78e9a5d2b15afb39d012aa6dfe15849cafe2e80c522a4e6b7a8c07d9e9435"
+  "tree_sha256": "77e164e6c15a013cfb148c8674a2ad1f06ec66dffc836b415e6fc60441e22aa8"
 }
