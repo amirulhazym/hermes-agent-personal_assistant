@@ -377,6 +377,16 @@ already pasted in front of you.
 
 ---
 
+## Medication Supply Invariant: No Inferred Pill Quantities
+
+**Strict Guardrail (Codified 2026-09-27):**
+1. **Never guess, calculate, or initialize numeric pill inventory counts (`current` integers).**
+2. In `med-supply.json`, all medications are strictly **untracked (`current: null`)** unless the user explicitly provides an authoritative physical pill count.
+3. **No automatic inventory decrement during dosage confirmation:** Intake confirmation scripts (`med_confirm.py`) must never mutate inventory files or emit passive supply warnings. Clinical supplies are dispensed by hospital appointments, not tracked by simulated daily decrements.
+4. Any automated generation of numbers (e.g. "95 pills", "36 pills") without physical user disclosure is a severe anti-fabrication violation.
+
+---
+
 ## Cleaner Alternative (Higher Effort): Gateway Interceptor
 
 Build a separate layer between cron output and delivery that reads chat

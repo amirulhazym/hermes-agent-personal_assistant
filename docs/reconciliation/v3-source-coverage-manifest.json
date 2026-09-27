@@ -950,7 +950,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/med_confirm.py",
       "kind": "runtime-deploy",
       "source": "scripts/med_confirm.py",
-      "source_sha256": "1a5046ec0a63b140c9df1bea4b7341300e0a93685816842e1c1ad98d0a203838"
+      "source_sha256": "699b5c3756babc142693bbb4c56a054e97fb86207faed6900c605d48c95eddd3"
     },
     {
       "destination": null,
@@ -2594,7 +2594,7 @@
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/med-tracker/SKILL.md",
-      "source_sha256": "240060459493ae7e75c3817ec9bb18d0c45280d29224e1276fe2e2f78305ab2b"
+      "source_sha256": "c338e56c72b3705b2ed2a9f95318d75a784075e9fc95f4a50f8e28a9321c48b3"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/references/20260729-cli-confirmation-and-future-intent.md",
@@ -3338,7 +3338,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "skills/software-development/anti-fabrication-guardrails/SKILL.md",
-      "source_sha256": "e2600b233bedae6e832d568f6a4e6f1700dde1153e76ec1e743d6795b7857472"
+      "source_sha256": "16d3b9bd74daf7259496f7fa7fa3d05ae0a194863371242c91158ec794916a69"
     },
     {
       "destination": null,
