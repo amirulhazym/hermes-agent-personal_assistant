@@ -394,11 +394,6 @@ def confirm_slot(slot: str, time_val: str | None = None, source_text: str | None
 
     for did in drug_ids:
         entry.setdefault('drugs', {})[did] = {"status": "taken", "time": now}
-        try:
-            from med_supply import decrement
-            decrement(did)
-        except Exception:
-            pass
 
     entry['overall'] = recalc_overall(slot, entry, schedule)
     state.setdefault('meds', {}).setdefault(slot, {})[today] = entry
@@ -412,25 +407,6 @@ def confirm_slot(slot: str, time_val: str | None = None, source_text: str | None
         "drugs": entry['drugs'],
         "file": str(STATE_FILE),
     }
-
-    # Supply alerts: only show for drugs NOT in this slot (other slots' issues).
-    # No point alerting "STOCK OUT" on a drug the user just took — they know.
-    supply_alerts = []
-    try:
-        from med_supply import check_low as _check
-        low_drugs = _check()
-        drug_ids_lower = set(did.lower() for did in drug_ids)
-        for d in low_drugs:
-            if d.get('drug_id', '').lower() not in drug_ids_lower:
-                if d['status'] == 'out_of_stock':
-                    supply_alerts.append(f"STOCK OUT: {d['name']}")
-                elif d['status'] == 'low':
-                    supply_alerts.append(f"LOW: {d['name']} left {d['current']}")
-    except Exception:
-        pass
-
-    if supply_alerts:
-        result['supply_alerts'] = supply_alerts
 
     return result
 
@@ -569,13 +545,6 @@ def confirm_drug(slot: str, drug_id: str, time_val: str | None = None,
     state.setdefault('meds', {}).setdefault(slot, {})[today] = entry
     save_json(STATE_FILE, state)
 
-    supply_info = None
-    try:
-        from med_supply import decrement
-        supply_info = decrement(drug_id)
-    except Exception:
-        pass
-
     result = {
         "ok": True,
         "med": slot,
@@ -585,8 +554,6 @@ def confirm_drug(slot: str, drug_id: str, time_val: str | None = None,
         "drugs": entry['drugs'],
         "file": str(STATE_FILE),
     }
-    if supply_info and supply_info.get('alert'):
-        result['supply_alert'] = supply_info['alert']
     return result
 
 

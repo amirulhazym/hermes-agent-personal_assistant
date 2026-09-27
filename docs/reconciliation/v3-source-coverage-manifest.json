@@ -73,6 +73,36 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": ".scratch/nightly-owner-gate-recovery/issues/01-owner-gated-timeout.md",
+      "source_sha256": "012ab5f087855b77812a777e05458d97ff24da6db66fb30f849b2008848f8057"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/nightly-owner-gate-recovery/issues/02-terminal-state-and-primary-provenance.md",
+      "source_sha256": "ad51eddf7154120c7527f17059b05dabeb8ff3918bce23f3dbcefd7f9552cd24"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/nightly-owner-gate-recovery/issues/03-watchdog-resolution-and-state-semantics.md",
+      "source_sha256": "20e05b1581c2a69144107915ca3b4a69afa645d997d97ea9e2a03b3a22ea3745"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/nightly-owner-gate-recovery/issues/04-release-deploy-and-scheduled-proof.md",
+      "source_sha256": "cd97d4ee80932d232890ca82c2b0ba1e33a6dfa99525dc82a830be6cd16aab77"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": ".scratch/nightly-owner-gate-recovery/spec.md",
+      "source_sha256": "6a117bd7fa48981d32a4fc16ed77614871d0ff4464de896c0b00e1d00b2382c3"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "AGENTS.md",
       "source_sha256": "1680a19481188f763da4abaa144ce4b9160ef01ab551ce31d341606f58a17a7f"
     },
@@ -375,6 +405,12 @@
       "kind": "source-only",
       "source": "docs/superpowers/plans/2026-09-11-hermes-ovis-2-provider-wiring.md",
       "source_sha256": "4110f751e182b0a00f1bb7669a97fab64ce4d8d294a282def07238a92b32692c"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
+      "source": "docs/superpowers/plans/2026-09-26-nightly-owner-gate-recovery.md",
+      "source_sha256": "92757dc5bfdd64fb6a8f38a9ca2614b58a207b1d29862d7d783f3bfcd887cede"
     },
     {
       "destination": null,
@@ -914,7 +950,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/med_confirm.py",
       "kind": "runtime-deploy",
       "source": "scripts/med_confirm.py",
-      "source_sha256": "1a5046ec0a63b140c9df1bea4b7341300e0a93685816842e1c1ad98d0a203838"
+      "source_sha256": "699b5c3756babc142693bbb4c56a054e97fb86207faed6900c605d48c95eddd3"
     },
     {
       "destination": null,
@@ -956,7 +992,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_closure_watchdog.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_closure_watchdog.py",
-      "source_sha256": "047da2df49dcfdb192efef5f7512ff5d67f868b4c5069a9334c5574bdad1a5ea"
+      "source_sha256": "ed3b292c26320d5022c2a5fc4c3ff12ca8fb0a7c0bc0027b47c1900b83ef302f"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_closure_watchdog_wrapper.sh",
@@ -968,7 +1004,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "b4e32308843ea7d45d793831daf515444cfb2b7448346325e46d9a64c911d6a7"
+      "source_sha256": "0a396637184ebac3c20273aff6355fb57ecfccff5f7f3bf12370775271f24b1a"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_timeout.sh",
@@ -2558,7 +2594,7 @@
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/SKILL.md",
       "kind": "runtime-deploy",
       "source": "skills/med-tracker/SKILL.md",
-      "source_sha256": "240060459493ae7e75c3817ec9bb18d0c45280d29224e1276fe2e2f78305ab2b"
+      "source_sha256": "c338e56c72b3705b2ed2a9f95318d75a784075e9fc95f4a50f8e28a9321c48b3"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/med-tracker/references/20260729-cli-confirmation-and-future-intent.md",
@@ -3302,7 +3338,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "skills/software-development/anti-fabrication-guardrails/SKILL.md",
-      "source_sha256": "e2600b233bedae6e832d568f6a4e6f1700dde1153e76ec1e743d6795b7857472"
+      "source_sha256": "16d3b9bd74daf7259496f7fa7fa3d05ae0a194863371242c91158ec794916a69"
     },
     {
       "destination": null,
@@ -4214,7 +4250,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_closure_workflow.py",
-      "source_sha256": "7de878c23c797a2af9ef6dd7a0d8273d6ca5f9867cfa44570e1c64db4bb6b3d3"
+      "source_sha256": "8ffba6cf20ba582a1706f887848b46a3aa00ab1908bb0f0c1ca507b4ae730450"
     },
     {
       "destination": null,
@@ -4237,8 +4273,14 @@
     {
       "destination": null,
       "kind": "source-only",
+      "source": "tests/reconciliation/test_nightly_protected_publication.py",
+      "source_sha256": "39c4ee634127054f51c3db4cf38bf691faf41894671e02d235a090c2fb9b7cb7"
+    },
+    {
+      "destination": null,
+      "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_watchdog_and_resilience.py",
-      "source_sha256": "fd7b83693440f3c98f46810198a20baab4e26000b69cebe6d0e4c425a37ec143"
+      "source_sha256": "33069aed686b6f63385087e9cd9f7afbc0e87c5526c7ed77380f05e450de7ef3"
     },
     {
       "destination": null,

@@ -1026,6 +1026,21 @@ def _build_actions(
     return actions, holds, classification
 
 
+_OWNER_REQUIRED_ACTION_KINDS = frozenset({"push_main", "merge_origin", "push_merged_main"})
+
+
+def _actions_require_owner_approval(actions: list[dict[str, Any]]) -> bool:
+    """Return True when executing this action chain can publish or prepare publication.
+
+    The check is deliberately chain-wide: a timeout must stop before an earlier
+    local merge if a later action in the same plan would publish protected main.
+    """
+    return any(
+        isinstance(action, dict) and action.get("kind") in _OWNER_REQUIRED_ACTION_KINDS
+        for action in actions
+    )
+
+
 def _json_display_mode(config_path: Path) -> str:
     try:
         import yaml
@@ -1195,9 +1210,9 @@ def _human_report(result: dict[str, Any]) -> str:
             elif kind == "clean_generated_receipts":
                 lines.append(f"- Archive and clean {len(action.get('paths', []))} generated reconciliation manifest receipt(s) from working tree.")
         lines.append("- Why: selesaikan kerja Git yang tertinggal malam ini supaya tidak dibawa ke hari esok.")
-        lines.append(f"- Proposed automatic-action deadline: **{remediation.get('deadline_at')}**.")
+        lines.append(f"- Review checkpoint: **{remediation.get('deadline_at')}**.")
         lines.append(f"- Confirmation needed: hantar `/nightly approve {remediation.get('run_id')}` atau `/nightly reject {remediation.get('run_id')} <reason>`, atau teks biasa `APPROVE NIGHTLY {remediation.get('run_id')}`.")
-        lines.append("- No relevant response by the deadline: pelan tindakan ini akan berjalan secara automatik.")
+        lines.append("- No response by this checkpoint: protected/public publication remains blocked; no push will run automatically. Safe local non-publication remediation may still continue through the permanent 00:25/01:55 workflow.")
     elif action_names:
         lines.extend(["", "Final result:"])
         lines.append("- Remediation executed: " + ", ".join(action_names) + ".")
@@ -1210,7 +1225,7 @@ def _human_report(result: dict[str, Any]) -> str:
             "",
             "Tonight’s action:",
             "- Tiada mutasi atau push automatik dicadangkan kerana bukti workflow belum mencukupi untuk membezakan sama ada commit local adalah disengajakan atau kerja tertinggal.",
-            "- Timer 30 minit tidak diaktifkan kerana tiada pelan remedi automatik yang selamat pada masa ini.",
+            "- Tiada per-run one-shot timer dibuat; job 00:25 yang sedia ada akan buat investigation/safe remediation yang tidak perlukan owner approval.",
             f"- Perlu satu pengesahan daripada anda: adakah {origin.get('ahead', 0) if origin else 'commit'} commit ini memang sengaja dibiarkan di local, atau sepatutnya sudah dihantar ke GitHub?",
         ])
     elif actions:
@@ -1293,19 +1308,46 @@ def run_nightly(
             "created_at": _format_myt(current),
             "deadline_at": _format_myt(deadline),
         })
-        scheduler = schedule_timeout or _schedule_timeout_job
-        try:
-            timeout_job_id = scheduler(
-                deadline_at=deadline,
-                run_id=run_id,
-                repo_root=repo,
-                hermes_home=home,
-            )
-            remediation["timeout_job_id"] = str(timeout_job_id)
+        pending = {
+            "schema_version": 2,
+            "run_id": run_id,
+            "status": "pending",
+            "created_at": _iso_myt(current),
+            "deadline_at": _iso_myt(deadline),
+            "repo": str(repo),
+            "hermes_home": str(home),
+            "baseline": {
+                "head": head,
+                "branch": snapshot["git_state"].get("branch"),
+                "status_porcelain": snapshot["git_state"].get("status_porcelain", []),
+                "origin_remote_head": snapshot.get("sync_state", {}).get("origin", {}).get("remote_head"),
+            },
+            "actions": actions,
+            "holds": holds,
+            "primary_timestamp": _format_myt(current),
+            "primary_date": current.strftime("%Y-%m-%d"),
+            "scheduler_execution": scheduler_execution,
+        }
+        with _pending_lock(paths):
+            _atomic_json(paths.pending_path, pending)
+    elif holds:
+        status = "HOLD"
+        # Ambiguous provenance remains persisted for the permanent 00:25
+        # remediation agent and 01:55 watchdog. New Nightly runs no longer
+        # create overlapping per-run one-shot timeout jobs.
+        if classification.get("category") == "provenance_insufficient" and not snapshot["git_state"].get("status_records"):
+            deadline = current + AUTO_ACTION_WINDOW
+            remediation.update({
+                "status": "pending_investigation",
+                "created_at": _format_myt(current),
+                "deadline_at": _format_myt(deadline),
+            })
             pending = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "run_id": run_id,
                 "status": "pending",
+                "kind": "investigation",
+                "classification": classification,
                 "created_at": _iso_myt(current),
                 "deadline_at": _iso_myt(deadline),
                 "repo": str(repo),
@@ -1318,58 +1360,12 @@ def run_nightly(
                 },
                 "actions": actions,
                 "holds": holds,
-                "timeout_job_id": str(timeout_job_id),
+                "primary_timestamp": _format_myt(current),
+                "primary_date": current.strftime("%Y-%m-%d"),
+                "scheduler_execution": scheduler_execution,
             }
             with _pending_lock(paths):
                 _atomic_json(paths.pending_path, pending)
-        except Exception as exc:
-            status = "FAIL"
-            remediation["status"] = "blocked"
-            errors.append(f"could not persist the 30-minute scheduler continuation: {exc}")
-    elif holds:
-        status = "HOLD"
-        # Schedule 30-min read-only investigation continuation for ambiguous provenance (when not dirty working tree)
-        if classification.get("category") == "provenance_insufficient" and not snapshot["git_state"].get("status_records"):
-            deadline = current + AUTO_ACTION_WINDOW
-            remediation.update({
-                "status": "pending_investigation",
-                "created_at": _format_myt(current),
-                "deadline_at": _format_myt(deadline),
-            })
-            scheduler = schedule_timeout or _schedule_timeout_job
-            try:
-                timeout_job_id = scheduler(
-                    deadline_at=deadline,
-                    run_id=run_id,
-                    repo_root=repo,
-                    hermes_home=home,
-                )
-                remediation["timeout_job_id"] = str(timeout_job_id)
-                pending = {
-                    "schema_version": 1,
-                    "run_id": run_id,
-                    "status": "pending",
-                    "kind": "investigation",
-                    "classification": classification,
-                    "created_at": _iso_myt(current),
-                    "deadline_at": _iso_myt(deadline),
-                    "repo": str(repo),
-                    "baseline": {
-                        "head": head,
-                        "branch": snapshot["git_state"].get("branch"),
-                        "status_porcelain": snapshot["git_state"].get("status_porcelain", []),
-                        "origin_remote_head": snapshot.get("sync_state", {}).get("origin", {}).get("remote_head"),
-                    },
-                    "actions": actions,
-                    "holds": holds,
-                    "timeout_job_id": str(timeout_job_id),
-                }
-                with _pending_lock(paths):
-                    _atomic_json(paths.pending_path, pending)
-            except Exception as exc:
-                remediation["timeout_job_id"] = None
-                remediation["status"] = "blocked"
-                errors.append(f"could not persist the 30-minute scheduler continuation: {exc}")
         else:
             remediation["status"] = "blocked"
 
@@ -1449,6 +1445,18 @@ def _result_from_state(
     current = _as_myt(now)
     repo = Path(state["repo"]).expanduser().resolve()
     head = snapshot.get("git_state", {}).get("head") or state.get("baseline", {}).get("head", "")
+    primary_timestamp = state.get("primary_timestamp")
+    if not isinstance(primary_timestamp, str) or not primary_timestamp:
+        primary_timestamp = _format_myt(current)
+    primary_date = state.get("primary_date")
+    if not isinstance(primary_date, str) or not primary_date:
+        try:
+            primary_date = datetime.strptime(
+                primary_timestamp, "%Y-%m-%d %H:%M:%S MYT"
+            ).strftime("%Y-%m-%d")
+        except (TypeError, ValueError):
+            primary_date = current.strftime("%Y-%m-%d")
+    scheduler_execution = state.get("scheduler_execution")
     remediation = {
         "status": remediation_status,
         "run_id": state["run_id"],
@@ -1463,8 +1471,10 @@ def _result_from_state(
     result: dict[str, Any] = {
         "schema_version": 2,
         "run_id": state["run_id"],
-        "timestamp": _format_myt(current),
-        "date": current.strftime("%Y-%m-%d"),
+        "timestamp": primary_timestamp,
+        "primary_timestamp": primary_timestamp,
+        "updated_at": _format_myt(current),
+        "date": primary_date,
         "repo": str(repo),
         "status": status,
         "release_pending": bool(
@@ -1485,6 +1495,7 @@ def _result_from_state(
         "holds": effective_holds,
         "errors": effective_errors,
         "remediation": remediation,
+        "scheduler_execution": scheduler_execution,
         "execution": execution_identity(repo, head if len(head) == 40 else ""),
         "proposal_path": state.get("proposal_path"),
         "delivery": {"mode": "stdout", "status": "emitted_by_target_not_destination_verified"},
@@ -2135,7 +2146,7 @@ def process_pending(
     decision = decision.strip().lower()
     if decision not in {"approve", "reject", "timeout"}:
         raise ValueError("decision must be approve, reject, or timeout")
-    if decision in {"approve", "timeout"} and _is_valid_run_id(run_id):
+    if decision == "approve" and _is_valid_run_id(run_id):
         # Optimistic same-run publication resume (lock-free read; the outcome
         # is applied only after re-verifying state under the lock, so network
         # and Git work never hold the state-file lock).
@@ -2279,6 +2290,13 @@ def process_pending(
             _write_workflow_outputs(result, paths)
             return result
         state_status = state.get("status")
+        if (
+            state_status == "blocked"
+            and decision == "approve"
+            and state.get("blocked_reason") == "owner_approval_required"
+        ):
+            state["status"] = "pending"
+            state_status = "pending"
         if state_status in {"completed", "rejected", "failed", "blocked"}:
             repo = Path(state["repo"])
             snapshot = _inspect_git(repo, current)
@@ -2433,8 +2451,6 @@ def process_pending(
                     )
                     _write_workflow_outputs(result, paths)
                     return result
-        if decision == "approve" and current >= deadline:
-            decision = "timeout"
         if decision == "reject":
             state["status"] = "rejected"
             state["decision"] = "reject"
@@ -2455,13 +2471,40 @@ def process_pending(
             _write_workflow_outputs(result, paths)
             return result
 
+        if decision == "timeout" and _actions_require_owner_approval(state.get("actions", [])):
+            state["status"] = "blocked"
+            state["blocked_reason"] = "owner_approval_required"
+            state["decision"] = "timeout"
+            state["decision_at"] = _iso_myt(current)
+            state["actions_taken"] = []
+            state["errors"] = []
+            state["holds"] = [
+                "owner approval is required before protected/public publication; timeout performed no publication action"
+            ]
+            _atomic_json(paths.pending_path, state)
+            result = _result_from_state(
+                state=state,
+                status="HOLD",
+                remediation_status="blocked",
+                snapshot=snapshot,
+                gates={},
+                actions_taken=[],
+                holds=state["holds"],
+                errors=[],
+                now=current,
+            )
+            result["_silent"] = True
+            _write_workflow_outputs(result, paths)
+            return result
+
         state["status"] = "executing"
         state["decision"] = decision
         state["decision_at"] = _iso_myt(current)
         _atomic_json(paths.pending_path, state)
     # Do not hold the state-file lock during Git/network work. A concurrent
     # runner sees executing and cannot start a second plan.
-    _cancel_timeout_job(state.get("timeout_job_id"), paths.hermes_home)
+    if decision != "timeout":
+        _cancel_timeout_job(state.get("timeout_job_id"), paths.hermes_home)
     repo = Path(state["repo"]).expanduser().resolve()
     action_taken_list: list[str] = []
     if not repo.is_dir():

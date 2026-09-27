@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
+import os
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -126,6 +127,81 @@ def test_watchdog_recovers_unexecuted_timeout_autofix(tmp_path: Path):
     assert w_res["secondary_result"] == "PASS"
     assert "AFK AUTOFIX COMPLETED" in w_res["secondary_recovery"]
     assert not (receipts_dir / "2fe48c3de252.json").exists()
+
+
+def test_watchdog_finds_primary_after_same_run_update_after_midnight(tmp_path: Path):
+    repo, hermes_home, now = _make_repo(tmp_path)
+    (repo / "local-only.txt").write_text("pending owner publication\n", encoding="utf-8")
+    HYGIENE._workflow_git(repo, ["add", "local-only.txt"])
+    commit_env = os.environ.copy()
+    commit_env["GIT_AUTHOR_DATE"] = now.isoformat()
+    commit_env["GIT_COMMITTER_DATE"] = now.isoformat()
+    HYGIENE._workflow_git(
+        repo,
+        ["commit", "-m", "local owner-gated change"],
+        env=commit_env,
+    )
+
+    primary = HYGIENE.run_nightly(repo_root=repo, hermes_home=hermes_home, now=now)
+    assert primary["status"] == "HOLD"
+    assert primary["scheduler_execution"]["execution_id"] == "fixture-primary-execution"
+
+    timeout_result = HYGIENE.process_pending(
+        decision="timeout",
+        run_id=primary["run_id"],
+        hermes_home=hermes_home,
+        now=now + timedelta(minutes=30),
+    )
+    assert timeout_result["status"] == "HOLD"
+
+    watchdog_now = now + timedelta(hours=2)
+    w_res = WATCHDOG.run_watchdog(
+        repo_root=repo,
+        hermes_home=hermes_home,
+        now=watchdog_now,
+        dry_run=False,
+    )
+    assert w_res["primary_run_id"] == primary["run_id"]
+    assert w_res["primary_status"] == "HOLD"
+    assert w_res["details"]["primary_scheduler_execution"]["status"] == "VERIFIED"
+    assert w_res["final_repo_state"] == "CLEAN+UNSYNCED"
+    assert w_res["secondary_result"] == "HOLD"
+    assert w_res["protected_publication"] == "OWNER_REQUIRED"
+    assert w_res["continuation_state"] == "OWNER REQUIRED"
+
+
+def test_verified_repo_state_distinguishes_clean_unsynced_from_dirty() -> None:
+    clean_unsynced = {
+        "errors": [],
+        "git_state": {"branch": "main", "is_clean": True},
+        "sync_state": {
+            "origin": {
+                "ahead": 1,
+                "behind": 0,
+                "remote_head": "a" * 40,
+                "tracking_head": "a" * 40,
+            }
+        },
+    }
+    state, errors = WATCHDOG._verified_repo_state(clean_unsynced)
+    assert state == "CLEAN+UNSYNCED"
+    assert errors == ["local main is not synchronized with origin/main"]
+
+    dirty = {
+        "errors": [],
+        "git_state": {"branch": "main", "is_clean": False},
+        "sync_state": {
+            "origin": {
+                "ahead": 0,
+                "behind": 0,
+                "remote_head": "b" * 40,
+                "tracking_head": "b" * 40,
+            }
+        },
+    }
+    state, errors = WATCHDOG._verified_repo_state(dirty)
+    assert state == "DIRTY"
+    assert errors == ["working tree is not clean"]
 
 
 def test_watchdog_primary_missing(tmp_path: Path):

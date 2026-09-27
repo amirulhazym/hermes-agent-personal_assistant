@@ -41,6 +41,15 @@ def watchdog_execution_identity(repo: Path, audited_head: str) -> dict[str, Any]
     }
 
 
+def _primary_timestamp(primary: dict[str, Any]) -> str | None:
+    """Return immutable primary scheduler time, with legacy receipt fallback."""
+    value = primary.get("primary_timestamp")
+    if isinstance(value, str) and value:
+        return value
+    legacy = primary.get("timestamp")
+    return legacy if isinstance(legacy, str) and legacy else None
+
+
 def _find_primary_run_for_watchdog(
     paths: hygiene.RuntimePaths,
     now: datetime,
@@ -64,7 +73,7 @@ def _find_primary_run_for_watchdog(
         try:
             data = json.loads(receipt_path.read_text(encoding="utf-8"))
             run_id = data.get("run_id")
-            timestamp = data.get("timestamp")
+            timestamp = _primary_timestamp(data)
             if not hygiene._is_valid_run_id(run_id) or not isinstance(timestamp, str):
                 continue
             receipt_at = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S MYT").replace(tzinfo=MYT)
@@ -89,11 +98,11 @@ def _verified_repo_state(snapshot: dict[str, Any]) -> tuple[str, list[str]]:
     if not isinstance(origin, dict):
         return "UNKNOWN", ["origin/main synchronization evidence is unavailable"]
     if git_state.get("branch") != "main":
-        return "NOT CLEAN", [f"expected main branch, found {git_state.get('branch')!r}"]
+        return "DIRTY", [f"expected main branch, found {git_state.get('branch')!r}"]
     if not git_state.get("is_clean", False):
-        return "NOT CLEAN", ["working tree is not clean"]
+        return "DIRTY", ["working tree is not clean"]
     if origin.get("ahead") != 0 or origin.get("behind") != 0:
-        return "NOT CLEAN", ["local main is not synchronized with origin/main"]
+        return "CLEAN+UNSYNCED", ["local main is not synchronized with origin/main"]
     remote_head = origin.get("remote_head")
     tracking_head = origin.get("tracking_head")
     if not remote_head or remote_head != tracking_head:
@@ -230,7 +239,13 @@ def run_watchdog(
         _format_and_record_watchdog(watchdog_result, paths)
         return watchdog_result
 
-    primary_at = datetime.strptime(primary_data["timestamp"], "%Y-%m-%d %H:%M:%S MYT").replace(tzinfo=MYT)
+    primary_timestamp = _primary_timestamp(primary_data)
+    if not primary_timestamp:
+        watchdog_result["secondary_result"] = "FAIL"
+        watchdog_result["errors"].append("primary receipt has no usable primary timestamp")
+        _format_and_record_watchdog(watchdog_result, paths)
+        return watchdog_result
+    primary_at = datetime.strptime(primary_timestamp, "%Y-%m-%d %H:%M:%S MYT").replace(tzinfo=MYT)
     scheduler_evidence = _primary_scheduler_execution_evidence(Path(hermes_home), primary_data)
     watchdog_result["details"]["primary_scheduler_execution"] = scheduler_evidence
     delivery_evidence = _primary_delivery_evidence(Path(hermes_home), primary_at)
@@ -265,6 +280,20 @@ def run_watchdog(
         if pending_status == "rejected":
             # Owner rejection is terminal. Preserve it; never execute.
             watchdog_result["owner_decision"] = "REJECT"
+            watchdog_result["secondary_result"] = "HOLD"
+            _format_and_record_watchdog(watchdog_result, paths)
+            return watchdog_result
+        if (
+            pending_status == "blocked"
+            and pending_state.get("blocked_reason") == "owner_approval_required"
+        ):
+            # Silence is never publication authority. Once the deterministic
+            # timeout path has fenced this run, the watchdog reports the owner
+            # boundary and does not re-enter timeout/publication recovery.
+            watchdog_result["owner_decision"] = "NO RESPONSE"
+            watchdog_result["continuation_state"] = "OWNER REQUIRED"
+            watchdog_result["primary_remediation"] = "BLOCKED"
+            watchdog_result["protected_publication"] = "OWNER_REQUIRED"
             watchdog_result["secondary_result"] = "HOLD"
             _format_and_record_watchdog(watchdog_result, paths)
             return watchdog_result

@@ -60,7 +60,7 @@ All layers share these data files:
 - `med-status.json` — drug-level intake log (written by user confirmation)
 - `chain-state.json` — reminder counts + cooldown timestamps + `today` date for day-boundary reset
 - `dexa_taper.json` — dexamethasone tapering schedule (date-dependent dosing)
-- `med-supply.json` — pill inventory per drug (auto-decremented on confirm)
+- `med-supply.json` — pill inventory per drug (untracked by default: `current: null`; NO auto-decrement on confirmation)
 - `substitutions.json` — drug substitution database
 - `med-interactions.json` — drug interaction safety data
 
@@ -1112,10 +1112,10 @@ The `dosage` field in med-schedule.json (e.g., `"dosage": "5mg"` for dexamethaso
 | `~/.hermes/med-status.json` | Drug-level log of actual intake |
 | `~/.hermes/chain-state.json` | Reminder counts + escalation level + cooldown timestamps + `today` date |
 | `~/.hermes/dexa_taper.json` | **Date-dependent dexa dosing (21 phases: TDS→BD→OD→STOP)** |
-| `~/.hermes/med-supply.json` | **Pill inventory per drug, auto-decremented on confirm** |
+| `~/.hermes/med-supply.json` | **Pill inventory per drug (untracked `current: null` by default)** |
 | `~/.hermes/substitutions.json` | **Drug alternatives when supply runs out** |
-| `~/.hermes/med-interactions.json` | **Drug interaction safety data for full regimen** |
-| `~/.hermes/scripts/med_confirm.py` | CLI tool — supports drug-level + slot-level + auto-decrement supply |
+| `~/.hermes/scripts/chain_calc.py` | Engine — reads schedule + status + taper, outputs chain string |
+| `~/.hermes/scripts/med_confirm.py` | CLI tool — supports drug-level + slot-level confirmation (decoupled from supply) |
 | `~/.hermes/scripts/med_resolve.py` | Drug name resolver — aliases, time-based disambiguation, UNKNOWN rejection |
 | `~/.hermes/scripts/chain_calc.py` | Engine — v3 with taper engine, dynamic slots, dose-aware templates |
 | `~/.hermes/scripts/chain_monitor.sh` | Cron script — still works, reads drug-level state, day-boundary reset for counts |

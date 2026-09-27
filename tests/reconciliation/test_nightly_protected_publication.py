@@ -288,6 +288,38 @@ def test_crash_during_publication_reuses_branch_and_pr(tmp_path: Path, monkeypat
     assert "nightly/publication-" not in _origin_branches(tmp_path)
 
 
+def test_timeout_never_resumes_failed_publication(tmp_path: Path, monkeypatch: Any) -> None:
+    repo, hermes_home, now = _make_ahead_case(tmp_path)
+    origin = tmp_path / "origin.git"
+    state: dict[str, Any] = {"calls": [], "open_prs": []}
+    real_api = _rehearsal_api(origin, repo, state)
+
+    def crashing_api(method: str, path: str, token: str, payload: Any = None) -> tuple[int, Any, str | None]:
+        if method == "PUT" and "/merge" in path:
+            raise RuntimeError("simulated crash before merge completion")
+        return real_api(method, path, token, payload)
+
+    monkeypatch.setattr(HYGIENE, "_github_api_request", crashing_api)
+    _rehearsal_git(monkeypatch)
+    pending = HYGIENE.run_nightly(repo_root=repo, hermes_home=hermes_home, now=now)
+    first = HYGIENE.process_pending(
+        decision="approve", run_id=pending["run_id"],
+        hermes_home=hermes_home, now=now + timedelta(minutes=5),
+    )
+    assert first["status"] == "HOLD"
+    calls_before = list(state["calls"])
+    remote_before = git(repo, "rev-parse", "origin/main")
+
+    second = HYGIENE.process_pending(
+        decision="timeout", run_id=pending["run_id"],
+        hermes_home=hermes_home, now=now + timedelta(hours=2),
+    )
+
+    assert second["status"] in {"HOLD", "FAIL"}
+    assert state["calls"] == calls_before
+    assert git(repo, "rev-parse", "origin/main") == remote_before
+
+
 def test_merged_cleanup_only_no_second_merge(tmp_path: Path, monkeypatch: Any) -> None:
     """H: merged-but-cleanup-failed resumes with cleanup only; one merge total."""
     repo, hermes_home, now = _make_ahead_case(tmp_path)
