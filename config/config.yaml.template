@@ -1,18 +1,6 @@
 model:
-  default: deepseek-v4-flash-free
-  provider: opencode
-  base_url: https://opencode.ai/zen/v1
-  models:
-    deepseek-v4-flash-free:
-      context_length: 0
-    mimo-v2.5-free:
-      context_length: 0
-    ling-3.0-flash-free:
-      context_length: 0
-    laguna-s-2.1-free:
-      context_length: 0
-    big-pickle:
-      context_length: 0
+  default: gpt-6-luna
+  provider: openai-codex
 providers:
   a6api:
     api_key_env: ''

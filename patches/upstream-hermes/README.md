@@ -116,6 +116,11 @@ Active overlay replacements:
   for Codex, DeepSeek, OpenCode Zen and shared Telegram/WhatsApp `/model`
   catalog behavior. SHA-256:
   `a8b114de926d7b948eb9b5de6238e3c0fab23e490288c8df1767993ce49d111a`.
+- `2026-09-27_opencode_free_compression_recovery.patch` — fail-closed Hermes
+  chat routing for the externally restricted `opencode-free` tier plus focused
+  regression coverage for the authoritative Antigravity auxiliary middleware
+  path. SHA-256:
+  `e6f813333d6054b0255c0425efeaefb4d23e342baa81e79aedca92534e9c4e5c`.
 
 The earlier provider-specific overlays and the temporary stale-base live-surface
 bridge are retained as historical/source-only evidence and are not active

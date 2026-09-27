@@ -1,0 +1,264 @@
+diff --git a/hermes_cli/model_switch.py b/hermes_cli/model_switch.py
+index 60c87a4b09e3adc955f700591157c17f03c2af21..1bb809aa7235884944a17ee29a8b5f42a8b2899c 100644
+--- a/hermes_cli/model_switch.py
++++ b/hermes_cli/model_switch.py
+@@ -1972,6 +1972,21 @@ def switch_model(
+     # COMMON PATH: Resolve credentials, normalize, get metadata
+     # =================================================================
+ 
++    # OpenCode currently restricts its free tier to requests originating
++    # from OpenCode clients. Hermes must fail closed instead of presenting
++    # or routing this provider and then surfacing a predictable 403.
++    if str(target_provider or "").strip().lower() == "opencode-free":
++        return ModelSwitchResult(
++            success=False,
++            target_provider="opencode-free",
++            provider_label=get_label("opencode-free"),
++            is_global=is_global,
++            error_message=(
++                "OpenCode Free is unavailable in Hermes: OpenCode's free tier "
++                "can only be used from within OpenCode. Select another provider/model."
++            ),
++        )
++
+     provider_changed = target_provider != current_provider
+     provider_label = get_label(target_provider)
+     if target_provider == "custom" and current_base_url:
+@@ -4123,15 +4138,15 @@ def list_authenticated_providers(
+     except Exception:
+         pass
+ 
+-    # Owner-locked OpenCode Zen policy is free-only. Current free chat SKUs
+-    # are not callable from this external Hermes client, so the base catalog
+-    # must hide Zen too. This keeps text-fallback platforms (including
+-    # WhatsApp Cloud) aligned with interactive pickers instead of surfacing an
+-    # empty/dead provider row. The interactive filter below remains as
+-    # defense-in-depth against injected/stale rows.
++    # Owner-locked OpenCode policies fail closed for external Hermes chat.
++    # Zen's free-only chat SKUs and the dedicated opencode-free route are not
++    # callable from this client, so text-fallback surfaces must hide both.
++    # The interactive filter below remains defense-in-depth against
++    # injected/stale rows.
+     results = [
+         row for row in results
+-        if str(row.get("slug", "")).strip().lower() != "opencode-zen"
++        if str(row.get("slug", "")).strip().lower()
++        not in {"opencode-zen", "opencode-free"}
+     ]
+ 
+     # Surface a custom / uncurated model the user selected via the CLI.
+@@ -4225,9 +4240,10 @@ def list_picker_providers(
+     filtered: List[dict] = []
+     for p in providers:
+         slug = str(p.get("slug", "")).lower()
+-        if slug == "opencode-zen":
+-            # Free-only policy: hide Zen even if stale/current model state was
+-            # injected upstream. Jev is System One, not a chat picker model.
++        if slug in {"opencode-zen", "opencode-free"}:
++            # External Hermes chat cannot use OpenCode's restricted free tier.
++            # Hide both the free-only Zen surface and the dedicated free route
++            # even if stale/current model state was injected upstream.
+             continue
+         if slug == "openrouter":
+             try:
+diff --git a/tests/agent/test_auxiliary_antigravity_middleware_20260927.py b/tests/agent/test_auxiliary_antigravity_middleware_20260927.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..d233b3ca0e6a5071dec218da29fc3a8d39f71734
+--- /dev/null
++++ b/tests/agent/test_auxiliary_antigravity_middleware_20260927.py
+@@ -0,0 +1,67 @@
++from types import SimpleNamespace
++
++import pytest
++
++from agent import auxiliary_client
++
++
++def test_sync_antigravity_auxiliary_uses_llm_execution_middleware(monkeypatch):
++    observed = []
++    direct_calls = []
++
++    client = SimpleNamespace(
++        chat=SimpleNamespace(
++            completions=SimpleNamespace(
++                create=lambda **kwargs: direct_calls.append(kwargs)
++            )
++        )
++    )
++
++    def _middleware(request, callback, *, provider=None):
++        observed.append((provider, request["model"]))
++        return SimpleNamespace(
++            choices=[SimpleNamespace(message=SimpleNamespace(content="summary"))]
++        )
++
++    monkeypatch.setattr(
++        "hermes_cli.middleware.run_llm_execution_middleware",
++        _middleware,
++    )
++    result = auxiliary_client._relay_sync_completion(
++        client,
++        {"model": "gemini-3.8-flash", "messages": []},
++        provider="antigravity",
++    )
++
++    assert result.choices[0].message.content == "summary"
++    assert observed == [("antigravity", "gemini-3.8-flash")]
++    assert direct_calls == []
++
++
++def test_sync_antigravity_auxiliary_fails_closed_when_middleware_raises(monkeypatch):
++    direct_calls = []
++
++    client = SimpleNamespace(
++        chat=SimpleNamespace(
++            completions=SimpleNamespace(
++                create=lambda **kwargs: direct_calls.append(kwargs)
++            )
++        )
++    )
++
++    def _middleware(_request, _callback, *, provider=None):
++        assert provider == "antigravity"
++        raise RuntimeError("middleware interception failed")
++    monkeypatch.setattr(
++        "hermes_cli.middleware.run_llm_execution_middleware",
++        _middleware,
++    )
++
++    with pytest.raises(RuntimeError, match="middleware interception failed"):
++        auxiliary_client._relay_sync_completion(
++            client,
++            {"model": "gemini-3.8-flash", "messages": []},
++            provider="antigravity",
++        )
++
++    assert direct_calls == []
+diff --git a/tests/hermes_cli/test_opencode_free_chat_fail_closed_20260927.py b/tests/hermes_cli/test_opencode_free_chat_fail_closed_20260927.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f3fa8704b1cab6dd9631589fd302ecf4f46f2b3a
+--- /dev/null
++++ b/tests/hermes_cli/test_opencode_free_chat_fail_closed_20260927.py
+@@ -0,0 +1,101 @@
++from __future__ import annotations
++
++import hermes_cli.model_switch as model_switch
++
++
++_BLOCK_TEXT = "only be used from within OpenCode"
++
++
++def _allowed_runtime(**_kwargs):
++    return {
++        "provider": "opencode-free",
++        "api_key": "no-key-required",
++        "base_url": "https://opencode.ai/zen/v1",
++        "api_mode": "chat_completions",
++    }
++
++
++def _accepted_validation(*_args, **_kwargs):
++    return {
++        "accepted": True,
++        "persist": True,
++        "recognized": True,
++        "message": "",
++    }
++
++
++def test_shared_picker_hides_opencode_free_even_if_stale_row_is_injected(monkeypatch):
++    monkeypatch.setattr(
++        model_switch,
++        "list_authenticated_providers",
++        lambda **_kwargs: [
++            {
++                "slug": "opencode-free",
++                "name": "OpenCode Free",
++                "models": ["mimo-v2.6-flash-free"],
++                "total_models": 1,
++                "is_current": True,
++                "is_user_defined": False,
++            },
++            {
++                "slug": "openai-codex",
++                "name": "OpenAI Codex",
++                "models": ["gpt-6-luna"],
++                "total_models": 1,
++                "is_current": False,
++                "is_user_defined": False,
++            },
++        ],
++    )
++
++    rows = model_switch.list_picker_providers(
++        current_provider="opencode-free",
++        current_model="mimo-v2.6-flash-free",
++    )
++    assert [row["slug"] for row in rows] == ["openai-codex"]
++def test_explicit_opencode_free_alias_is_rejected_before_runtime_call(monkeypatch):
++    calls = {"runtime": 0}
++
++    def _runtime(**kwargs):
++        calls["runtime"] += 1
++        return _allowed_runtime(**kwargs)
++
++    monkeypatch.setattr("hermes_cli.runtime_provider.resolve_runtime_provider", _runtime)
++    monkeypatch.setattr("hermes_cli.models.validate_requested_model", _accepted_validation)
++
++    result = model_switch.switch_model(
++        "mimo-v2.6-flash-free",
++        current_provider="openai-codex",
++        current_model="gpt-6-luna",
++        explicit_provider="free",
++    )
++
++    assert result.success is False
++    assert result.target_provider == "opencode-free"
++    assert _BLOCK_TEXT.lower() in result.error_message.lower()
++    assert calls["runtime"] == 0
++
++def test_model_only_detection_cannot_route_into_opencode_free(monkeypatch):
++    calls = {"runtime": 0}
++
++    def _runtime(**kwargs):
++        calls["runtime"] += 1
++        return _allowed_runtime(**kwargs)
++
++    monkeypatch.setattr(
++        "hermes_cli.models.detect_provider_for_model",
++        lambda _model, _current: ("opencode-free", "mimo-v2.6-flash-free"),
++    )
++    monkeypatch.setattr("hermes_cli.runtime_provider.resolve_runtime_provider", _runtime)
++    monkeypatch.setattr("hermes_cli.models.validate_requested_model", _accepted_validation)
++
++    result = model_switch.switch_model(
++        "mimo-v2.6-flash-free",
++        current_provider="openai-codex",
++        current_model="gpt-6-luna",
++    )
++
++    assert result.success is False
++    assert result.target_provider == "opencode-free"
++    assert _BLOCK_TEXT.lower() in result.error_message.lower()
++    assert calls["runtime"] == 0
+diff --git a/tests/hermes_cli/test_opencode_zen_free_keyless.py b/tests/hermes_cli/test_opencode_zen_free_keyless.py
+index e830f60baa41d39e53ddd8bf12b8ee1300414138..bd3fb9117a7fe3fee48c971c4a651a743f97ffd3 100644
+--- a/tests/hermes_cli/test_opencode_zen_free_keyless.py
++++ b/tests/hermes_cli/test_opencode_zen_free_keyless.py
+@@ -159,14 +159,13 @@ class TestKeylessProviderAlwaysAuthenticated:
+         rows = {r["id"]: r["authenticated"] for r in list_available_providers()}
+         assert rows.get("opencode-free") is True
+ 
+-    def test_picker_source_includes_provider_with_models(self):
++    def test_picker_source_hides_provider_while_external_free_tier_is_blocked(self):
+         import model_tools  # noqa: F401 — plugin discovery
+         from hermes_cli.model_switch import list_authenticated_providers
+ 
+         provs = list_authenticated_providers(for_picker=True)
+         free = [p for p in provs if p["slug"] == "opencode-free"]
+-        assert free, "opencode-free must appear in the picker with zero keys"
+-        assert free[0]["models"], "picker row must carry the curated models"
++        assert free == [], "opencode-free must stay hidden from Hermes chat pickers"
+ 
+     def test_explicit_only_filter_keeps_keyless(self):
+         from hermes_cli.inventory import _provider_is_keyless
