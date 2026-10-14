@@ -147,6 +147,13 @@ def test_active_runtime_overlays_are_ordered_and_hash_pinned():
             "sha256": "e6f813333d6054b0255c0425efeaefb4d23e342baa81e79aedca92534e9c4e5c",
             "description": "Fail closed external Hermes chat routing for opencode-free and add focused regression coverage for the restored Antigravity auxiliary middleware path.",
         },
+        {
+            "order": 8,
+            "id": "candidate-runtime-gateway-startup-integrity-b1-20261014",
+            "path": "patches/upstream-hermes/2026-10-14_gateway-startup-integrity-b1.patch",
+            "sha256": "4ce08d3a83e1309c6ef2ac258ca9bcf25e1e82222caaa9ba6f96775b83502ebd",
+            "description": "B1: durable incident-bound deferred SQLite integrity status without gateway startup scan, plus focused regression tests",
+        },
     ]
 
 

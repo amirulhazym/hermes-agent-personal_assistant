@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "29112bef099274229cadff79cdff7bf7b99c4b77",
-  "patch_series_digest": "5dbf589e8cdb06782697fca2d5b77f6cb5cbb749fabbf4e797d87c77239914b4",
+  "patch_series_digest": "0cf1a9c389657be7081a04324a9d1de20379a42b3ca6a41180c570a89bdab214",
   "destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "entries": [
     {

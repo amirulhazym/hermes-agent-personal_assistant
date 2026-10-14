@@ -338,25 +338,25 @@
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-model-refresh-deploy-manifest.json",
-      "source_sha256": "a5578eed3935e068ea6dd46c6e38a205a106ec2bc43ff14df5f295a2636d702c"
+      "source_sha256": "8171a1f52467f4028744ba5752f94bfa8a158e312206324f6f2b920655659ccc"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-opencode-free-compression-recovery-deploy-manifest.json",
-      "source_sha256": "431dcddb6a417f045448221acac121f1db02ac54b0864e1d4f74b2eb9e82fc94"
+      "source_sha256": "9a506e2b02bef2790aa7cfe5b3e3a8a932d01715b350ef6ab541601845f9f71e"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-source-lock.json",
-      "source_sha256": "2448b9c3031f6c7dd69fc5bbbae729fb4a845f2a204c5f9822a0a57ce6cc628f"
+      "source_sha256": "b4605a3557837c5fe7ce7162d867c7cecbe980e4860e0c94f11d28f4b4ca9474"
     },
     {
       "destination": null,
       "kind": "source-only",
       "source": "docs/reconciliation/hermes-runtime-tree-manifest.json",
-      "source_sha256": "8d8455521c792d1dfde2d47e53b46492b88fb56d5e539250872a8f7bc4cdcbd7"
+      "source_sha256": "02f681b6ec72a7f5d797466379c04384daba434359fe0afffe4389ef5127e948"
     },
     {
       "destination": null,
@@ -4256,7 +4256,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_hermes_runtime_reconstruction.py",
-      "source_sha256": "6c9e8193c4802d719c0aaf6942037e018d83e4c7bc806602f216216f5be55de7"
+      "source_sha256": "294448d7ba6289949538c0591faf53eede3c990cd4ca33b984aff0e906c1d233"
     },
     {
       "destination": null,

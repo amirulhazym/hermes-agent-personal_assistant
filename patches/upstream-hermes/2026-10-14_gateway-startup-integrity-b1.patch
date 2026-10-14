@@ -1,0 +1,683 @@
+diff --git a/gateway/lifecycle_ledger.py b/gateway/lifecycle_ledger.py
+--- a/gateway/lifecycle_ledger.py
++++ b/gateway/lifecycle_ledger.py
+@@ -38,6 +38,7 @@
+ 
+ from __future__ import annotations
+ 
++import hashlib
+ import json
+ import logging
+ import os
+@@ -52,6 +53,7 @@
+ _LIFECYCLE_RELATIVE = ("state", "gateway.lifecycle.json")
+ _EXIT_DIAG_RELATIVE = ("logs", "gateway-exit-diag.log")
+ _STATE_DB_RELATIVE = ("state.db",)
++_INTEGRITY_RELATIVE = ("state", "gateway-integrity-verification.json")
+ 
+ # Heuristic OOM-suspicion thresholds applied to the last heartbeat's memory
+ # sample.  Deliberately conservative: this only annotates the report with a
+@@ -226,8 +228,9 @@
+ def check_state_db_integrity(home: Optional[Path] = None) -> str:
+     """Return ``"ok"``, ``"absent"``, or the first ``quick_check`` complaint.
+ 
+-    Called only after an unclean death, because that is when the store may
+-    have been torn: a SIGKILL landing on a gateway mid-WAL-checkpoint can
++    Explicit forensic utility: NOT invoked on the gateway startup path.
++    Used only after separate operator authorization to examine a store that
++    may have been torn: a SIGKILL landing on a gateway mid-WAL-checkpoint can
+     leave half-written b-tree pages behind (see
+     ``_enforce_macos_synchronous_full`` in :mod:`hermes_state` — macOS
+     ``fsync`` guarantees neither data-on-platter nor write ordering).
+@@ -261,6 +264,66 @@
+     return str(row[0])
+ 
+ 
++def get_integrity_verification_path(home: Optional[Path] = None) -> Path:
++    """Small durable integrity status, separate from the lifecycle sentinel/DB."""
++    base = home if home is not None else _process_hermes_home()
++    return base.joinpath(*_INTEGRITY_RELATIVE)
++
++
++def _integrity_incident_id(evidence: Dict[str, Any]) -> str:
++    """Stable identity of the *prior* unclean gateway life, not the new PID."""
++    identity = [evidence.get(key) for key in
++                ("prior_pid", "prior_start_time", "prior_started_at")]
++    return hashlib.sha256(json.dumps(identity, separators=(",", ":"),
++                                     default=str).encode("utf-8")).hexdigest()
++
++
++def _record_pending_integrity(evidence: Dict[str, Any], home: Optional[Path]) -> Dict[str, Any]:
++    """Atomically record an incident; never upgrade an unverified check to verified.
++
++    A retry for the exact same incident retains an existing verified/failed
++    verdict. New incidents always start pending even if the previous check
++    was verified. Only a future separately approved verifier can change
++    pending to verified/failed, after matching the incident identity.
++    """
++    path = get_integrity_verification_path(home)
++    incident_id = _integrity_incident_id(evidence)
++    if path.exists():
++        previous = _read_json(path)
++        if not previous or previous.get("schema_version") != 1:
++            raise ValueError("invalid-existing-integrity-record")
++        prior_status = previous.get("status")
++        prior_method = previous.get("verification_method")
++        if prior_status not in {"pending", "unverified", "verified", "failed"}:
++            raise ValueError("invalid-existing-integrity-status")
++        if prior_status in {"verified", "failed"}:
++            # A label, method and date alone are not a completed check.
++            proof = previous.get("verification_evidence")
++            expected_result = "ok" if prior_status == "verified" else "failed"
++            if (prior_method not in {"quick_check", "integrity_check"}
++                    or not previous.get("completed_at")
++                    or not isinstance(proof, dict)
++                    or proof.get("incident_id") != previous.get("incident_id")
++                    or proof.get("method") != prior_method
++                    or proof.get("completed_at") != previous.get("completed_at")
++                    or proof.get("result") != expected_result):
++                raise ValueError("unsubstantiated-integrity-verdict")
++        if previous.get("incident_id") == incident_id:
++            return previous
++    record = {
++        "schema_version": 1,
++        "incident_id": incident_id,
++        "prior_pid": evidence.get("prior_pid"),
++        "prior_started_at": evidence.get("prior_started_at"),
++        "detected_at": datetime.now(timezone.utc).isoformat(),
++        "status": "pending",
++        "verification_method": "none",
++    }
++    from utils import atomic_json_write
++    atomic_json_write(path, record, indent=2, mode=0o600)
++    return record
++
++
+ def record_startup(home: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+     """Boot-time entry point: report any unclean previous exit, then claim
+     the sentinel for the current life.
+@@ -273,17 +336,27 @@
+     try:
+         evidence = detect_unclean_exit(home)
+         if evidence is not None:
+-            # The death may have torn the store. This is the only moment
+-            # we know to look, and looking is what turns a 3.5-day silent
+-            # corruption into a startup warning.
+-            verdict = check_state_db_integrity(home=home)
+-            evidence["state_db_integrity"] = verdict
+-            if verdict not in ("ok", "absent"):
+-                logger.error(
+-                    "state.db FAILED integrity check after an unclean gateway "
+-                    "exit: %s — sessions may read as missing until it is "
+-                    "repaired. Run `hermes doctor`.",
+-                    verdict,
++            # B1: do not open/stat/read state.db on the gateway startup path.
++            # On a multi-GiB WAL database even quick_check(1) scans extensively
++            # and blocks Telegram initialization. Record the *need* to verify,
++            # not a fictional pass. No verifier is launched here.
++            evidence["integrity_incident_id"] = _integrity_incident_id(evidence)
++            try:
++                integrity_record = _record_pending_integrity(evidence, home)
++                evidence["state_db_integrity"] = integrity_record["status"]
++                evidence["integrity_verification_method"] = integrity_record[
++                    "verification_method"
++                ]
++            except Exception as exc:
++                # No fabricated "ok" if the tiny atomic status write fails.
++                # Append-only exit diagnostics and gateway WARNING retain an
++                # explicit unverified signal for human intervention.
++                evidence["state_db_integrity"] = "unverified"
++                evidence["integrity_verification_method"] = "none"
++                logger.warning(
++                    "Unclean gateway exit: unable to persist integrity "
++                    "verification status (%s); verification UNVERIFIED",
++                    type(exc).__name__,
+                 )
+             record = {
+                 "ts": datetime.now(timezone.utc).isoformat(),
+@@ -293,11 +366,14 @@
+             }
+             _append_exit_diag(record, home)
+             logger.warning(
+-                "Previous gateway life (pid=%s, started_at=%s) exited UNCLEANLY "
+-                "(no exit path ran — SIGKILL / OOM / VM death). "
++                "Previous gateway life (pid=%s, started_at=%s) exited UNCLEANLY; "
++                "integrity_status=%s method=%s incident_id=%s; "
+                 "last_heartbeat_at=%s last_mem=%s suspected_oom=%s",
+                 evidence.get("prior_pid"),
+                 evidence.get("prior_started_at"),
++                evidence["state_db_integrity"],
++                evidence["integrity_verification_method"],
++                evidence["integrity_incident_id"],
+                 evidence.get("last_heartbeat_at"),
+                 evidence.get("last_heartbeat_mem"),
+                 evidence.get("suspected_oom", False),
+@@ -321,8 +397,18 @@
+         # boot rewrites the sentinel and the flags age out with it.
+         if evidence is not None:
+             claim["prior_unclean_exit"] = True
++            claim["prior_integrity_incident_id"] = evidence.get("integrity_incident_id")
++            claim["prior_integrity_status"] = evidence.get("state_db_integrity", "unverified")
+             if evidence.get("suspected_oom"):
+                 claim["prior_suspected_oom"] = True
++        else:
++            # B1 safety: the status write may have failed after an unclean
++            # exit. Carry its incident reference through any clean restart,
++            # without falsely classifying this new boot as unclean.
++            previous = _read_json(get_lifecycle_sentinel_path(home))
++            incident_id = previous.get("prior_integrity_incident_id") if previous else None
++            if isinstance(incident_id, str) and incident_id:
++                claim["prior_integrity_incident_id"] = incident_id
+         _write_sentinel(claim, home)
+     except Exception:
+         logger.debug("Failed to claim lifecycle sentinel", exc_info=True)
+@@ -348,16 +434,21 @@
+         sentinel = _read_json(get_lifecycle_sentinel_path(home))
+         if sentinel is not None and sentinel.get("pid") != os.getpid():
+             return
+-        _write_sentinel(
+-            {
+-                "phase": "exited",
+-                "pid": os.getpid(),
+-                "exit_code": exit_code,
+-                "exit_reason": reason,
+-                "exited_at": datetime.now(timezone.utc).isoformat(),
+-            },
+-            home,
+-        )
++        exited = {
++            "phase": "exited",
++            "pid": os.getpid(),
++            "exit_code": exit_code,
++            "exit_reason": reason,
++            "exited_at": datetime.now(timezone.utc).isoformat(),
++        }
++        # Preserve the small integrity incident *reference* independent of
++        # clean/unclean lifecycle flags. Verification evidence remains in the
++        # separate atomic record; this reference prevents missing records
++        # from becoming "not_required" on later clean startups.
++        incident_id = sentinel.get("prior_integrity_incident_id") if sentinel else None
++        if isinstance(incident_id, str) and incident_id:
++            exited["prior_integrity_incident_id"] = incident_id
++        _write_sentinel(exited, home)
+     except Exception:
+         logger.debug("Failed to mark lifecycle sentinel exited", exc_info=True)
+ 
+diff --git a/gateway/readiness.py b/gateway/readiness.py
+--- a/gateway/readiness.py
++++ b/gateway/readiness.py
+@@ -68,6 +68,58 @@
+         return _check("degraded", type(exc).__name__)
+ 
+ 
++def _probe_integrity_verification(home: Path) -> dict[str, Any]:
++    """Read a small diagnostic, never run a DB integrity scan on a health poll.
++
++    An accessible state.db does NOT establish structural integrity.
++    """
++    from gateway.lifecycle_ledger import (
++        _read_json,
++        get_integrity_verification_path,
++        get_lifecycle_sentinel_path,
++    )
++    sentinel = _read_json(get_lifecycle_sentinel_path(home)) or {}
++    path = get_integrity_verification_path(home)
++    expected_incident = sentinel.get("prior_integrity_incident_id")
++    if not path.exists():
++        if sentinel.get("prior_unclean_exit") or expected_incident:
++            return _check("degraded", verification_state="unverified",
++                          verification_method="none", verified=False)
++        return _check("ok", verification_state="not_required",
++                      verification_method="none", verified=False)
++    record = _read_json(path)
++    if not isinstance(record, dict) or record.get("schema_version") != 1:
++        return _check("degraded", verification_state="unverified",
++                      verification_method="none", verified=False)
++    status = record.get("status")
++    method = record.get("verification_method")
++    incident_id = record.get("incident_id")
++    # A stale previous "verified" record cannot attest a new unclean exit.
++    if (expected_incident and expected_incident != incident_id) or (
++            sentinel.get("prior_unclean_exit") and not expected_incident):
++        return _check("degraded", verification_state="unverified",
++                      verification_method="none", verified=False)
++    evidence = record.get("verification_evidence")
++    if (status == "verified"
++            and method in {"quick_check", "integrity_check"}
++            and record.get("completed_at") and incident_id
++            and isinstance(evidence, dict)
++            and evidence.get("incident_id") == incident_id
++            and evidence.get("method") == method
++            and evidence.get("completed_at") == record.get("completed_at")
++            and evidence.get("result") == "ok"):
++        return _check("ok", verification_state="verified",
++                      verification_method=method, verified=True,
++                      incident_id=incident_id)
++    if status in {"pending", "unverified", "failed"} and incident_id:
++        return _check("degraded", verification_state=status,
++                      verification_method=(method if isinstance(method, str)
++                                           else "none"), verified=False,
++                      incident_id=incident_id)
++    return _check("degraded", verification_state="unverified",
++                  verification_method="none", verified=False)
++
++
+ def _probe_gateway(runtime_status: dict[str, Any]) -> dict[str, Any]:
+     state = str(runtime_status.get("gateway_state") or "unknown")
+     platforms = runtime_status.get("platforms")
+@@ -119,6 +171,7 @@
+     state_db_probe = _probe_state_db(home)
+     checks = {
+         "state_db": state_db_probe,
++        "integrity_verification": _probe_integrity_verification(home),
+         "session_store": _probe_session_store(runtime, state_db_probe),
+         "config": _probe_config(home),
+         "model": _check("ok" if str(configured_model or "").strip() else "degraded"),
+diff --git a/tests/gateway/test_lifecycle_state_db_check.py b/tests/gateway/test_lifecycle_state_db_check.py
+--- a/tests/gateway/test_lifecycle_state_db_check.py
++++ b/tests/gateway/test_lifecycle_state_db_check.py
+@@ -1,4 +1,4 @@
+-"""An unclean gateway death must trigger a state.db integrity check.
++"""Unclean gateway exit must preserve the need for a later DB integrity check.
+ 
+ Regression for the 2026-08-31 incident. ``state.db`` was corrupt from
+ 2026-08-26 evening (a SIGKILL landed on a gateway mid-WAL-checkpoint during a
+@@ -8,8 +8,8 @@
+ 
+ ``record_startup`` already detects the unclean exit and logs "SIGKILL / OOM /
+ VM death" — it just never looked at the database that death may have torn.
+-The check is gated on the unclean exit precisely because it costs ~2s on a
+-500MB store; a clean boot must not pay it.
++The explicit checker still catches real corruption; startup only records
++a durable pending incident and does not wait for SQLite full scans.
+ """
+ from __future__ import annotations
+ 
+@@ -86,26 +86,30 @@
+ # ── wiring into the unclean-exit path ───────────────────────────────────────
+ 
+ 
+-def test_unclean_exit_records_the_corruption_verdict(tmp_path: Path) -> None:
++def test_unclean_exit_defers_corruption_verdict(tmp_path: Path) -> None:
+     _make_state_db(tmp_path, corrupt=True)
+     _write_sentinel(tmp_path)
+ 
+     evidence = record_startup(home=tmp_path)
+ 
+     assert evidence is not None
+-    assert evidence["state_db_integrity"] != "ok"
++    assert evidence["state_db_integrity"] == "pending"
+     record = _exit_diag_records(tmp_path)[0]
+-    assert record["state_db_integrity"] != "ok"
++    assert record["state_db_integrity"] == "pending"
+ 
+ 
+-def test_unclean_exit_on_a_healthy_store_records_ok(tmp_path: Path) -> None:
++def test_unclean_exit_on_a_healthy_store_records_pending(tmp_path: Path) -> None:
+     _make_state_db(tmp_path, corrupt=False)
+     _write_sentinel(tmp_path)
+ 
+     evidence = record_startup(home=tmp_path)
+ 
+     assert evidence is not None
+-    assert evidence["state_db_integrity"] == "ok"
++    assert evidence["state_db_integrity"] == "pending"
++    from gateway.lifecycle_ledger import get_integrity_verification_path
++    status = json.loads(get_integrity_verification_path(tmp_path).read_text())
++    assert status["status"] == "pending"
++    assert status["verification_method"] == "none"
+ 
+ 
+ def test_clean_exit_does_not_pay_for_the_check(tmp_path: Path, monkeypatch) -> None:
+diff --git a/tests/gateway/test_b1_startup_integrity.py b/tests/gateway/test_b1_startup_integrity.py
+new file mode 100644
+--- /dev/null
++++ b/tests/gateway/test_b1_startup_integrity.py
+@@ -0,0 +1,347 @@
++"""B1: startup must preserve integrity evidence without running a full DB scan.
++
++Fixture-only: never touch production state.db or start a background verifier.
++"""
++import json
++from pathlib import Path
++
++import pytest
++
++import gateway.lifecycle_ledger as ledger
++
++
++OLD_PID = 2 ** 22 + 45678
++
++
++def _unclean(home: Path, *, prior_pid: int = OLD_PID, started: str = "2026-10-14T08:00:00Z"):
++    path = ledger.get_lifecycle_sentinel_path(home)
++    path.parent.mkdir(parents=True, exist_ok=True)
++    path.write_text(json.dumps({
++        "phase": "running",
++        "pid": prior_pid,
++        "start_time": 12345.0 + prior_pid,
++        "started_at": started,
++    }))
++
++
++def _record(home: Path):
++    return json.loads((home / "state" / "gateway-integrity-verification.json").read_text())
++
++
++def test_unclean_boot_records_pending_without_any_sqlite_scan(tmp_path, monkeypatch):
++    _unclean(tmp_path)
++    def forbidden(*args, **kwargs):
++        raise AssertionError("startup must never invoke explicit DB integrity scan")
++    monkeypatch.setattr(ledger, "check_state_db_integrity", forbidden)
++    monkeypatch.setattr(ledger.sqlite3, "connect", forbidden)
++    evidence = ledger.record_startup(home=tmp_path)
++    status = _record(tmp_path)
++    assert evidence["state_db_integrity"] == "pending"
++    assert status["status"] == "pending"
++    assert status["verification_method"] == "none"
++    assert status["incident_id"] == evidence["integrity_incident_id"]
++    assert status["prior_pid"] == OLD_PID
++    assert (tmp_path / "logs" / "gateway-exit-diag.log").exists()
++    assert ledger._read_json(ledger.get_lifecycle_sentinel_path(tmp_path))["prior_unclean_exit"]
++
++
++def test_clean_boot_does_not_scan_or_invent_incident(tmp_path, monkeypatch):
++    _unclean(tmp_path)
++    ledger.mark_exited(home=tmp_path)  # not owned by this PID; write clean sentinel below
++    path = ledger.get_lifecycle_sentinel_path(tmp_path)
++    path.write_text(json.dumps({"phase": "exited", "pid": OLD_PID}))
++    monkeypatch.setattr(ledger, "check_state_db_integrity",
++                        lambda **kw: (_ for _ in ()).throw(AssertionError("called")))
++    assert ledger.record_startup(home=tmp_path) is None
++    assert not (tmp_path / "state" / "gateway-integrity-verification.json").exists()
++
++
++def test_clean_exit_does_not_erase_pending_record(tmp_path):
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    before = _record(tmp_path)
++    ledger.mark_exited(home=tmp_path)
++    assert _record(tmp_path) == before
++    assert ledger.record_startup(home=tmp_path) is None
++    assert _record(tmp_path) == before
++
++
++def test_new_unclean_incident_cannot_inherit_verified(tmp_path):
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    first = _record(tmp_path)
++    path = tmp_path / "state" / "gateway-integrity-verification.json"
++    first.update(status="verified", verification_method="quick_check", completed_at="2026-10-14T09:00:00Z")
++    first["verification_evidence"] = {
++        "incident_id": first["incident_id"], "result": "ok",
++        "method": "quick_check", "completed_at": first["completed_at"],
++    }
++    path.write_text(json.dumps(first))
++    _unclean(tmp_path, prior_pid=OLD_PID+1, started="2026-10-14T10:00:00Z")
++    evidence = ledger.record_startup(home=tmp_path)
++    second = _record(tmp_path)
++    assert second["incident_id"] != first["incident_id"]
++    assert second["status"] == "pending"
++    assert second["verification_method"] == "none"
++    assert evidence["state_db_integrity"] == "pending"
++
++
++def test_same_incident_preserves_verified_result_if_replayed(tmp_path):
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    path = tmp_path / "state" / "gateway-integrity-verification.json"
++    first = _record(tmp_path)
++    first.update(status="verified", verification_method="integrity_check", completed_at="2026-10-14T09:00:00Z")
++    first["verification_evidence"] = {
++        "incident_id": first["incident_id"], "result": "ok",
++        "method": "integrity_check", "completed_at": first["completed_at"],
++    }
++    path.write_text(json.dumps(first))
++    _unclean(tmp_path)
++    evidence = ledger.record_startup(home=tmp_path)
++    assert evidence["state_db_integrity"] == "verified"
++    assert _record(tmp_path) == first
++
++
++def test_atomic_write_failure_emits_unverified_and_preserves_warning(tmp_path, monkeypatch, caplog):
++    _unclean(tmp_path)
++    import utils
++    monkeypatch.setattr(utils, "atomic_json_write", lambda *a, **k: (_ for _ in ()).throw(OSError("simulated")))
++    evidence = ledger.record_startup(home=tmp_path)
++    assert evidence["state_db_integrity"] == "unverified"
++    assert not (tmp_path / "state" / "gateway-integrity-verification.json").exists()
++    assert "integrity" in caplog.text.lower()
++    line = (tmp_path / "logs" / "gateway-exit-diag.log").read_text().splitlines()[-1]
++    assert json.loads(line)["state_db_integrity"] == "unverified"
++
++
++def test_malformed_prior_integrity_file_is_not_overwritten(tmp_path, caplog):
++    _unclean(tmp_path)
++    path = tmp_path / "state" / "gateway-integrity-verification.json"
++    path.write_text("unparseable")
++    evidence = ledger.record_startup(home=tmp_path)
++    assert evidence["state_db_integrity"] == "unverified"
++    assert path.read_text() == "unparseable"
++
++
++def test_zero_db_or_absent_db_does_not_claim_verified(tmp_path):
++    _unclean(tmp_path)
++    (tmp_path / "state.db").write_bytes(b"")
++    ledger.record_startup(home=tmp_path)
++    assert _record(tmp_path)["status"] in ("pending", "unverified")
++    assert _record(tmp_path)["status"] != "verified"
++
++
++def test_integrity_record_has_atomic_helper_and_no_worker_start(tmp_path, monkeypatch):
++    _unclean(tmp_path)
++    seen = []
++    import utils
++    original = utils.atomic_json_write
++    def capture(path, data, **kwargs):
++        seen.append((str(path), kwargs))
++        return original(path, data, **kwargs)
++    monkeypatch.setattr(utils, "atomic_json_write", capture)
++    ledger.record_startup(home=tmp_path)
++    assert any("gateway-integrity-verification.json" in p for p, _ in seen)
++    assert len([p for p, _ in seen if "gateway-integrity-verification.json" in p]) == 1
++
++
++def test_pending_status_is_not_integrity_ok_in_readiness(tmp_path, monkeypatch):
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++    from gateway.readiness import collect_runtime_readiness
++    result = collect_runtime_readiness(
++        configured_model="test/model",
++        runtime_status={"gateway_state": "running",
++                        "platforms": {"telegram": {"state": "connected"}},
++                        "session_store": {"status": "ok"}},
++    )
++    assert result["checks"]["integrity_verification"]["verification_state"] == "pending"
++    assert result["checks"]["integrity_verification"]["status"] == "degraded"
++    assert result["status"] == "degraded"
++
++
++def test_readiness_does_not_accept_unsubstantiated_verified(tmp_path, monkeypatch):
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    record_path = tmp_path / "state" / "gateway-integrity-verification.json"
++    data = _record(tmp_path)
++    data["status"] = "verified"  # forged/no method+completion
++    record_path.write_text(json.dumps(data))
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++    from gateway.readiness import collect_runtime_readiness
++    result = collect_runtime_readiness(
++        configured_model="test/model",
++        runtime_status={"gateway_state": "running", "platforms": {}},
++    )
++    assert result["checks"]["integrity_verification"]["verification_state"] == "unverified"
++    assert result["checks"]["integrity_verification"]["status"] == "degraded"
++
++
++def test_readiness_treats_missing_status_after_unclean_exit_as_unverified(tmp_path, monkeypatch):
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    (tmp_path / "state" / "gateway-integrity-verification.json").unlink()
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++    from gateway.readiness import collect_runtime_readiness
++    result = collect_runtime_readiness(
++        configured_model="test/model",
++        runtime_status={"gateway_state": "running", "platforms": {}},
++    )
++    assert result["checks"]["integrity_verification"]["verification_state"] == "unverified"
++    assert result["checks"]["integrity_verification"]["status"] == "degraded"
++
++def test_verified_without_result_evidence_is_rejected_at_startup(tmp_path):
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    path = tmp_path / "state" / "gateway-integrity-verification.json"
++    item = _record(tmp_path)
++    item.update(status="verified", verification_method="quick_check",
++                completed_at="2026-10-14T09:00:00Z")
++    path.write_text(json.dumps(item))
++    _unclean(tmp_path)
++    assert ledger.record_startup(home=tmp_path)["state_db_integrity"] == "unverified"
++
++
++def test_verified_without_matching_result_evidence_is_not_healthy(tmp_path, monkeypatch):
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    path = tmp_path / "state" / "gateway-integrity-verification.json"
++    item = _record(tmp_path)
++    item.update(status="verified", verification_method="quick_check",
++                completed_at="2026-10-14T09:00:00Z")
++    item["verification_evidence"] = {
++        "incident_id": "wrong-incident",
++        "result": "ok",
++        "method": "quick_check",
++        "completed_at": item["completed_at"],
++    }
++    path.write_text(json.dumps(item))
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++    from gateway.readiness import collect_runtime_readiness
++    result = collect_runtime_readiness(
++        configured_model="test/model",
++        runtime_status={"gateway_state": "running", "platforms": {}},
++    )
++    assert result["checks"]["integrity_verification"]["verification_state"] == "unverified"
++    assert result["checks"]["integrity_verification"]["status"] == "degraded"
++
++
++def test_failed_integrity_status_write_stays_unverified_after_repeated_clean_restarts(tmp_path, monkeypatch):
++    """Regression: failed atomic status write must not fail open on clean restart."""
++    import utils
++    from gateway.readiness import collect_runtime_readiness
++
++    _unclean(tmp_path)
++    original_write = utils.atomic_json_write
++    attempted = []
++
++    def fail_integrity_only(path, data, **kwargs):
++        if str(path).endswith("gateway-integrity-verification.json"):
++            attempted.append(str(path))
++            raise OSError("simulated integrity-file write failure")
++        return original_write(path, data, **kwargs)
++
++    monkeypatch.setattr(utils, "atomic_json_write", fail_integrity_only)
++    evidence = ledger.record_startup(home=tmp_path)
++    assert evidence["state_db_integrity"] == "unverified"
++    assert attempted
++    assert not (tmp_path / "state" / "gateway-integrity-verification.json").exists()
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++
++    def assert_unverified():
++        readiness = collect_runtime_readiness(
++            configured_model="test/model",
++            runtime_status={"gateway_state": "running",
++                            "platforms": {"telegram": {"state": "connected"}},
++                            "session_store": {"status": "ok"}},
++        )
++        assert readiness["checks"]["integrity_verification"]["verification_state"] == "unverified"
++        assert readiness["checks"]["integrity_verification"]["status"] == "degraded"
++        assert readiness["status"] == "degraded"
++
++    assert_unverified()
++    incident = evidence["integrity_incident_id"]
++    for _ in range(3):
++        ledger.mark_exited(home=tmp_path)
++        assert ledger.read_prior_exit_label(tmp_path) == "clean"
++        assert ledger.record_startup(home=tmp_path) is None
++        assert_unverified()
++        sentinel = ledger._read_json(ledger.get_lifecycle_sentinel_path(tmp_path))
++        assert sentinel["prior_integrity_incident_id"] == incident
++        assert "prior_unclean_exit" not in sentinel
++
++
++def test_first_boot_and_clean_restarts_remain_not_required_without_unclean_incident(tmp_path, monkeypatch):
++    from gateway.readiness import collect_runtime_readiness
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++    for _ in range(3):
++        assert ledger.record_startup(home=tmp_path) is None
++        readiness = collect_runtime_readiness(
++            configured_model="test/model",
++            runtime_status={"gateway_state": "running",
++                            "platforms": {"telegram": {"state": "connected"}}},
++        )
++        assert readiness["checks"]["integrity_verification"]["verification_state"] == "not_required"
++        assert readiness["checks"]["integrity_verification"]["status"] == "ok"
++        ledger.mark_exited(home=tmp_path)
++
++
++def test_clean_restart_keeps_incident_reference_for_existing_pending_record(tmp_path, monkeypatch):
++    from gateway.readiness import collect_runtime_readiness
++    _unclean(tmp_path)
++    evidence = ledger.record_startup(home=tmp_path)
++    first_record = _record(tmp_path)
++    incident = evidence["integrity_incident_id"]
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++    for _ in range(2):
++        ledger.mark_exited(home=tmp_path)
++        assert ledger.record_startup(home=tmp_path) is None
++        assert _record(tmp_path) == first_record
++        sentinel = ledger._read_json(ledger.get_lifecycle_sentinel_path(tmp_path))
++        assert sentinel["prior_integrity_incident_id"] == incident
++        status = collect_runtime_readiness(
++            configured_model="test/model",
++            runtime_status={"gateway_state": "running", "platforms": {}},
++        )
++        assert status["checks"]["integrity_verification"]["verification_state"] == "pending"
++        assert status["status"] == "degraded"
++
++
++def test_new_unclean_write_failure_does_not_reuse_old_verified_after_clean_restart(
++        tmp_path, monkeypatch):
++    import utils
++    from gateway.readiness import collect_runtime_readiness
++    _unclean(tmp_path)
++    ledger.record_startup(home=tmp_path)
++    old = _record(tmp_path)
++    old.update(status="verified", verification_method="quick_check",
++               completed_at="2026-10-14T09:00:00Z")
++    old["verification_evidence"] = {
++        "incident_id": old["incident_id"], "result": "ok",
++        "method": "quick_check", "completed_at": old["completed_at"],
++    }
++    path = tmp_path / "state" / "gateway-integrity-verification.json"
++    path.write_text(json.dumps(old))
++    _unclean(tmp_path, prior_pid=OLD_PID + 14, started="2026-10-15T01:00:00Z")
++    original = utils.atomic_json_write
++    def fail_new_record_only(file, obj, **kwargs):
++        if str(file).endswith("gateway-integrity-verification.json"):
++            raise OSError("simulated failed write for new incident")
++        return original(file, obj, **kwargs)
++    monkeypatch.setattr(utils, "atomic_json_write", fail_new_record_only)
++    new = ledger.record_startup(home=tmp_path)
++    assert new["state_db_integrity"] == "unverified"
++    assert new["integrity_incident_id"] != old["incident_id"]
++    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
++    for _ in range(2):
++        ledger.mark_exited(home=tmp_path)
++        assert ledger.record_startup(home=tmp_path) is None
++        diag = collect_runtime_readiness(
++            configured_model="test/model",
++            runtime_status={"gateway_state": "running", "platforms": {}},
++        )["checks"]["integrity_verification"]
++        assert diag["status"] == "degraded"
++        assert diag["verification_state"] == "unverified"
++        assert _record(tmp_path)["incident_id"] == old["incident_id"]
