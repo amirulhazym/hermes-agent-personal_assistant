@@ -31,7 +31,7 @@
 - The retained log records an invalid-refresh-token message followed by device authorization, then channel subscription / device online / `Device ready`; later log entries record a channel socket close and device offline after the gateway event. These are historical events, not current auth/connectivity proof; the event date was not independently established in this audit.
 - `network-online.target`: system manager `active`; user manager `not-found`. The RDC bootstrap endpoint returned HTTP 200 during the read-only audit; response body was suppressed.
 - `Linger=yes`; no RDC user unit, active tmux server/session, target-wants entry, autostart entry, or matching crontab entry was found.
-- Fresh live read-only check: gateway active (`MainPID=2500322`, `ControlGroup=/user.slice/user-1000.slice/user@1000.service/app.slice/hermes-gateway.service`); zero matching RDC Node processes; `chatgpt-rdc.service` `LoadState=not-found`; no tmux server; `Linger=yes`; user `network-online.target` `LoadState=not-found`. The current package metadata reports version `0.2.51` and binary entry `dist/index.js`.
+- Fresh live read-only check: gateway active (`MainPID=2500322`, `ControlGroup=/user.slice/user-1000.slice/systemd user manager for UID 1000/app.slice/hermes-gateway.service`); zero matching RDC Node processes; `chatgpt-rdc.service` `LoadState=not-found`; no tmux server; `Linger=yes`; user `network-online.target` `LoadState=not-found`. The current package metadata reports version `0.2.51` and binary entry `dist/index.js`.
 - SSOT repository was clean on `main` at `621683be8cd9d851ecdd82b82cf3d9353c1c60a1` before these plan artifacts.
 
 ## Task 1: Add and test the source-controlled unit contract

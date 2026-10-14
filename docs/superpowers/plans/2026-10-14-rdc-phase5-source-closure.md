@@ -86,3 +86,45 @@ approval, protected Git publication, and final source/deployment evidence.
   source/provider changes made to work around this.
 - Live RDC PID `1297` and gateway PID `1210` stayed unchanged during
   A1–A3. No service restart, reboot, publication or deploy occurred.
+
+## /xcute original Telegram session handoff
+- Source of this incident: Telegram default-profile session
+  `20261014_133417_860540` (ended by context compression), continued
+  in `20261014_135508_d2df46` titled
+  "Run disciplined engineering pipeline".
+- The latter emitted a **PARTIAL** report at 13:55 MYT:
+  independent RDC service active, gateway restart test not executed.
+- ChatGPT subsequently completed approved Phase 2 (one gateway restart,
+  cgroup/PID proof), Phase 3 (direct Node supervision, SIGKILL/SIGTERM
+  automatic recovery), Phase 4 (owner-performed full VPS reboot,
+  session restored and `Device ready`), and Phase 5 A1–A4 (source parity,
+  tests, local candidate commit).
+- Historical Telegram messages/SQLite session records are deliberately
+  **not rewritten**. A final closure receipt must cite these session IDs
+  and the post-session verification evidence. The old PARTIAL finding
+  is superseded by later tests, not deleted or misrepresented.
+- /xcute Phase 5 publication is PENDING until all required gates, protected
+  PR, successful CI, verified merge, local `main` sync, and owner receipt.
+  The running RDC service already matches this source unit; publishing the
+  source is not permission to redeploy/restart runtime services.
+
+## Phase 5 publication gate evidence
+- SSOT candidate: isolated `feat/rdc-phase5-source-closure-20261014`,
+  original local candidate `f56ac57a1d70e9befdc599d79b8e18344530871e`.
+- Full `bash scripts/run_contract_tests.sh`: **141 passed in 97.52 seconds**.
+- `bash scripts/guard/secret-scan.sh --tree`: **PASS**.
+- `bash scripts/guard/manifest-validate.sh`: **PASS, 723/723** on original candidate.
+- `pii-review.py --diff origin/main..HEAD` initially returned REVIEW_REQUIRED
+  for a systemd cgroup string that resembled an email address and npm's
+  third-party `glob` deprecation metadata. They were not user credentials.
+  Remove only the misleading cgroup spelling in the historical doc and
+  irrelevant deprecation metadata from four lockfile entries; preserve all
+  package integrity hashes, versions and resolved URLs. Re-run the PII gate
+  on the **new committed SHA** before publication.
+- GitHub connector was unable to access this private repository (404),
+  but read-only `git ls-remote --heads origin` via VPS SSH succeeded:
+  remote `main` matched local base `621683be8cd9d851ecdd82b82cf3d9353c1c60a1`;
+  the candidate branch was not yet published.
+- GitHub branch push, PR creation, CI proof, protected merge, remote branch
+  cleanup, local main sync, runtime parity, and final owner receipt are
+  **pending**. Owner's exact-SHA release approval is mandatory.
