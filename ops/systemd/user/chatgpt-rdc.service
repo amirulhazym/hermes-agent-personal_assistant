@@ -1,0 +1,22 @@
+[Unit]
+Description=Dedicated Remote Desktop Commander transport (pinned Node runtime)
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu
+Environment=HOME=/home/ubuntu
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStartPre=/usr/bin/curl --fail --silent --show-error --output /dev/null --connect-timeout 3 --max-time 8 https://mcp.desktopcommander.app/api/mcp-info
+ExecStart=/usr/bin/node /home/ubuntu/.local/share/chatgpt-rdc/0.2.51/node_modules/@wonderwhy-er/desktop-commander/dist/index.js remote
+Restart=always
+RestartSec=8s
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStartSec=15s
+TimeoutStopSec=20s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
