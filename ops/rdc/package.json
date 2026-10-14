@@ -1,0 +1,9 @@
+{
+  "name": "chatgpt-rdc-pinned",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Pinned dependency manifest for the dedicated RDC transport",
+  "dependencies": {
+    "@wonderwhy-er/desktop-commander": "0.2.51"
+  }
+}
