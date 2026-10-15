@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "base_sha": "29112bef099274229cadff79cdff7bf7b99c4b77",
-  "patch_series_digest": "5dbf589e8cdb06782697fca2d5b77f6cb5cbb749fabbf4e797d87c77239914b4",
+  "patch_series_digest": "0cf1a9c389657be7081a04324a9d1de20379a42b3ca6a41180c570a89bdab214",
   "destination_root": "/home/ubuntu/.hermes/hermes-agent",
   "entries": [
     {
@@ -21817,7 +21817,7 @@
     {
       "source": "gateway/lifecycle_ledger.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/gateway/lifecycle_ledger.py",
-      "sha256": "85b7952df35aecf5cc46093019d3e4042e18de28c3fb00eb982ad1b69e49d1c0",
+      "sha256": "171de0e7d21c8d2745b541997a07f744161002fb5e0de0a92b700d2c5f6bcf61",
       "mode": "0644"
     },
     {
@@ -22075,7 +22075,7 @@
     {
       "source": "gateway/readiness.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/gateway/readiness.py",
-      "sha256": "a02de86773b3045ebac5baa336fe392f69a4654c35a1014db3296dfa639e728d",
+      "sha256": "c1caa29adb260ef429640391ea141fc00369aaa371ba40f34a4c2ff9bbf57d5d",
       "mode": "0644"
     },
     {
@@ -39071,6 +39071,12 @@
       "mode": "0644"
     },
     {
+      "source": "tests/gateway/test_b1_startup_integrity.py",
+      "destination": "/home/ubuntu/.hermes/hermes-agent/tests/gateway/test_b1_startup_integrity.py",
+      "sha256": "0f81a3b117c195a4425f9ec6d6d98034bc9a3bcedebf93cb25b995a53872685c",
+      "mode": "0664"
+    },
+    {
       "source": "tests/gateway/test_background_command.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/gateway/test_background_command.py",
       "sha256": "3d54bc9893d0e32ac18a50d90799aea7162341a8238b7b6114e7593e95823c1f",
@@ -40441,7 +40447,7 @@
     {
       "source": "tests/gateway/test_lifecycle_state_db_check.py",
       "destination": "/home/ubuntu/.hermes/hermes-agent/tests/gateway/test_lifecycle_state_db_check.py",
-      "sha256": "3a38bbdba6a5926e52ef02b1f89c84ac93f7ca1966cd4ec6f080e9628dc584f1",
+      "sha256": "77b434b999ea14a466057e0920c7ab33bdaee2ebe70045cbb0fe45b0328117ef",
       "mode": "0644"
     },
     {
@@ -65615,5 +65621,5 @@
       "mode": "0644"
     }
   ],
-  "tree_sha256": "77e164e6c15a013cfb148c8674a2ad1f06ec66dffc836b415e6fc60441e22aa8"
+  "tree_sha256": "303b3377419b80b5cdfb66b4ebcbb8092f7288ea4ee70049a789e2c0ff9a6135"
 }
