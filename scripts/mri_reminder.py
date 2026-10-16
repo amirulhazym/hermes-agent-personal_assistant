@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
 mri_reminder.py — Deterministic reminder generator for Amirulhazym's HKL MRI appointment.
-
-Usage:
-    python3 mri_reminder.py --stage [catchup|day3_evening|day2_morning|day2_evening|day1_morning|day1_evening]
+Style: Action-Oriented (Option 2).
 """
 
 import argparse
@@ -11,57 +9,46 @@ import sys
 
 STAGES = {
     "catchup": (
-        "🔔 [CATCH-UP] PERINGATAN TEMUJANJI MRI HKL\n\n"
-        "Tarikh: Isnin, 19 Oktober 2026 (lagi 3 hari)\n"
-        "Masa: Awal pagi (anggaran 8:00 AM – 10:00 AM)\n"
-        "Lokasi: Hospital Kuala Lumpur (HKL)\n"
-        "Tujuan: MRI Scan (Otak / Neuro)\n"
-        "Perjalanan: Rancang gerak awal dari rumah ke LRT IOI Puchong Jaya menghala ke HKL.\n"
-        "Nota: Mesej ini dihantar sebagai pengganti reminder slot 9:00 AM pagi ini yang tertangguh. Sila semak sebarang arahan persediaan khusus daripada pihak HKL."
+        "🏥 *MRI HKL — Isnin 19 Okt (Lagi 3 Hari)*\n"
+        "⏱ *Slot:* 8:00 AM – 10:00 AM (Awal Pagi)\n\n"
+        "📍 *Lokasi:* Hospital Kuala Lumpur (Scan Otak/Neuro)\n"
+        "🚇 *Logistik:* LRT IOI Puchong Jaya ➔ HKL (Gerak awal, waktu puncak)\n"
+        "⚠️ *Checklist:* IC & surat temujanji sedia malam sebelum."
     ),
     "day3_evening": (
-        "🌙 Peringatan Malam: Temujanji MRI HKL (Lagi 3 Hari)\n\n"
-        "Tarikh: Isnin, 19 Oktober 2026\n"
-        "Masa: Awal pagi (anggaran 8:00 AM – 10:00 AM)\n"
-        "Lokasi: Hospital Kuala Lumpur (HKL)\n"
-        "Tujuan: MRI Scan (Otak / Neuro)\n"
-        "Perjalanan: Laluan LRT IOI Puchong Jaya ke HKL waktu puncak pagi.\n"
-        "Peringatan: Pastikan rehat secukupnya dan semak dokumen/surat rujukan HKL."
+        "🌙 *MRI HKL — Isnin 19 Okt (Lagi 3 Hari)*\n"
+        "⏱ *Slot:* 8:00 AM – 10:00 AM (Awal Pagi)\n\n"
+        "📍 *Lokasi:* Hospital Kuala Lumpur (Scan Otak/Neuro)\n"
+        "🚇 *Logistik:* LRT IOI Puchong Jaya ➔ HKL (Gerak awal, waktu puncak pagi)\n"
+        "💡 *Nota:* Pastikan rehat secukupnya & semak dokumen/surat rujukan HKL."
     ),
     "day2_morning": (
-        "📅 Peringatan Pagi: Temujanji MRI HKL (Lagi 2 Hari)\n\n"
-        "Tarikh: Isnin, 19 Oktober 2026\n"
-        "Masa: Awal pagi (anggaran 8:00 AM – 10:00 AM)\n"
-        "Lokasi: Hospital Kuala Lumpur (HKL)\n"
-        "Tujuan: MRI Scan (Otak / Neuro)\n"
-        "Perjalanan: Rancang jadual transit LRT IOI Puchong Jaya lebih awal."
+        "☀️ *MRI HKL — Isnin 19 Okt (Lagi 2 Hari)*\n"
+        "⏱ *Slot:* 8:00 AM – 10:00 AM (Awal Pagi)\n\n"
+        "📍 *Lokasi:* Hospital Kuala Lumpur (Scan Otak/Neuro)\n"
+        "🚇 *Logistik:* LRT IOI Puchong Jaya ➔ HKL (Rancang jadual transit waktu puncak)"
     ),
     "day2_evening": (
-        "🌙 Peringatan Malam: Temujanji MRI HKL (Lagi 2 Hari)\n\n"
-        "Tarikh: Isnin, 19 Oktober 2026\n"
-        "Masa: Awal pagi (anggaran 8:00 AM – 10:00 AM)\n"
-        "Lokasi: Hospital Kuala Lumpur (HKL)\n"
-        "Tujuan: MRI Scan (Otak / Neuro)\n"
-        "Nota: Pastikan tiada barang logam/aksesori terlarang semasa scan."
+        "🌙 *MRI HKL — Isnin 19 Okt (Lagi 2 Hari)*\n"
+        "⏱ *Slot:* 8:00 AM – 10:00 AM (Awal Pagi)\n\n"
+        "📍 *Lokasi:* Hospital Kuala Lumpur (Scan Otak/Neuro)\n"
+        "⚠️ *Peringatan:* Elak pakaian/aksesori berlogam untuk scan Isnin nanti."
     ),
     "day1_morning": (
-        "⚠️ PERINGATAN: TEMUJANJI MRI HKL ESOK!\n\n"
-        "Tarikh: Esok, Isnin 19 Oktober 2026\n"
-        "Masa: Awal pagi (anggaran 8:00 AM – 10:00 AM)\n"
-        "Lokasi: Hospital Kuala Lumpur (HKL)\n"
-        "Tujuan: MRI Scan (Otak / Neuro)\n"
-        "Perjalanan: Perlu gerak awal pagi dari LRT IOI Puchong Jaya untuk elak kesesakan."
+        "⚠️ *MRI HKL — ESOK PAGI (Isnin 19 Okt)*\n"
+        "⏱ *Slot:* 8:00 AM – 10:00 AM\n\n"
+        "📍 *Lokasi:* Hospital Kuala Lumpur (Scan Otak/Neuro)\n"
+        "🚇 *Logistik:* LRT IOI Puchong Jaya ➔ HKL (Wajib gerak awal pagi)\n"
+        "📋 *Tindakan:* Sedia kad pengenalan & surat temujanji hari ini."
     ),
     "day1_evening": (
-        "🚨 PERINGATAN MALAM: TEMUJANJI MRI HKL ESOK PAGI!\n\n"
-        "Tarikh: Esok Pagi, Isnin 19 Oktober 2026\n"
-        "Masa: Awal pagi (anggaran 8:00 AM – 10:00 AM)\n"
-        "Lokasi: Hospital Kuala Lumpur (HKL)\n"
-        "Tujuan: MRI Scan (Otak / Neuro)\n"
+        "🚨 *MRI HKL — ESOK PAGI! (Isnin 19 Okt)*\n"
+        "⏱ *Slot:* 8:00 AM – 10:00 AM (Hospital Kuala Lumpur)\n\n"
         "Checklist Malam Ini:\n"
-        "1. Kunci jam penggera awal pagi.\n"
-        "2. Sediakan kad pengenalan, surat temujanji, dan rekod perubatan.\n"
-        "3. Rancang pergerakan awal ke stesen LRT IOI Puchong Jaya."
+        "1. ⏰ Kunci jam penggera awal pagi (waktu puncak LRT).\n"
+        "2. 🪪 Masukkan IC & surat temujanji dalam beg sekarang.\n"
+        "3. 👕 Sediakan pakaian selesa tanpa zip/butang logam.\n"
+        "🚇 Laluan: LRT IOI Puchong Jaya ➔ HKL"
     ),
 }
 
