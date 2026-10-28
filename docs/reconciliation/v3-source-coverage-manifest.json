@@ -908,7 +908,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/guard/whitespace_review.py",
-      "source_sha256": "c88ea9bcde06ad64a2906a972d362fc07f739b2a8d2f977c61dc0dbbc0c8775e"
+      "source_sha256": "5023299d95299ad69ccead4bb9ac50d2fbe8aed82cbb913d7894a416e79e81f6"
     },
     {
       "destination": null,
@@ -1016,7 +1016,7 @@
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene.py",
       "kind": "runtime-deploy",
       "source": "scripts/nightly_git_hygiene.py",
-      "source_sha256": "0a396637184ebac3c20273aff6355fb57ecfccff5f7f3bf12370775271f24b1a"
+      "source_sha256": "6d36eb3f10053d672de18293121166f50370457745f249a733239e551bcb79c2"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/nightly_git_hygiene_timeout.sh",
@@ -1034,7 +1034,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/reconstruct_hermes_runtime.py",
-      "source_sha256": "f0de63f2944b673c852ce63f10aca63fdbb29461e4a6853377581a50ea4112e0"
+      "source_sha256": "98a4215e5fb41ea97e8b7857128fbac2db676e0b72e1bc97a9d7a98bc53f6f55"
     },
     {
       "destination": "/home/ubuntu/.hermes/scripts/restart-gateway.sh",
@@ -4286,7 +4286,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "tests/reconciliation/test_nightly_git_hygiene.py",
-      "source_sha256": "0c315637dadd987c770866019f4eafae9a8b06806e8e9a8163a992ebaf65407a"
+      "source_sha256": "707c4d7006e7fb655f4363390ed32e15c5ea87af3c6181297e7826f294cf9310"
     },
     {
       "destination": null,

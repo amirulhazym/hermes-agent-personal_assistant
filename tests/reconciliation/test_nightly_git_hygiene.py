@@ -1,10 +1,12 @@
 import importlib.util
+import hashlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime
 from pathlib import Path
 
@@ -238,6 +240,99 @@ class NightlyGitHygieneScenarioTests(unittest.TestCase):
 
         branches = subprocess.check_output(["git", "-C", str(self.repo_dir), "branch"], text=True)
         self.assertIn("feat/dry-run-branch", branches)
+
+    def test_nested_uninitialized_repo_is_scanned_without_temporary_index(self):
+        candidate_root = self.repo_dir / ".scratch" / "opencode-free-provider-refresh-20261017"
+        nested_repo = candidate_root / "unborn-candidate"
+        nested_repo.mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(nested_repo)], check=True)
+        target = nested_repo / "review.txt"
+        fake_email = "person" + "@" + "research.example"
+        target.write_text(f"contact {fake_email}\n", encoding="utf-8")
+
+        # Also prove that ignored candidate files stay in scope.
+        (self.repo_dir / ".gitignore").write_text("*.ignored\n", encoding="utf-8")
+        ignored = candidate_root / "hidden.ignored"
+        ignored.write_text(f"contact {fake_email}\n", encoding="utf-8")
+
+        guard_dir = self.repo_dir / "scripts" / "guard"
+        guard_dir.mkdir(parents=True)
+        (guard_dir / "secret-scan.sh").write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+        (guard_dir / "pii-review.py").write_text("raise SystemExit(0)\n", encoding="utf-8")
+        (guard_dir / "whitespace_review.py").write_text("raise SystemExit(0)\n", encoding="utf-8")
+        (guard_dir / "intentional-markdown-whitespace.json").write_text(
+            '{"entries": []}\n', encoding="utf-8"
+        )
+        contract = self.repo_dir / "scripts" / "run_contract_tests.sh"
+        contract.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+        os.chmod(contract, 0o755)
+        def storage_snapshot():
+            def git_path(name):
+                raw = subprocess.check_output(
+                    ["git", "-C", str(self.repo_dir), "rev-parse", "--git-path", name], text=True
+                ).strip()
+                path = Path(raw)
+                return (path if path.is_absolute() else self.repo_dir / path).resolve()
+
+            objects = git_path("objects")
+            object_snapshot = {
+                str(path.relative_to(objects)): (
+                    path.stat().st_size,
+                    path.stat().st_mtime_ns,
+                    hashlib.sha256(path.read_bytes()).hexdigest(),
+                )
+                for path in objects.rglob("*") if path.is_file()
+            }
+            index = git_path("index")
+            index_snapshot = (
+                index.stat().st_size,
+                index.stat().st_mtime_ns,
+                hashlib.sha256(index.read_bytes()).hexdigest(),
+            ) if index.is_file() else None
+            return object_snapshot, index_snapshot
+
+        storage_before = storage_snapshot()
+        git_commands = []
+        git_environments = []
+        original_run = HYGIENE.subprocess.run
+
+        def record_run(command, *args, **kwargs):
+            if isinstance(command, (list, tuple)) and command and os.fsdecode(command[0]) == "git":
+                git_commands.append(tuple(os.fsdecode(arg) for arg in command[1:]))
+                git_environments.append(kwargs.get("env") or os.environ)
+            return original_run(command, *args, **kwargs)
+
+        with (
+            mock.patch.object(
+                HYGIENE,
+                "_temporary_worktree_index",
+                side_effect=AssertionError("temporary index must not be used"),
+            ) as temp_index,
+            mock.patch.object(HYGIENE, "_daily_base", return_value=HYGIENE.EMPTY_TREE_SHA),
+            mock.patch.object(HYGIENE.subprocess, "run", side_effect=record_run),
+        ):
+            gates = HYGIENE.run_full_delta_gates(
+                self.repo_dir,
+                datetime(2020, 1, 1, tzinfo=HYGIENE.MYT),
+            )
+        storage_after = storage_snapshot()
+
+        temp_index.assert_not_called()
+        self.assertFalse(any(cmd and cmd[0] in {"add", "update-index", "write-tree", "hash-object"} for cmd in git_commands))
+        self.assertTrue(all("GIT_INDEX_FILE" not in env for env in git_environments))
+        self.assertEqual(storage_after, storage_before)
+        self.assertEqual(gates["candidate_delta_scan"]["status"], "FAIL")
+        self.assertGreaterEqual(gates["candidate_delta_scan"]["scanned_count"], 2)
+        self.assertIn(".scratch/opencode-free-provider-refresh-20261017/unborn-candidate/review.txt", gates["pii_review_worktree_delta"]["output_excerpt"])
+        self.assertIn(".scratch/opencode-free-provider-refresh-20261017/hidden.ignored", gates["pii_review_worktree_delta"]["output_excerpt"])
+        self.assertIn("email-like", gates["pii_review_worktree_delta"]["output_excerpt"])
+        self.assertEqual(gates["secret_scan_worktree_delta"]["status"], "PASS")
+        self.assertEqual(gates["whitespace_review"]["status"], "PASS")
+        self.assertNotIn(fake_email, json.dumps(gates))
+        self.assertEqual(gates["secret_scan_daily_commits"]["status"], "PASS")
+        self.assertEqual(gates["pii_review_daily_commits"]["status"], "PASS")
+        self.assertEqual(gates["contract_tests"]["status"], "PASS")
+        self.assertFalse(HYGIENE._gates_pass(gates))
 
 
 if __name__ == "__main__":

@@ -59,12 +59,21 @@ def _repo_root(lock_path: Path) -> Path:
     return Path(result.stdout.strip()).resolve()
 
 
-def _git(repo: Path, *args: str, capture: bool = True) -> subprocess.CompletedProcess[str]:
+def _git(
+    repo: Path,
+    *args: str,
+    capture: bool = True,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
     return subprocess.run(
         ["git", "-C", str(repo), *args],
         text=True,
         capture_output=capture,
         check=False,
+        env=run_env,
     )
 
 
@@ -240,7 +249,12 @@ def _apply_series(
             if check:
                 args.append("--check")
             args.append(str(patch))
-            result = _git(output, *args)
+            # ``output`` is normally outside any repository, but tests and
+            # callers may place it below an existing Git worktree.  Git's
+            # repository discovery would then reinterpret a patch to
+            # ``marker.txt`` as a patch to the parent checkout.  ``git apply``
+            # does not need a repository, so fence discovery explicitly.
+            result = _git(output, *args, env={"GIT_DIR": os.devnull})
             if result.returncode:
                 phase = "check" if check else "apply"
                 raise RuntimeError(

@@ -62,6 +62,25 @@ def evaluate_issues(
     return allowed, unexpected
 
 
+def issues_from_bytes(path: str, data: bytes, allowlist: list[dict[str, Any]]) -> list[Issue]:
+    """Build exact whitespace identities from bytes without touching Git state."""
+    lines = data.splitlines(keepends=False)
+    issues: list[Issue] = []
+    for line_number, raw in enumerate(lines, start=1):
+        body = raw.rstrip(b" \t")
+        trailing_ws = len(raw) - len(body)
+        if not trailing_ws:
+            continue
+        body_hash = hashlib.sha256(body).hexdigest()
+        kind = "unknown"
+        for entry in allowlist:
+            if entry.get("path") == path and int(entry.get("line", -1)) == line_number:
+                kind = str(entry.get("kind", "unknown"))
+                break
+        issues.append(Issue(path, line_number, trailing_ws, body_hash, kind))
+    return issues
+
+
 def _git_check(repo: Path) -> tuple[int, str]:
     result = subprocess.run(
         ["git", "-C", str(repo), "diff", "--cached", "--check"],

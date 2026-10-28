@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -27,6 +28,109 @@ ANTIGRAVITY_PATCH_CHAIN = (
 )
 
 
+def create_isolated_git_checkout(source: Path, temp_root: Path) -> Path:
+    """Create a disposable copy with an independent index and object database."""
+    temp_root.mkdir(parents=True, exist_ok=True)
+    checkout = temp_root / "checkout"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--no-hardlinks", str(source), str(checkout)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert not (checkout / ".git/objects/info/alternates").exists()
+    return checkout
+
+
+def git_storage_snapshot(repo: Path) -> tuple[dict, tuple | None]:
+    """Capture source object/index bytes and metadata without printing contents."""
+    def git_path(name: str) -> Path:
+        raw = subprocess.check_output(
+            ["git", "-C", str(repo), "rev-parse", "--git-path", name], text=True
+        ).strip()
+        path = Path(raw)
+        return (path if path.is_absolute() else repo / path).resolve()
+
+    objects = git_path("objects")
+    object_snapshot = {
+        str(path.relative_to(objects)):
+            (path.stat().st_size, path.stat().st_mtime_ns, hashlib.sha256(path.read_bytes()).hexdigest())
+        for path in objects.rglob("*")
+        if path.is_file()
+    }
+    index = git_path("index")
+    index_snapshot = (
+        (index.stat().st_size, index.stat().st_mtime_ns, hashlib.sha256(index.read_bytes()).hexdigest())
+        if index.is_file()
+        else None
+    )
+    return object_snapshot, index_snapshot
+
+
+def mirror_tracked_worktree_delta(source: Path, checkout: Path) -> None:
+    """Copy only tracked working-tree changes into a disposable checkout."""
+    env = os.environ.copy()
+    env["GIT_OPTIONAL_LOCKS"] = "0"
+    delta = subprocess.run(
+        ["git", "diff", "--no-renames", "--name-only", "-z", "HEAD", "--"],
+        cwd=source,
+        env=env,
+        check=True,
+        capture_output=True,
+    ).stdout
+    for raw_path in filter(None, delta.split(b"\0")):
+        relative = os.fsdecode(raw_path)
+        original = source / relative
+        copied = checkout / relative
+        if not original.exists() and not original.is_symlink():
+            if copied.is_dir() and not copied.is_symlink():
+                shutil.rmtree(copied)
+            else:
+                copied.unlink(missing_ok=True)
+        elif original.is_symlink():
+            copied.parent.mkdir(parents=True, exist_ok=True)
+            if copied.exists() or copied.is_symlink():
+                if copied.is_dir() and not copied.is_symlink():
+                    shutil.rmtree(copied)
+                else:
+                    copied.unlink()
+            copied.symlink_to(os.readlink(original))
+        elif original.is_file():
+            copied.parent.mkdir(parents=True, exist_ok=True)
+            if copied.is_dir() and not copied.is_symlink():
+                shutil.rmtree(copied)
+            shutil.copy2(original, copied)
+        else:
+            raise AssertionError(f"Unsupported tracked worktree node: {relative!r}")
+
+
+def test_isolated_git_write_helper_never_mutates_source_object_store(tmp_path: Path):
+    repo = tmp_path / "fixture"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "Test"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "test@example.invalid"], check=True)
+    tracked = repo / "base.txt"
+    tracked.write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "base.txt"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "base"], check=True)
+    tracked.write_text("alternate object\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", "base.txt"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "alternate"], check=True)
+    subprocess.run(["git", "-C", str(repo), "checkout", "-q", "HEAD^"], check=True)
+
+    before = git_storage_snapshot(repo)
+    tracked.write_text("alternate object\n", encoding="utf-8")
+    checkout = create_isolated_git_checkout(repo, tmp_path / "isolated-write")
+    (checkout / "base.txt").write_text("alternate object\n", encoding="utf-8")
+    subprocess.run(["git", "add", "--", "base.txt"], cwd=checkout, check=True)
+    tree = subprocess.run(
+        ["git", "write-tree"], cwd=checkout, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    subprocess.run(["git", "cat-file", "-e", f"{tree}^{{tree}}"], cwd=checkout, check=True)
+    after = git_storage_snapshot(repo)
+    assert after == before
+
+
 def test_antigravity_provider_live_parity_with_main_repo_patch(tmp_path: Path):
     """Verify live checkout parity at the dependency and selective-deploy boundaries."""
     repo = Path(__file__).resolve().parents[2]
@@ -35,6 +139,7 @@ def test_antigravity_provider_live_parity_with_main_repo_patch(tmp_path: Path):
     marker_name = "DO_NOT_EDIT_LIVE_RUNTIME.md"
 
     assert live_agy.exists(), "live antigravity-provider directory must exist"
+    live_storage_before = git_storage_snapshot(live_agy)
     assert manifest_path.is_file(), "antigravity selective-deploy manifest must exist"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["upstream_base_sha"] == ANTIGRAVITY_BASE_SHA
@@ -126,9 +231,12 @@ def test_antigravity_provider_live_parity_with_main_repo_patch(tmp_path: Path):
         ["git", "write-tree"], cwd=candidate, check=True, capture_output=True, text=True
     ).stdout.strip()
 
+    live_read_env = os.environ.copy()
+    live_read_env["GIT_OPTIONAL_LOCKS"] = "0"
     status = subprocess.run(
         ["git", "status", "--porcelain=v1", "--untracked-files=all"],
         cwd=live_agy,
+        env=live_read_env,
         check=True,
         capture_output=True,
         text=True,
@@ -139,22 +247,22 @@ def test_antigravity_provider_live_parity_with_main_repo_patch(tmp_path: Path):
     ]
     assert not unexpected_untracked, f"Unrepresented untracked files in live antigravity checkout: {unexpected_untracked}"
 
-    live_index = tmp_path / "live-index"
-    live_env = os.environ.copy()
-    live_env["GIT_INDEX_FILE"] = str(live_index)
-    subprocess.run(["git", "read-tree", "HEAD"], cwd=live_agy, env=live_env, check=True)
+    live_checkout = create_isolated_git_checkout(live_agy, tmp_path / "live-git-write")
+    mirror_tracked_worktree_delta(live_agy, live_checkout)
     subprocess.run(
-        ["git", "add", "-A", "--", ".", f":(exclude){marker_name}"],
-        cwd=live_agy,
-        env=live_env,
+        ["git", "add", "-A", "--", "."],
+        cwd=live_checkout,
         check=True,
     )
     live_tree = subprocess.run(
-        ["git", "write-tree"], cwd=live_agy, env=live_env, check=True, capture_output=True, text=True
+        ["git", "write-tree"], cwd=live_checkout, check=True, capture_output=True, text=True
     ).stdout.strip()
     assert live_tree == expected_tree, (
         "Live antigravity checkout has tracked drift outside the represented "
         f"dependency/selective-deploy chain: expected {expected_tree}, got {live_tree}"
+    )
+    assert git_storage_snapshot(live_agy) == live_storage_before, (
+        "runtime parity test modified the live Git index or object database"
     )
 
 

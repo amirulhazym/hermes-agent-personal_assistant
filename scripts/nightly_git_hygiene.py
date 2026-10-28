@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -592,8 +593,15 @@ def _temporary_worktree_index(repo: Path) -> tuple[Path, dict[str, str]]:
     return index, env
 
 
-def _run_gate(label: str, cmd: list[str], repo: Path, env: dict[str, str] | None = None) -> dict[str, Any]:
-    rc, output = _workflow_run_cmd(cmd, cwd=repo, env=env)
+def _run_gate(
+    label: str,
+    cmd: list[str],
+    repo: Path,
+    env: dict[str, str] | None = None,
+    *,
+    timeout: int = 120,
+) -> dict[str, Any]:
+    rc, output = _workflow_run_cmd(cmd, cwd=repo, env=env, timeout=timeout)
     output_bytes = output.encode("utf-8", errors="replace")
     gate_data: dict[str, Any] = {
         "status": "PASS" if rc == 0 else "FAIL",
@@ -625,18 +633,31 @@ def _daily_base(repo: Path, now: datetime, head: str) -> str:
     return EMPTY_TREE_SHA
 
 
+def _load_candidate_delta_scanner():
+    source = Path(__file__).resolve().parent / "guard" / "candidate_delta_scan.py"
+    spec = importlib.util.spec_from_file_location("_nightly_candidate_delta_scan", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("candidate delta scanner cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def run_full_delta_gates(repo: Path, now: datetime) -> dict[str, Any]:
-    """Run security/format gates over daily commits plus the complete worktree delta."""
+    """Run read-only manifest gates without constructing a Git index."""
     guard_dir = repo / "scripts" / "guard"
     secret = guard_dir / "secret-scan.sh"
     pii = guard_dir / "pii-review.py"
     whitespace = guard_dir / "whitespace_review.py"
     contract = repo / "scripts" / "run_contract_tests.sh"
+    scanner_source = Path(__file__).resolve().parent / "guard" / "candidate_delta_scan.py"
     gates: dict[str, Any] = {}
     required = {
         "secret_scan": secret,
         "pii_review": pii,
         "whitespace_review": whitespace,
+        "candidate_delta_scan": scanner_source,
         "contract_tests": contract,
     }
     for label, path in required.items():
@@ -644,7 +665,7 @@ def run_full_delta_gates(repo: Path, now: datetime) -> dict[str, Any]:
             gates[label] = {
                 "status": "FAIL",
                 "returncode": 127,
-                "label": "missing executable",
+                "label": "missing executable or scanner source",
                 "output_excerpt": str(path),
             }
     if any(g["status"] == "FAIL" for g in gates.values()):
@@ -654,52 +675,141 @@ def run_full_delta_gates(repo: Path, now: datetime) -> dict[str, Any]:
     if rc != 0:
         gates["git_head"] = {"status": "FAIL", "returncode": rc, "label": "HEAD", "output_excerpt": head}
         return gates
-    base = _daily_base(repo, _as_myt(now), head.strip())
-    try:
-        temp_index, temp_env = _temporary_worktree_index(repo)
-    except RuntimeError as exc:
-        return {
-            "temporary_index": {
-                "status": "FAIL",
-                "returncode": 1,
-                "label": "full worktree delta materialization",
-                "output_excerpt": str(exc),
-            }
-        }
-    try:
-        gates["secret_scan_worktree_delta"] = _run_gate(
-            "staged temporary index containing tracked + untracked worktree delta",
-            ["bash", str(secret), "--staged"], repo, temp_env,
-        )
-        gates["pii_review_worktree_delta"] = _run_gate(
-            "HEAD to temporary-index/worktree delta",
-            ["python3", str(pii), "--diff", "HEAD"], repo, temp_env,
-        )
-        gates["whitespace_review"] = _run_gate(
-            "temporary index whitespace review",
-            ["python3", str(whitespace), "--repo", str(repo)], repo, temp_env,
-        )
-    finally:
-        temp_index.unlink(missing_ok=True)
+    head = head.strip()
+    base = _daily_base(repo, _as_myt(now), head)
 
-    if base != head.strip():
-        gates["secret_scan_daily_commits"] = _run_gate(
-            f"commits since MYT midnight ({base[:12]}..{head.strip()[:12]})",
-            ["bash", str(secret), "--diff", base, head.strip()], repo,
-        )
-        gates["pii_review_daily_commits"] = _run_gate(
-            f"commits since MYT midnight ({base[:12]}..{head.strip()[:12]})",
-            ["python3", str(pii), "--diff", f"{base}..{head.strip()}"], repo,
-        )
-    else:
-        gates["secret_scan_daily_commits"] = {
-            "status": "PASS", "returncode": 0, "label": "no commits since MYT midnight", "output_excerpt": "",
+    def run_daily_commit_gates() -> None:
+        if base != head:
+            gates["secret_scan_daily_commits"] = _run_gate(
+                f"commits since MYT midnight ({base[:12]}..{head[:12]})",
+                ["bash", str(secret), "--diff", base, head], repo,
+            )
+            gates["pii_review_daily_commits"] = _run_gate(
+                f"commits since MYT midnight ({base[:12]}..{head[:12]})",
+                ["python3", str(pii), "--diff", f"{base}..{head}"], repo,
+            )
+        else:
+            gates["secret_scan_daily_commits"] = {
+                "status": "PASS", "returncode": 0, "label": "no commits since MYT midnight", "output_excerpt": "",
+            }
+            gates["pii_review_daily_commits"] = {
+                "status": "PASS", "returncode": 0, "label": "no commits since MYT midnight", "output_excerpt": "",
+            }
+
+    try:
+        scanner = _load_candidate_delta_scanner()
+        candidate_root = repo / ".scratch" / "opencode-free-provider-refresh-20261017"
+        if not candidate_root.is_dir():
+            candidate_root = repo / ".scratch"
+        manifest = scanner.collect_delta_manifest(repo, candidate_root)
+        scan = scanner.scan_manifest(manifest)
+        secret_rules = {
+            str(name)
+            for name, _pattern in scanner._load_rule_module("gate_secret_scan", "secret_scan.py").RULES
         }
-        gates["pii_review_daily_commits"] = {
-            "status": "PASS", "returncode": 0, "label": "no commits since MYT midnight", "output_excerpt": "",
+        pii_rules = {"email-like", "phone-like"}
+        whitespace_rules = {"trailing-whitespace"}
+        known_rules = secret_rules | pii_rules | whitespace_rules
+        finding_rows = [
+            {"path": finding.path, "rule": finding.rule, "count": finding.count}
+            for finding in scan.findings
+        ]
+        scan_errors = list(scan.errors)
+        unknown_findings = [finding for finding in scan.findings if finding.rule not in known_rules]
+        if unknown_findings:
+            scan_errors.append("unclassified scanner findings present")
+        generic_errors = [
+            error for error in scan_errors
+            if not error.startswith((
+                "secret scanner failed",
+                "PII scanner failed",
+                "whitespace scanner failed",
+                "tracked diff-check failed",
+            ))
+        ]
+
+        def format_scan_details(findings: list[dict[str, Any]], errors: list[str]) -> str:
+            finding_limit = 40
+            error_limit = 40
+            return json.dumps(
+                {
+                    "finding_rows_total": len(findings),
+                    "findings": findings[:finding_limit],
+                    "findings_truncated": len(findings) > finding_limit,
+                    "errors_total": len(errors),
+                    "errors": errors[:error_limit],
+                    "errors_truncated": len(errors) > error_limit,
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+            )
+
+        def category_gate(title: str, rules: set[str], error_prefixes: tuple[str, ...], script_cmd: list[str] | None = None) -> dict[str, Any]:
+            findings = [row for row in finding_rows if row["rule"] in rules]
+            errors = generic_errors + [
+                error for error in scan_errors if error.startswith(error_prefixes)
+            ]
+            status = "FAIL" if findings or errors else "PASS"
+            returncode = 1 if status == "FAIL" else 0
+            excerpt = format_scan_details(findings, errors)
+            if status == "PASS" and script_cmd is not None:
+                script_gate = _run_gate(title, script_cmd, repo)
+                if script_gate.get("status") == "FAIL":
+                    status = "FAIL"
+                    returncode = script_gate.get("returncode", 1)
+                    excerpt = script_gate.get("output_excerpt", "")
+            return {
+                "status": status,
+                "returncode": returncode,
+                "label": title,
+                "output_excerpt": excerpt,
+            }
+
+        aggregate_status = "FAIL" if scan.status != "PASS" or scan_errors else "PASS"
+        gates["candidate_delta_scan"] = {
+            "status": aggregate_status,
+            "returncode": 1 if aggregate_status == "FAIL" else 0,
+            "label": "direct NUL-safe candidate manifest scan",
+            "scanned_count": scan.scanned_count,
+            "deleted_count": scan.deleted_count,
+            "excluded_count": scan.excluded_count,
+            "manifest_digest": scan.manifest_digest,
+            "output_excerpt": format_scan_details(finding_rows, scan_errors),
         }
+        gates["secret_scan_worktree_delta"] = category_gate(
+            "manifest secret scan", secret_rules, ("secret scanner failed",),
+            script_cmd=["bash", str(secret), "--staged"]
+        )
+        gates["pii_review_worktree_delta"] = category_gate(
+            "manifest PII review", pii_rules, ("PII scanner failed",),
+            script_cmd=["python3", str(pii), "--diff", "HEAD"]
+        )
+        gates["whitespace_review"] = category_gate(
+            "manifest whitespace review", whitespace_rules,
+            ("whitespace scanner failed", "tracked diff-check failed"),
+        )
+    except Exception as exc:
+        error = f"candidate manifest scan failed ({type(exc).__name__})"
+        details = json.dumps({"findings": [], "errors": [error]}, ensure_ascii=True, sort_keys=True)
+        gates["candidate_delta_scan"] = {
+            "status": "FAIL", "returncode": 1,
+            "label": "direct NUL-safe candidate manifest scan",
+            "output_excerpt": details,
+        }
+        for key, label in (
+            ("secret_scan_worktree_delta", "manifest secret scan"),
+            ("pii_review_worktree_delta", "manifest PII review"),
+            ("whitespace_review", "manifest whitespace review"),
+        ):
+            gates[key] = {
+                "status": "FAIL", "returncode": 1,
+                "label": label, "output_excerpt": details,
+            }
+
+    run_daily_commit_gates()
     gates["contract_tests"] = _run_gate(
         "contract/reconciliation suite", ["bash", str(contract)], repo,
+        timeout=300,
     )
     return gates
 
