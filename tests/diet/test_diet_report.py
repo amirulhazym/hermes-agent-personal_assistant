@@ -4,44 +4,47 @@ import subprocess
 import pytest
 from pathlib import Path
 
-# Fixture data
+# Fixture data with new structure
 SAMPLE_DIET_LOG = {
+    "profile": {
+        "latest_weight_kg": 62.8,
+        "latest_weight_date": "2026-11-02"
+    },
     "logs": {
-        "2026-10-26": {
-            "fasting_window": "Yesterday ~8:22pm -> ongoing (currently ~16.5 jam fast)",
-            "workout": "60m cycling statik Zero (11:50am - 12:50pm, mixed posture, dynamic resistance, est. 380-450 kcal)",
-            "hydration": "Infused water kayu manis + cengkih",
+        "2026-11-03": {
+            "fasting_window": "Yesterday 8:25pm -> today 3:30pm (19 jam 05 minit solid fast)",
+            "workout": "79.25m (1:19:15) cycling statik Zero (stop 2:55pm, est. 480-520 kcal)",
             "meals": [
-                "Buka puasa (2:15pm): 1/4 telur mata + 10 utas pegaga (~65 kcal)",
-                "Lunch (2:40pm): 5 ketul kecil rendang ayam (~160 kcal)",
-                "Dinner (7:30pm): 3 ketul rendang + 2 telur rebus (~260 kcal)"
+                "Window 1 / Buka Puasa (3:30pm): Timun (~60g, ~10 kcal)",
+                "Tomato kecil (~75g, ~15 kcal)",
+                "Dada ayam air-fryer (~105g, ~165 kcal, ~31g prot)",
+                "1 jemput telur dadar (~15g, ~40 kcal, ~2.5g prot)",
+                "Lutein 20mg gummy (~12 kcal, ~3g carbs)",
+                "Air-fried tempe (~30g) & tauhu (~40g) [~85 kcal, ~8.7g prot]",
+                "Air rebusan kayu manis + bunga cengkih (0 kcal)",
+                "Slot C (CC: Calcium Carbonate 500mg + Calcitriol) taken 15:30",
+                "Window 2 / Sahur Penutup (8:02pm): Timun (~60g, ~10 kcal)",
+                "2 keping daging sup (~40g, ~95 kcal, ~11.0g prot)",
+                "1 jemput telur dadar lebihan (~15g, ~40 kcal, ~2.5g prot)",
+                "Tomato saiz kecil (~75g, ~15 kcal)",
+                "Seketul kecil sederhana ayam air-fryer bahagian isi (~60g, ~95 kcal, ~18.0g prot)",
+                "2 biji telur rebus Gred B (~100g, ~140 kcal, ~12.5g prot)"
             ],
             "meds": {
-                "A": "taken 06:00",
-                "B": "taken 09:15",
-                "C_CC": "taken 14:40",
-                "E": "taken 20:55"
+                "A": "taken 07:00 (Akurit-2 + Pyridoxine)",
+                "B": "taken 09:15 (Dexa 6mg + Letram 500mg)",
+                "C": "taken 15:30 (Calcium Carbonate 500mg + Calcitriol)",
+                "E": "taken 20:55 (Letram 500mg)"
             },
             "estimated_calories_breakdown": {
-                "buka_puasa_215pm": 65,
-                "lunch_240pm": 160,
-                "dinner_730pm": 260
+                "dada_ayam": 165,
+                "tempe_tauhu": 85,
+                "telur_rebus": 140
             },
-            "estimated_total_calories": 485,
-            "estimated_protein_g": 45,
-            "estimated_carbs_g": 35,
-            "estimated_fat_g": 18,
-            "pros": [
-                "Tinggi potassium semulajadi bantu lawan kesan retensi natrium Dexa.",
-                "Protein berkualiti tinggi dari telur rebus menyokong pemulihan otot."
-            ],
-            "cons": [
-                "Minyak santan rendang malam melambatkan pengosongan gastrik."
-            ],
-            "next_actions": [
-                "Slot E levetiracetam dah telan cantik.",
-                "Minum 1-2 gelas air sebelum tidur."
-            ]
+            "estimated_total_calories": 722,
+            "estimated_protein_g": 88.4,
+            "estimated_carbs_g": 18.3,
+            "estimated_fat_g": 32.3
         }
     }
 }
@@ -53,27 +56,54 @@ def diet_log_file(tmp_path):
         json.dump(SAMPLE_DIET_LOG, f, indent=2)
     return str(log_path)
 
-def test_diet_report_eod_format(diet_log_file):
+def test_diet_report_eod_new_structured_format(diet_log_file):
     script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "diet_report.py"
-    cmd = ["python3", str(script_path), "--path", diet_log_file, "--date", "2026-10-26", "--mode", "eod"]
+    cmd = ["python3", str(script_path), "--path", diet_log_file, "--date", "2026-11-03", "--mode", "eod"]
     res = subprocess.run(cmd, capture_output=True, text=True)
     assert res.returncode == 0, f"Error: {res.stderr}"
     out = res.stdout
 
-    # Check 5 major sections and emojis
-    assert "📋 1. LOG PEMAKANAN HARIAN (INTAKE)" in out
-    assert "🧪 2. PROFIL NUTRISI (MACROS)" in out
-    assert "🔬 3. KAJIAN BIOMEDIKAL: PROS & CONS" in out
-    assert "⚖️ 4. TENAGA KELUAR & STATUS DEFISIT (BURN)" in out
-    assert "⚡ 5. NEXT ACTION MALAM INI" in out
+    # Must contain the new approved sections
+    assert "⏱️ *PUASA & WORKOUT*" in out
+    assert "🥗 *1. MENU MAKANAN & KALORI" in out
+    assert "🧪 *2. PROFIL NUTRISI LENGKAP" in out
+    assert "🌿 *HIDRASI & MINUMAN*" in out
+    assert "💊 *STATUS UBAT HARIAN" in out or "💊 *UBAT-UBATAN HARIAN*" in out
+    assert "⚖️ *STATUS DEFISIT & KALORI*" in out
+    assert "💡 *TINDAKAN MALAM INI*" in out
 
-    # Check numbers
-    assert "485" in out or "485 kcal" in out
+    # Dynamic BMR check for 62.8kg
+    assert "62.8 kg" in out
+    assert "~1,500 kcal" in out or "1500 kcal" in out or "1,49" in out or "1,54" in out
+    # Net deficit check
+    assert "-1,5" in out or "Defisit Bersih" in out
+
+    # Check that meals are itemized with kcal
+    assert "Dada ayam" in out
+    assert "722 kcal" in out
+
+    # Check full nutrition entries
     assert "Protein:" in out
+    assert "Karbohidrat:" in out
+    assert "Lemak:" in out
+    assert "Kalium (Potassium):" in out
+    assert "Natrium (Sodium):" in out
+    assert "Kalsium:" in out
+
+    # ZERO markdown tables allowed on WhatsApp
+    assert "|" not in out
+
+def test_diet_report_dynamic_bmr_calculation(diet_log_file):
+    script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "diet_report.py"
+    cmd = ["python3", str(script_path), "--path", diet_log_file, "--date", "2026-11-03", "--mode", "eod"]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    assert res.returncode == 0
+    # Must NOT use the old static 1850 kcal as BMR
+    assert "BMR & Asas Harian:* ~1850 kcal" not in res.stdout
 
 def test_diet_report_compact_format(diet_log_file):
     script_path = Path(__file__).resolve().parent.parent.parent / "scripts" / "diet_report.py"
-    cmd = ["python3", str(script_path), "--path", diet_log_file, "--date", "2026-10-26", "--mode", "compact"]
+    cmd = ["python3", str(script_path), "--path", diet_log_file, "--date", "2026-11-03", "--mode", "compact"]
     res = subprocess.run(cmd, capture_output=True, text=True)
     assert res.returncode == 0, f"Error: {res.stderr}"
     out = res.stdout
