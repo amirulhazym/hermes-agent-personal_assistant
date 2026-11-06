@@ -269,3 +269,34 @@ def test_med_status_default_path_is_hermes_home():
     sys.modules["diet_report_mod"] = module
     spec.loader.exec_module(module)
     assert module.DEFAULT_MED_STATUS_PATH.endswith(".hermes/med-status.json")
+
+# --- Per-item breakdown format (owner-requested 2026-11-06) ----------------
+
+def test_meal_items_render_per_item_numbers(tmp_path, med_status_file):
+    data = json.loads(json.dumps(SAMPLE_DIET_LOG))
+    data["logs"]["2026-11-03"]["meal_items"] = [
+        {"window": "Window 1 (3:30pm)", "item": "Timun 8-10 hiris", "grams": 80,
+         "kcal": 12, "protein_g": 0.5, "carbs_g": 2.5, "fat_g": 0.1,
+         "basis": "portion diandaikan"},
+        {"window": "Window 1 (3:30pm)", "item": "Tomato besar", "grams": 120,
+         "kcal": 22, "protein_g": 1.1, "carbs_g": 4.7, "fat_g": 0.2,
+         "basis": "anchor rekod 1 Nov"},
+        {"window": "Window 2 (8:02pm)", "item": "Air kelapa", "grams": 300, "unit": "ml",
+         "kcal": 57, "protein_g": 0.7, "carbs_g": 10.5, "fat_g": 0.3,
+         "basis": "BELUM PASTI bilangan cawan"},
+    ]
+    log_path = tmp_path / "diet-log-items.json"
+    log_path.write_text(json.dumps(data), encoding="utf-8")
+
+    out = run_report(str(log_path), med_status_file)
+    assert "*Window 1 (3:30pm)*" in out
+    assert "Timun 8-10 hiris (~80g): ~12 kcal | P 0.5g | C 2.5g | F 0.1g" in out
+    assert "Air kelapa (~300ml): ~57 kcal" in out
+    assert "anchor rekod 1 Nov" in out
+    assert "BELUM PASTI bilangan cawan" in out
+
+
+def test_meal_items_absent_falls_back_to_free_text(diet_log_file, med_status_file):
+    out = run_report(diet_log_file, med_status_file)
+    assert "Window 1 / Buka Puasa (3:30pm): Timun" in out
+

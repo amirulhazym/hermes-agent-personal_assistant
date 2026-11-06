@@ -292,6 +292,43 @@ def format_micronutrients(day_log: dict, med_status: dict | None = None) -> list
     return lines
 
 
+def format_meal_items(day_log: dict) -> list[str] | None:
+    """Render the per-item breakdown carried in ``meal_items``.
+
+    This is the granular format the owner asked for: one line per food with its
+    grams and macro numbers, grouped by feeding window. Returns ``None`` when the
+    log carries no structured items so the caller can fall back to free text.
+    """
+    items = day_log.get("meal_items")
+    if not isinstance(items, list) or not items:
+        return None
+    current_window = None
+    lines: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        window = str(item.get("window") or "").strip()
+        if window and window != current_window:
+            lines.append(f"• *{window}*")
+            current_window = window
+        name = str(item.get("item") or "item")
+        grams = item.get("grams")
+        unit = str(item.get("unit") or "g")
+        head = f"{name} (~{grams:g}{unit})" if isinstance(grams, (int, float)) else name
+        parts = []
+        if isinstance(item.get("kcal"), (int, float)):
+            parts.append(f"~{item['kcal']:,.0f} kcal")
+        for key, label in (("protein_g", "P"), ("carbs_g", "C"), ("fat_g", "F")):
+            if isinstance(item.get(key), (int, float)):
+                parts.append(f"{label} {item[key]:g}g")
+        detail = " | ".join(parts)
+        lines.append(f"  - {head}: {detail}" if detail else f"  - {head}")
+        note = item.get("basis")
+        if isinstance(note, str) and note.strip():
+            lines.append(f"    ↳ {note}")
+    return lines or None
+
+
 def format_hydration(day_log: dict) -> list[str]:
     """Show only hydration data recorded explicitly.
 
@@ -403,19 +440,23 @@ def format_eod_report(
 
     # 🥗 1. MENU MAKANAN & KALORI
     report.append("🥗 *1. MENU MAKANAN & KALORI HARIAN*")
-    food_meals = []
-    for m in meals:
-        if not isinstance(m, str):
-            continue
-        lower = m.lower()
-        if "slot " in lower and ("taken" in lower or "cc" in lower):
-            continue
-        food_meals.append(m)
-    if food_meals:
-        for m in food_meals:
-            report.append(f"• {m}")
+    itemised = format_meal_items(log_data)
+    if itemised is not None:
+        report.extend(itemised)
     else:
-        report.append("• Tiada rekod makanan hari ini.")
+        food_meals = []
+        for m in meals:
+            if not isinstance(m, str):
+                continue
+            lower = m.lower()
+            if "slot " in lower and ("taken" in lower or "cc" in lower):
+                continue
+            food_meals.append(m)
+        if food_meals:
+            for m in food_meals:
+                report.append(f"• {m}")
+        else:
+            report.append("• Tiada rekod makanan hari ini.")
     if intake_low != intake_high:
         report.append(
             f"➡️ *TOTAL KALORI MASUK (24 JAM):* *~{total_kcal:,} kcal* "
