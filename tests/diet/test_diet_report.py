@@ -117,42 +117,92 @@ def test_burn_comes_from_log_not_hardcoded_heuristic(diet_log_file, med_status_f
     assert "1,250" in out and "1,560" in out
 
 
-def test_missing_burn_estimate_reports_absence(tmp_path, med_status_file):
+def test_burn_derived_from_duration_and_met_band(tmp_path, med_status_file):
+    """When no explicit burn is recorded, derive it from the reported duration."""
+    data = json.loads(json.dumps(SAMPLE_DIET_LOG))
+    day = data["logs"]["2026-11-03"]
+    del day["active_burn_kcal_estimate"]
+    day["workout_duration_min"] = 79.25
+    day["workout_met_band"] = {"low": 3.5, "high": 5.0, "label": "light"}
+    log_path = tmp_path / "diet-log-derived.json"
+    log_path.write_text(json.dumps(data), encoding="utf-8")
+
+    out = run_report(str(log_path), med_status_file)
+    assert "Tenaga Terbakar (anggaran dikira)" in out
+    assert "79.25 min x MET 3.5-5" in out
+    assert "62.8kg" in out
+    # Existing magic constant must never reappear.
+    assert "~500 kcal" not in out
+
+
+def test_missing_burn_inputs_are_named_not_skipped(tmp_path, med_status_file):
+    """A missing duration must be requested explicitly, never silently zeroed."""
     data = json.loads(json.dumps(SAMPLE_DIET_LOG))
     del data["logs"]["2026-11-03"]["active_burn_kcal_estimate"]
     log_path = tmp_path / "diet-log-no-burn.json"
     log_path.write_text(json.dumps(data), encoding="utf-8")
 
     out = run_report(str(log_path), med_status_file)
-    assert "tiada anggaran burn dalam log" in out
-    assert "sedentary sahaja" in out
-    # Must never resurrect a default burn figure.
-    assert "*Tenaga Terbakar (anggaran log):* ~500 kcal" not in out
-    assert "*Tenaga Terbakar (anggaran log):* ~400 kcal" not in out
+    assert "belum boleh dikira" in out
+    assert "tempoh workout dalam minit" in out
+    assert "Perlu diisi" in out
+    assert "~500 kcal" not in out
+
+
+def test_missing_met_band_is_named(tmp_path, med_status_file):
+    data = json.loads(json.dumps(SAMPLE_DIET_LOG))
+    day = data["logs"]["2026-11-03"]
+    del day["active_burn_kcal_estimate"]
+    day["workout_duration_min"] = 79.25
+    log_path = tmp_path / "diet-log-no-met.json"
+    log_path.write_text(json.dumps(data), encoding="utf-8")
+
+    out = run_report(str(log_path), med_status_file)
+    assert "keamatan workout" in out
 
 
 # --- Regression: invented micronutrients (removed 2026-11-06) ---------------
 
 
-def test_micronutrients_only_from_explicit_field(tmp_path, med_status_file):
+def test_unconsumed_supplement_is_never_claimed(tmp_path, med_status_file):
+    """No lutein recorded today -> the report must not print a lutein figure."""
     data = json.loads(json.dumps(SAMPLE_DIET_LOG))
-    del data["logs"]["2026-11-03"]["micronutrients"]
+    data["logs"]["2026-11-03"].pop("micronutrients", None)
     log_path = tmp_path / "diet-log-no-micro.json"
     log_path.write_text(json.dumps(data), encoding="utf-8")
 
     out = run_report(str(log_path), med_status_file)
-    assert "Tiada data direkod untuk mikronutrien" in out
     assert "Lutein" not in out
     assert "Selenium" not in out
-    assert "Kalium" not in out
-    assert "Natrium" not in out
+    # Potassium is still estimated — but only from foods actually logged.
+    assert "Kalium (anggaran)" in out
+    assert "Asas: USDA FoodData Central" in out
 
 
 def test_micronutrients_rendered_when_recorded(diet_log_file, med_status_file):
     out = run_report(diet_log_file, med_status_file)
-    assert "Mikronutrien (direkod)" in out
+    assert "Mikronutrien direkod" in out
     assert "Lutein" in out
     assert "20mg" in out
+
+
+def test_no_micronutrient_data_shows_explicit_no_data(tmp_path, med_status_file):
+    data = json.loads(json.dumps(SAMPLE_DIET_LOG))
+    day = data["logs"]["2026-11-03"]
+    day.pop("micronutrients", None)
+    day["meals"] = ["Window 1 (3:30pm): air kosong sahaja"]
+    day["beverages"] = []
+    log_path = tmp_path / "diet-log-empty-micro.json"
+    log_path.write_text(json.dumps(data), encoding="utf-8")
+
+    # No CC tablet either, otherwise the calcium line legitimately populates the section.
+    meds = json.loads(json.dumps(SAMPLE_MED_STATUS))
+    meds["meds"].pop("C")
+    med_path = tmp_path / "med-status-no-cc.json"
+    med_path.write_text(json.dumps(meds), encoding="utf-8")
+
+    out = run_report(str(log_path), str(med_path))
+    assert "Tiada data direkod untuk mikronutrien" in out
 
 
 # --- Regression: medication status now read from med-status.json ------------

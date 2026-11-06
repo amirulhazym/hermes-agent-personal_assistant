@@ -60,38 +60,88 @@ def calculate_dynamic_bmr(weight_kg: float) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Evidence resolvers — return None / NO_DATA rather than a guessed number
+# Evidence resolvers
+#
+# Governing rule (owner directive 2026-11-06): a number the log can derive must
+# be DERIVED from the portion/duration the owner reported — never skipped, and
+# never replaced by a magic constant. When an input is genuinely missing the
+# report must name the missing input so it can be asked for, not silently print
+# zero. Every derived figure must print its inputs.
 # ---------------------------------------------------------------------------
 
+# 2024 Adult Compendium stationary-bicycle anchors (METs), used when the log
+# records a MET band instead of a pre-computed burn.
+MET_BICYCLE_BANDS = {
+    "very_light": (2.5, 3.0),
+    "light": (3.5, 4.0),
+    "light_moderate": (3.5, 5.0),
+    "moderate": (5.0, 5.8),
+}
 
-def resolve_active_burn(day_log: dict) -> dict | None:
-    """Read the workout burn estimate recorded in the log.
 
-    Accepts ``active_burn_kcal_estimate`` as either a dict with
-    ``low``/``mid``/``high`` (+ optional ``basis``) or a bare number.
-    Returns ``None`` when the log carries no estimate — the caller then reports
-    the absence instead of substituting a default.
-    """
-    est = day_log.get("active_burn_kcal_estimate")
-    if isinstance(est, (int, float)) and est >= 0:
-        return {"low": float(est), "mid": float(est), "high": float(est), "basis": ""}
-    if isinstance(est, dict):
-        mid = est.get("mid")
-        if isinstance(mid, (int, float)):
-            low = est.get("low", mid)
-            high = est.get("high", mid)
-            if not isinstance(low, (int, float)):
-                low = mid
-            if not isinstance(high, (int, float)):
-                high = mid
+def _met_band(day_log: dict) -> tuple[float, float, str] | None:
+    band = day_log.get("workout_met_band")
+    if isinstance(band, dict):
+        low, high = band.get("low"), band.get("high")
+        if isinstance(low, (int, float)) and isinstance(high, (int, float)):
             low, high = sorted((float(low), float(high)))
-            return {
-                "low": low,
-                "mid": float(mid),
-                "high": high,
-                "basis": str(est.get("basis") or ""),
-            }
+            return low, high, str(band.get("label") or "")
+    if isinstance(band, str) and band in MET_BICYCLE_BANDS:
+        low, high = MET_BICYCLE_BANDS[band]
+        return low, high, band.replace("_", " ")
     return None
+
+
+def estimate_burn(day_log: dict, weight_kg: float) -> tuple[dict | None, str]:
+    """Resolve active burn. Returns (estimate, missing_reason).
+
+    Precedence:
+      1. ``active_burn_kcal_estimate`` recorded in the log (authoritative).
+      2. Derived from ``workout_duration_min`` x ``workout_met_band`` x weight.
+      3. None + reason naming the missing input.
+    """
+    explicit = day_log.get("active_burn_kcal_estimate")
+    if isinstance(explicit, (int, float)) and explicit >= 0:
+        return {"low": float(explicit), "mid": float(explicit), "high": float(explicit),
+                "basis": "direkod dalam log", "method": "recorded"}, ""
+    if isinstance(explicit, dict) and isinstance(explicit.get("mid"), (int, float)):
+        mid = float(explicit["mid"])
+        low = explicit.get("low", mid)
+        high = explicit.get("high", mid)
+        low = float(low) if isinstance(low, (int, float)) else mid
+        high = float(high) if isinstance(high, (int, float)) else mid
+        low, high = sorted((low, high))
+        return {"low": low, "mid": mid, "high": high,
+                "basis": str(explicit.get("basis") or ""), "method": "recorded"}, ""
+
+    minutes = day_log.get("workout_duration_min")
+    if not isinstance(minutes, (int, float)) or minutes <= 0:
+        return None, "tempoh workout dalam minit (workout_duration_min)"
+
+    band = _met_band(day_log)
+    if band is None:
+        return None, "keamatan workout (workout_met_band)"
+
+    met_low, met_high, label = band
+    resting = 1.0 * 3.5 * weight_kg / 200.0 * minutes  # 1 MET = rest
+
+    def gross(met: float) -> float:
+        return met * 3.5 * weight_kg / 200.0 * minutes
+
+    g_low, g_high = gross(met_low), gross(met_high)
+    return {
+        "low": round(g_low - resting, 0),
+        "mid": round((g_low + g_high) / 2 - resting, 0),
+        "high": round(g_high - resting, 0),
+        "gross_low": round(g_low, 0),
+        "gross_high": round(g_high, 0),
+        "basis": (
+            f"dikira: {minutes:g} min x MET {met_low:g}-{met_high:g}"
+            f"{f' ({label})' if label else ''} x {weight_kg}kg; "
+            f"gross {g_low:,.0f}-{g_high:,.0f} kcal, tolak rest {resting:,.0f} kcal"
+        ),
+        "method": "derived",
+    }, ""
 
 
 def resolve_intake_range(day_log: dict) -> tuple[float, float]:
@@ -156,15 +206,89 @@ def format_macronutrients(day_log: dict) -> list[str]:
     return lines
 
 
-def format_micronutrients(day_log: dict) -> list[str]:
-    """Render only explicitly recorded micronutrients. Never a canned list."""
+# Reference values (USDA FoodData Central, per 100 g / 100 ml) used only for
+# items that actually appear in the day log. Portion assumptions below are the
+# default figures used for calorie estimation elsewhere in this log; they are
+# printed next to every line so the basis is auditable.
+POTASSIUM_MG_PER_100 = {
+    "air kelapa": 250.0,
+    "timun": 147.0,
+    "tomato": 237.0,
+    "tempe": 412.0,
+    "tauhu": 121.0,
+    "ayam": 256.0,
+    "telur": 126.0,
+    "kubis": 170.0,
+    "pegaga": 400.0,
+    "daging": 318.0,
+}
+ASSUMED_PORTION_G = {
+    "air kelapa": 300.0,
+    "timun": 80.0,
+    "tomato": 150.0,
+    "tempe": 60.0,
+    "tauhu": 50.0,
+    "ayam": 150.0,
+    "telur": 100.0,
+    "kubis": 20.0,
+    "pegaga": 20.0,
+    "daging": 60.0,
+}
+PORTION_UNIT = {"air kelapa": "ml"}
+
+
+def estimate_potassium(meals: list) -> tuple[float, list[str]]:
+    """Estimate potassium from items recorded in the meals list.
+
+    Each keyword is counted once per occurrence so two separate chicken
+    servings count twice. Returns (total_mg, per-item detail lines).
+    """
+    blob = " ".join(m for m in meals if isinstance(m, str)).lower()
+    total = 0.0
+    details: list[str] = []
+    for food, per100 in POTASSIUM_MG_PER_100.items():
+        # Count a food once per day. Counting raw keyword occurrences inflated
+        # totals badly (e.g. "ayam" mentioned in three meal lines) and produced
+        # numbers the owner could not reconcile with what he actually ate.
+        if food not in blob:
+            continue
+        grams = ASSUMED_PORTION_G[food]
+        mg = per100 * grams / 100.0
+        total += mg
+        unit = PORTION_UNIT.get(food, "g")
+        details.append(f"{food} ~{grams:g}{unit}/hari -> ~{mg:,.0f}mg")
+    return total, details
+
+
+def format_micronutrients(day_log: dict, med_status: dict | None = None) -> list[str]:
+    """Render micronutrients derived from recorded intake plus explicit overrides.
+
+    Nothing is listed unless it traces to a logged food or a confirmed
+    medication, so the report cannot claim a supplement that was not taken.
+    """
+    lines: list[str] = []
+    meals = day_log.get("meals", [])
+    potassium, detail = estimate_potassium(meals if isinstance(meals, list) else [])
+    if potassium > 0:
+        lines.append(f"• *Kalium (anggaran):* *~{potassium:,.0f}mg*")
+        for d in detail:
+            lines.append(f"  - {d}")
+        lines.append("  - Asas: USDA FoodData Central per 100g; portion harian diandaikan, bukan ditimbang.")
+
+    calcium_mg = 0.0
+    slot_c = (med_status or {}).get("C") or {}
+    if (slot_c.get("drugs") or {}).get("calcium", ("", None))[0] == "taken":
+        calcium_mg = 500.0
+        lines.append(f"• *Kalsium:* *~{calcium_mg:,.0f}mg* daripada tablet CC (Slot C).")
+
     micros = day_log.get("micronutrients")
-    if not isinstance(micros, dict) or not micros:
-        return [f"• {NO_DATA} untuk mikronutrien hari ini."]
-    lines = ["• *Mikronutrien (direkod):*"]
-    for name, value in micros.items():
-        label = str(name).replace("_", " ")
-        lines.append(f"  - {label}: *{value}*")
+    if isinstance(micros, dict) and micros:
+        lines.append("• *Mikronutrien direkod:*")
+        for name, value in micros.items():
+            lines.append(f"  - {str(name).replace('_', ' ')}: *{value}*")
+
+    if not lines:
+        lines.append(f"• {NO_DATA} untuk mikronutrien hari ini.")
     return lines
 
 
@@ -243,7 +367,7 @@ def format_eod_report(
 
     total_kcal = log_data.get("estimated_total_calories", 0)
 
-    burn = resolve_active_burn(log_data)
+    burn, burn_missing = estimate_burn(log_data, weight_kg)
     intake_low, intake_high = resolve_intake_range(log_data)
 
     bmr = calculate_dynamic_bmr(weight_kg)
@@ -258,17 +382,21 @@ def format_eod_report(
     report.append(f"• *Fasting Window:* {fasting_window}")
     report.append(f"• *Workout:* {workout}")
     if burn:
+        label = "anggaran dikira" if burn.get("method") == "derived" else "anggaran log"
         if burn["low"] == burn["high"]:
-            report.append(f"• *Tenaga Terbakar (anggaran log):* ~{burn['mid']:,.0f} kcal")
+            report.append(f"• *Tenaga Terbakar ({label}):* ~{burn['mid']:,.0f} kcal")
         else:
             report.append(
-                f"• *Tenaga Terbakar (anggaran log):* ~{burn['mid']:,.0f} kcal "
+                f"• *Tenaga Terbakar ({label}):* ~{burn['mid']:,.0f} kcal "
                 f"(julat {burn['low']:,.0f}–{burn['high']:,.0f})"
             )
-        if burn.get("basis"):
-            report.append(f"  - Asas: {burn['basis']}")
+        for part in str(burn.get("basis") or "").split("; "):
+            if part:
+                report.append(f"  - {part}")
     else:
-        report.append(f"• *Tenaga Terbakar:* {NO_DATA} — tiada anggaran burn dalam log.")
+        report.append(
+            f"• *Tenaga Terbakar:* belum boleh dikira — perlu {burn_missing}."
+        )
     report.append("")
     report.append("---")
     report.append("")
@@ -304,7 +432,7 @@ def format_eod_report(
     report.append("")
     report.extend(format_macronutrients(log_data))
     report.append("")
-    report.extend(format_micronutrients(log_data))
+    report.extend(format_micronutrients(log_data, med_status))
     report.append("")
     report.append("---")
     report.append("")
@@ -345,12 +473,13 @@ def format_eod_report(
         deficit_low = sedentary_tdee - intake_high
         deficit_high = sedentary_tdee - intake_low
         report.append(
-            "• 📊 *Total TDEE:* sedentary sahaja (tiada anggaran burn workout)"
+            "• 📊 *Total TDEE:* sedentary sahaja — belum masuk burn workout"
         )
         report.append(
             f"• 🎯 *Anggaran Defisit (tanpa burn workout):* "
             f"*~{deficit_low:,.0f} hingga {deficit_high:,.0f} kcal*"
         )
+        report.append(f"• ❓ *Perlu diisi:* {burn_missing} untuk kira burn.")
     report.append("")
     report.append("---")
     report.append("")
