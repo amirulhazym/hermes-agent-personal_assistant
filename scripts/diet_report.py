@@ -237,7 +237,7 @@ ASSUMED_PORTION_G = {
 PORTION_UNIT = {"air kelapa": "ml"}
 
 
-def estimate_potassium(meals: list) -> tuple[float, list[str]]:
+def estimate_potassium(meals: list, meal_items: list | None = None) -> tuple[float, list[str]]:
     """Estimate potassium from items recorded in the meals list.
 
     Each keyword is counted once per occurrence so two separate chicken
@@ -247,12 +247,28 @@ def estimate_potassium(meals: list) -> tuple[float, list[str]]:
     total = 0.0
     details: list[str] = []
     for food, per100 in POTASSIUM_MG_PER_100.items():
-        # Count a food once per day. Counting raw keyword occurrences inflated
-        # totals badly (e.g. "ayam" mentioned in three meal lines) and produced
-        # numbers the owner could not reconcile with what he actually ate.
         if food not in blob:
             continue
-        grams = ASSUMED_PORTION_G[food]
+        # Prefer the itemised grams when the log carries them, so the potassium
+        # figure tracks the same portions used for calories instead of a second,
+        # independent assumption.
+        grams = None
+        if isinstance(meal_items, list):
+            summed = 0.0
+            for it in meal_items:
+                if not isinstance(it, dict):
+                    continue
+                name = str(it.get("item") or "").lower()
+                g = it.get("grams")
+                if food in name and isinstance(g, (int, float)):
+                    # A mixed item ("timun + kubis") is split evenly across the
+                    # foods named in it instead of counting the full weight twice.
+                    named = sum(1 for f in POTASSIUM_MG_PER_100 if f in name)
+                    summed += float(g) / max(named, 1)
+            if summed > 0:
+                grams = summed
+        if grams is None:
+            grams = ASSUMED_PORTION_G[food]
         mg = per100 * grams / 100.0
         total += mg
         unit = PORTION_UNIT.get(food, "g")
@@ -268,7 +284,10 @@ def format_micronutrients(day_log: dict, med_status: dict | None = None) -> list
     """
     lines: list[str] = []
     meals = day_log.get("meals", [])
-    potassium, detail = estimate_potassium(meals if isinstance(meals, list) else [])
+    potassium, detail = estimate_potassium(
+        meals if isinstance(meals, list) else [],
+        day_log.get("meal_items") if isinstance(day_log.get("meal_items"), list) else None,
+    )
     if potassium > 0:
         lines.append(f"• *Kalium (anggaran):* *~{potassium:,.0f}mg*")
         for d in detail:
