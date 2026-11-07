@@ -920,7 +920,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/health_check.py",
-      "source_sha256": "772f38df9d2157ecd5b966ddace26214c27ab5cef35de6b4f71d9750a160dbe8"
+      "source_sha256": "79903f2c18ddaa1f5425e5c5ab28f5eec8f8c9b15cde0af74e20608984904648"
     },
     {
       "destination": null,
