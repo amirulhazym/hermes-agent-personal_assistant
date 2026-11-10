@@ -10,7 +10,10 @@ with Hermes' standard web search/extract plugin registry.
 from __future__ import annotations
 
 import logging
+import os
 import re
+import signal
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from agent.web_search_provider import WebSearchProvider
@@ -19,6 +22,17 @@ logger = logging.getLogger(__name__)
 
 TRAFILATURA_TIMEOUT = 10
 CRAWL4AI_TIMEOUT = 45
+
+# Playwright ships no bundled Chromium on this host (`~/.cache/ms-playwright`
+# is empty), so `chromium.launch()` with no channel raises
+# "Executable doesn't exist ... chrome-headless-shell".  Prefer the
+# system-installed Chrome and fall back to the bundled build for hosts that
+# do have it.  `None` = let Playwright use its default resolution.
+CHROME_CHANNEL_CANDIDATES: Tuple[Optional[str], ...] = ("chrome", None)
+
+# Marker for the Playwright node driver that every Playwright client spawns as
+# a direct child process.
+_PLAYWRIGHT_DRIVER_MARKER = "playwright/driver/package/cli.js"
 
 # Markers that indicate a JS-heavy SPA needs Crawl4AI instead of Trafilatura
 SPA_MARKERS = [
@@ -168,10 +182,25 @@ class HybridWebSearchProvider(WebSearchProvider):
     def _crawl4ai_async(self, url: str) -> Optional[str]:
         try:
             import asyncio
-            from crawl4ai import AsyncWebCrawler
 
-            async def _run():
-                async with AsyncWebCrawler() as crawler:
+            from crawl4ai import AsyncWebCrawler, BrowserConfig
+        except Exception as exc:
+            logger.warning("Crawl4AI unavailable for %s: %s", url, exc)
+            return None
+
+        async def _run(channel: Optional[str]):
+            kwargs: Dict[str, Any] = {"headless": True}
+            if channel:
+                kwargs["chrome_channel"] = channel
+            try:
+                config = BrowserConfig(**kwargs)
+            except TypeError:
+                # Older crawl4ai without `chrome_channel`.
+                config = BrowserConfig(headless=True)
+            drivers_before = set(_child_playwright_drivers())
+            reaped_here: List[int] = []
+            try:
+                async with AsyncWebCrawler(config=config) as crawler:
                     result = await crawler.arun(url=url)
                     if result is None:
                         return None
@@ -182,36 +211,179 @@ class HybridWebSearchProvider(WebSearchProvider):
                         if val:
                             return str(val)
                     return None
+            except BaseException:
+                # crawl4ai leaks its Playwright node driver (a direct child of
+                # this process, ~135 MB RSS) whenever the launch raises — the
+                # client is never stopped.  Reap inside the running loop so the
+                # child watcher sees the exit cleanly, and only the drivers this
+                # attempt created.
+                reaped_here.extend(_reap_new_drivers(drivers_before))
+                reaped_by_attempt.append(len(reaped_here))
+                raise
 
+        reaped_by_attempt: List[int] = []
+        for channel in CHROME_CHANNEL_CANDIDATES:
+            drivers_before = set(_child_playwright_drivers())
             try:
-                return asyncio.run(_run())
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
                 try:
-                    return loop.run_until_complete(_run())
-                finally:
-                    loop.close()
-        except Exception as exc:
-            logger.warning("Crawl4AI API failed for %s: %s", url, exc)
+                    return asyncio.run(_run(channel))
+                except RuntimeError:
+                    # A loop is already running in this thread (gateway).
+                    loop = asyncio.new_event_loop()
+                    try:
+                        return loop.run_until_complete(_run(channel))
+                    finally:
+                        loop.close()
+            except Exception as exc:
+                # crawl4ai leaks its Playwright node driver (a direct child of
+                # this process, ~135 MB RSS) whenever the launch raises — the
+                # client is never stopped.  Reap only the drivers this attempt
+                # created, so a concurrent healthy extraction is untouched.
+                leaked = _reap_new_drivers(drivers_before)
+                logger.warning(
+                    "Crawl4AI failed for %s via %s: %s (reaped %d leaked driver(s))",
+                    url,
+                    channel or "bundled-chromium",
+                    exc,
+                    len(leaked) + (reaped_by_attempt[-1] if reaped_by_attempt else 0),
+                )
+            finally:
+                # Belt and braces: even on a "clean" return crawl4ai can leave
+                # a driver behind after a mid-crawl crash.
+                # Cheap single scan on the happy path; no polling latency.
+                _reap_new_drivers(drivers_before, grace_s=0.0)
         return None
 
     def _extract_with_playwright(self, url: str) -> Optional[str]:
         try:
             from playwright.sync_api import sync_playwright
 
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
+            last_exc: Optional[Exception] = None
+            for channel in CHROME_CHANNEL_CANDIDATES:
+                launch_kwargs: Dict[str, Any] = {"headless": True}
+                if channel:
+                    launch_kwargs["channel"] = channel
                 try:
-                    page = browser.new_page()
-                    page.goto(
-                        url,
-                        wait_until="domcontentloaded",
-                        timeout=CRAWL4AI_TIMEOUT * 1000,
-                    )
-                    text = page.inner_text("body")
-                finally:
-                    browser.close()
-            return text or None
+                    with sync_playwright() as p:
+                        browser = p.chromium.launch(**launch_kwargs)
+                        try:
+                            page = browser.new_page()
+                            page.goto(
+                                url,
+                                wait_until="domcontentloaded",
+                                timeout=CRAWL4AI_TIMEOUT * 1000,
+                            )
+                            text = page.inner_text("body")
+                        finally:
+                            browser.close()
+                    return text or None
+                except Exception as exc:  # channel missing -> try next
+                    last_exc = exc
+                    continue
+            if last_exc is not None:
+                raise last_exc
         except Exception as exc:
             logger.warning("Playwright fallback failed for %s: %s", url, exc)
         return None
+
+
+def _child_playwright_drivers(proc_root: str = "/proc") -> List[int]:
+    """PIDs of Playwright node drivers whose parent is this process.
+
+    Reads ``/proc`` directly: no subprocess, safe to call inside the gateway
+    on every extraction.
+    """
+    me = os.getpid()
+    found: List[int] = []
+    try:
+        entries = os.listdir(proc_root)
+    except OSError:
+        return found
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        try:
+            with open(os.path.join(proc_root, entry, "stat"), "r") as fh:
+                stat = fh.read()
+            # Format: pid (comm) state ppid ...  -> comm may contain spaces
+            fields = stat.rsplit(")", 1)[1].split()
+            if len(fields) < 2 or int(fields[1]) != me:
+                continue
+            with open(os.path.join(proc_root, entry, "cmdline"), "rb") as fh:
+                cmdline = fh.read().replace(b"\x00", b" ").decode(
+                    "utf-8", "replace"
+                )
+        except OSError:
+            continue
+        if _PLAYWRIGHT_DRIVER_MARKER in cmdline:
+            found.append(pid)
+    return found
+
+
+def _reap_drivers(pids: "set[int]") -> List[int]:
+    """SIGTERM leaked Playwright drivers; SIGKILL only stragglers."""
+    reaped: List[int] = []
+    for pid in sorted(pids):
+        try:
+            os.kill(pid, signal.SIGTERM)
+            reaped.append(pid)
+        except OSError:
+            continue
+    for pid in reaped:
+        for _ in range(20):  # up to ~2s
+            try:
+                os.kill(pid, 0)
+            except OSError:
+                break
+            time.sleep(0.1)
+        else:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+    return reaped
+
+
+def _pids_with_children(proc_root: str = "/proc") -> "set[int]":
+    """Every PID that currently has at least one child (cheap /proc scan)."""
+    parents: "set[int]" = set()
+    try:
+        entries = os.listdir(proc_root)
+    except OSError:
+        return parents
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        try:
+            with open(os.path.join(proc_root, entry, "stat"), "r") as fh:
+                fields = fh.read().rsplit(")", 1)[1].split()
+            parents.add(int(fields[1]))
+        except (OSError, IndexError, ValueError):
+            continue
+    return parents
+
+
+def _reap_new_drivers(before: "set[int]", grace_s: float = 1.5) -> List[int]:
+    """Reap drivers that appeared after ``before`` was snapshotted.
+
+    The leaked driver can register slightly after the launch exception
+    surfaces, so poll for a short grace window instead of scanning once.
+    Only childless drivers are reaped — a driver that still owns a browser
+    process belongs to an extraction that is genuinely running.
+    """
+    reaped: List[int] = []
+    deadline = time.monotonic() + grace_s
+    while True:
+        parents = _pids_with_children()
+        fresh = {
+            pid
+            for pid in set(_child_playwright_drivers()) - before - set(reaped)
+            if pid not in parents
+        }
+        if fresh:
+            reaped.extend(_reap_drivers(fresh))
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(0.1)
+    return reaped
