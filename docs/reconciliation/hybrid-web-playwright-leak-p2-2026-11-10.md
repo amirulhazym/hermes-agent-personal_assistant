@@ -93,3 +93,24 @@ Rollback: `cp ~/.hermes/plugins/hybrid-web/provider.py.bak.p2-20261110-1537
 not executable from inside the gateway process). Until that restart the
 running process (PID 1210) keeps the old module in memory.
 
+## Live verification — after restart, 2026-11-10 15:54 MYT (LIVE-VERIFIED)
+
+Owner restarted the gateway via `/restart` at 15:46:44 MYT; new PID 3317324
+(old 1210 gone).
+
+| Check | Result |
+|---|---|
+| Live plugin hash | `9a86f6b7978a…` (new) |
+| Live SPA extract via `web_extract` (nextjs.org/docs, vercel.com/blog) | both returned real content (10,235 / 17,615 chars) |
+| Backend used (gateway log 15:54:44 / 15:54:50) | `Detected SPA … using Crawl4AI/Playwright` — the exact path that used to fail |
+| Leaked `run-driver` processes, immediately + 2 min after | **0** (old code leaked 1 per failed launch, ~135 MB RSS each) |
+| Swap after two SPA extractions | 443 MB used, flat (unchanged at T+2min) |
+| MemAvailable | 916 MB |
+
+Before the fix the same two URLs would have produced two leaked drivers and
+zero extracted content.
+
+Status: **P2 closed** (source fix, deploy, live proof). P3 remains an open
+owner decision.
+
+
