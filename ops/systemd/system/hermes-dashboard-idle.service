@@ -1,0 +1,8 @@
+[Unit]
+Description=Hermes dashboard idle guard (stop the web dashboard after 4h idle)
+After=hermes-dashboard.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/ubuntu/.hermes/scripts/dashboard_idle_guard.py --idle-hours 4
+Nice=10

@@ -833,6 +833,12 @@
       "source_sha256": "edd8bd6196b187f8a935b9b93ec9207dd1284e14e186eb9ba5fca04dad2cffa2"
     },
     {
+      "destination": "/home/ubuntu/.hermes/scripts/dashboard_idle_guard.py",
+      "kind": "runtime-deploy",
+      "source": "scripts/dashboard_idle_guard.py",
+      "source_sha256": "60ab371475e4078dbc78b0d385c30b036438108c402d4d71d31b6b220b2ba288"
+    },
+    {
       "destination": null,
       "kind": "source-only",
       "source": "scripts/deploy_custom_runtime.py",
