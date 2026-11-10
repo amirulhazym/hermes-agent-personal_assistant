@@ -114,6 +114,20 @@ def estimate_burn(day_log: dict, weight_kg: float) -> tuple[dict | None, str]:
         return {"low": low, "mid": mid, "high": high,
                 "basis": str(explicit.get("basis") or ""), "method": "recorded"}, ""
 
+    # Step 0: a log that STATES there was no activity yields zero burn.
+    # Without this guard, "tiada workout hari ini" reads as "unknown duration"
+    # and the report asks the owner to fill in minutes he already said were zero.
+    _wl = str(day_log.get("workout") or "").lower()
+    _no_activity = any(
+        marker in _wl
+        for marker in ("tiada workout", "tiada senaman", "tiada exercise",
+                       "no workout", "no exercise", "tak workout", "takde workout",
+                       "tidak workout")
+    ) or _wl.strip() in ("", "tiada", "none")
+    if _no_activity:
+        return {"low": 0.0, "mid": 0.0, "high": 0.0,
+                "basis": "", "method": "none"}, ""
+
     minutes = day_log.get("workout_duration_min")
     if not isinstance(minutes, (int, float)) or minutes <= 0:
         return None, "tempoh workout dalam minit (workout_duration_min)"
@@ -439,7 +453,9 @@ def format_eod_report(
     report.append(f"• *Workout:* {workout}")
     if burn:
         label = "anggaran dikira" if burn.get("method") == "derived" else "anggaran log"
-        if burn["low"] == burn["high"]:
+        if burn.get("method") == "none" or burn["high"] <= 0:
+            report.append("• *Tenaga Terbakar:* 0 kcal — tiada workout direkod.")
+        elif burn["low"] == burn["high"]:
             report.append(f"• *Tenaga Terbakar ({label}):* ~{burn['mid']:,.0f} kcal")
         else:
             report.append(
@@ -519,12 +535,17 @@ def format_eod_report(
     if burn:
         tdee_low = sedentary_tdee + burn["low"]
         tdee_high = sedentary_tdee + burn["high"]
-        report.append(
-            f"• 📊 *Total TDEE:* *~{sedentary_tdee + burn['mid']:,.0f} kcal* "
-            f"(julat {tdee_low:,.0f}–{tdee_high:,.0f})"
-        )
         deficit_low = tdee_low - intake_high
         deficit_high = tdee_high - intake_low
+        if burn["high"] <= 0:
+            report.append(
+                f"• 📊 *Total TDEE:* *~{sedentary_tdee:,} kcal* (sedentary; tiada burn workout)"
+            )
+        else:
+            report.append(
+                f"• 📊 *Total TDEE:* *~{sedentary_tdee + burn['mid']:,.0f} kcal* "
+                f"(julat {tdee_low:,.0f}–{tdee_high:,.0f})"
+            )
         report.append(
             f"• 🎯 *Anggaran Defisit:* *~{deficit_low:,.0f} hingga {deficit_high:,.0f} kcal* "
             "(julat, bukan bacaan tepat)"
