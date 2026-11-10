@@ -71,3 +71,25 @@ with `LEAKED_DRIVERS=0`.
   performed from inside an active session.
 - P3 baseline reduction.
 - Push of this commit and of P1 `a0ab892572` — requires `APPROVE RELEASE <sha>`.
+
+## Deploy — 2026-11-10 15:37 MYT (owner-approved, file stage only)
+
+Owner: "proceed with gate 1 dulu, approve".
+
+| Item | Value |
+|---|---|
+| Backup | `~/.hermes/plugins/hybrid-web/provider.py.bak.p2-20261110-1537` (sha `1cb5e6f4c36c…`) |
+| Live after copy | `~/.hermes/plugins/hybrid-web/provider.py` (sha `9a86f6b7978a…`) |
+| Source | `plugins/hybrid-web/provider.py` (sha `9a86f6b7978a…`) |
+| `cmp` | identical |
+| `py_compile` | OK |
+| Manifest | `v3-source-coverage-manifest.json` entry updated `1cb5e6f4→9a86f6b7` |
+
+Rollback: `cp ~/.hermes/plugins/hybrid-web/provider.py.bak.p2-20261110-1537
+~/.hermes/plugins/hybrid-web/provider.py` then restart the gateway.
+
+**Still pending at time of writing:** gateway restart
+(`systemctl --user restart hermes-gateway.service`, owner-run from SSH —
+not executable from inside the gateway process). Until that restart the
+running process (PID 1210) keeps the old module in memory.
+
