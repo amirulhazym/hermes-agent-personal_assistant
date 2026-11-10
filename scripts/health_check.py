@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Independent health monitor — runs via Linux system cron, not Hermes cron.
 
-Silent when everything OK. Sends alert when something breaks.
+Silent when everything OK. Alerts on state change, escalation, or once every
+6h while a problem persists. Recovery notice when the fault clears.
+
+Memory tracking covers BOTH RAM availability and swap consumption, because a
+host can sit at ~500MB free with swap 100% full and zero OOM headroom — the
+old RAM-only check could not tell those states apart.
+
 Uses WhatsApp bridge first; falls back to Telegram Bot API.
 """
 
 import os
 import json
+import sys
 import time
 import subprocess
 import urllib.request
@@ -181,12 +188,14 @@ def _assess_cron_delivery(job, bridge_connected, execution_ok=True):
     return True, None
 
 
-# Notification state: track how many consecutive failures, avoid spam
+# Notification state: track failure fingerprint/severity, avoid spam
 DEFAULT_STATE = {
     "consecutive_fails": 0,
     "last_notified_at": 0,
     "last_recovery_at": 0,
     "failed_components": [],
+    "fingerprint": "",
+    "max_severity": 0,
 }
 
 def load_state():
@@ -277,28 +286,98 @@ def check_cron_delivery(bridge_connected, execution_ok):
     except Exception as e:
         return False, f"Cron delivery check error: {e}"
 
+# Severity model: every check returns (severity, detail) where severity is
+# None (healthy), "warning", or "critical".
+SEV_RANK = {"warning": 1, "critical": 2}
+
+# Memory thresholds. RAM threshold stays at the owner-approved 500MB floor;
+# swap is tracked because a host can pass the RAM check with zero swap left.
+RAM_WARN_MB = 500
+RAM_CRIT_MB = 250
+SWAP_WARN_PCT = 80
+SWAP_CRIT_FREE_MB = 50
+REMIND_SECONDS = 6 * 3600
+
+
+def _meminfo():
+    mem = {}
+    with open("/proc/meminfo") as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) >= 2:
+                mem[parts[0].rstrip(":")] = int(parts[1])
+    return mem
+
+
+def _top_consumers(n=3):
+    """Aggregate RSS by process name; diagnostic hint, not a decision input."""
+    seen = {}
+    for status in Path("/proc").glob("[0-9]*/status"):
+        try:
+            name = rss = None
+            for line in status.read_text(errors="ignore").splitlines():
+                if line.startswith("Name:"):
+                    name = line.split(":", 1)[1].strip()
+                elif line.startswith("VmRSS:"):
+                    rss = int(line.split()[1])
+                    break
+            if name and rss:
+                seen[name] = seen.get(name, 0) + rss
+        except (OSError, ValueError):
+            continue
+    return ", ".join(
+        f"{name} {rss // 1024}MB"
+        for name, rss in sorted(seen.items(), key=lambda kv: -kv[1])[:n]
+    )
+
+
+def _memory_summary():
+    try:
+        mem = _meminfo()
+        avail_mb = mem.get("MemAvailable", 0) / 1024
+        swap_total = mem.get("SwapTotal", 0) / 1024
+        swap_free = mem.get("SwapFree", 0) / 1024
+        return (
+            f"RAM {avail_mb:.0f}MB avail; "
+            f"swap {max(swap_total - swap_free, 0):.0f}/{swap_total:.0f}MB"
+        )
+    except Exception:
+        return "Memory metrics unavailable"
+
+
 def check_disk():
     stat = os.statvfs("/")
     total = stat.f_frsize * stat.f_blocks
     free = stat.f_frsize * stat.f_bavail
     used_pct = (1 - free / total) * 100
+    if used_pct > 92:
+        return "critical", f"Disk: {used_pct:.0f}% used"
     if used_pct > 85:
-        return False, f"Disk: {used_pct:.0f}% used"
-    return True, None
+        return "warning", f"Disk: {used_pct:.0f}% used"
+    return None, None
+
 
 def check_memory():
+    """RAM available AND swap pressure, with a top-consumer hint."""
     try:
-        with open("/proc/meminfo") as f:
-            mem = {}
-            for line in f:
-                parts = line.split()
-                mem[parts[0].rstrip(":")] = int(parts[1])
+        mem = _meminfo()
         avail_mb = mem.get("MemAvailable", 0) / 1024
-        if avail_mb < 500:
-            return False, f"Memory: {avail_mb:.0f}MB available"
-        return True, None
+        swap_total = mem.get("SwapTotal", 0) / 1024
+        swap_free = mem.get("SwapFree", 0) / 1024
+        swap_used = max(swap_total - swap_free, 0)
+        swap_pct = (swap_used / swap_total * 100) if swap_total else 0.0
+
+        detail = (
+            f"RAM {avail_mb:.0f}MB avail; "
+            f"swap {swap_used:.0f}/{swap_total:.0f}MB ({swap_pct:.0f}%)"
+        )
+        critical = avail_mb < RAM_CRIT_MB or (swap_total > 0 and swap_free < SWAP_CRIT_FREE_MB)
+        warning = avail_mb < RAM_WARN_MB or swap_pct >= SWAP_WARN_PCT
+        if not (critical or warning):
+            return None, None
+        return ("critical" if critical else "warning"), f"{detail} | top: {_top_consumers()}"
     except Exception as e:
-        return False, f"Memory check error: {e}"
+        return "critical", f"Memory check error: {e}"
 
 def check_chain_cooldown():
     """Flag if D reminder count > 5 (spam anomaly)."""
@@ -313,69 +392,169 @@ def check_chain_cooldown():
     except Exception:
         return True, None  # No state yet = fine
 
-def main():
-    state = load_state()
-    now = time.time()
+def _as_severity(result):
+    """Adapt a legacy (ok, detail) check into the severity model."""
+    ok, detail = result
+    return (None, None) if ok else ("critical", detail)
 
-    bridge_check = check_gateway()
-    execution_check = check_cron_execution()
-    delivery_check = check_cron_delivery(bridge_check[0], execution_check[0])
-    checks = [
-        ("Bridge transport", bridge_check),
-        ("Cron execution", execution_check),
-        ("Cron delivery", delivery_check),
-        ("Disk space", check_disk()),
-        ("Memory", check_memory()),
-        ("Chain cooldown", check_chain_cooldown()),
+
+def collect_checks():
+    bridge = check_gateway()
+    execution = check_cron_execution()
+    delivery = check_cron_delivery(bridge[0], execution[0])
+    return [
+        ("Bridge transport", *_as_severity(bridge)),
+        ("Cron execution", *_as_severity(execution)),
+        ("Cron delivery", *_as_severity(delivery)),
+        ("Disk space", *check_disk()),
+        ("Memory", *check_memory()),
+        ("Chain cooldown", *_as_severity(check_chain_cooldown())),
     ]
 
-    failures = [(name, detail) for name, (ok, detail) in checks if not ok]
-    failed_components = [name for name, _detail in failures]
-    all_ok = len(failures) == 0
 
-    prev_fails = state.get("consecutive_fails", 0)
-    previous_components = set(state.get("failed_components", []))
-    last_notified = state.get("last_notified_at", 0)
+def decide(state, checks, now):
+    """Decide whether to speak, and why.
 
-    if all_ok:
-        state["consecutive_fails"] = 0
-        state["failed_components"] = []
-        # Recovery message identifies the component(s) that actually recovered.
-        if prev_fails > 0 or previous_components:
-            recovered = ", ".join(sorted(previous_components)) or "previous issue"
-            if notify(f"✅ Health Monitor — recovered: {recovered}"):
-                state["last_notified_at"] = now
-            state["last_recovery_at"] = now
-        save_state(state)
-        return  # Silent exit — everything fine
+    Policy (owner-approved):
+      - notify immediately on a new fault;
+      - notify immediately when the fault set or its severity changes;
+      - otherwise repeat at most once every 6h while it persists;
+      - notify once when everything returns to healthy.
 
-    # We have failures
-    state["consecutive_fails"] = min(prev_fails + 1, 99)
-    state["failed_components"] = failed_components
+    Returns (action, reason, new_state); action is none|alert|recovery.
+    """
+    active = [(n, s, d) for n, s, d in checks if s]
+    fingerprint = "|".join(f"{n}:{s}" for n, s, _ in sorted(active))
+    prev_fp = state.get("fingerprint") or ""
+    prev_rank = int(state.get("max_severity") or 0)
+    rank = max((SEV_RANK[s] for _, s, _ in active), default=0)
+    last_notified = float(state.get("last_notified_at") or 0)
 
-    should_notify = False
+    new_state = dict(state)
+    new_state["fingerprint"] = fingerprint
+    new_state["max_severity"] = rank
+    new_state["failed_components"] = [n for n, _, _ in active]
 
-    # Notify on first failure
-    if prev_fails == 0:
-        should_notify = True
-    # Re-notify every 3 consecutive fails (suppress spam)
-    elif state["consecutive_fails"] % 3 == 0:
-        should_notify = True
-    # Also re-notify if >30 min since last notification
-    elif now - last_notified > 1800:
-        should_notify = True
+    if not active:
+        new_state["consecutive_fails"] = 0
+        if prev_fp or prev_rank:
+            new_state["last_recovery_at"] = now
+            return "recovery", sorted(state.get("failed_components") or []), new_state
+        return "none", None, new_state
 
-    if should_notify:
-        lines = ["⚠️ Health Monitor — Issues detected:"]
-        for name, detail in failures:
-            lines.append(f"  • {name}: {detail}")
-        message = "\n".join(lines)
-        sent = notify(message)
-        if sent:
-            state["last_notified_at"] = now
+    new_state["consecutive_fails"] = min(int(state.get("consecutive_fails") or 0) + 1, 99)
 
-    save_state(state)
+    if not prev_fp:
+        return "alert", "new fault", new_state
+    if fingerprint != prev_fp:
+        return "alert", "severity changed", new_state
+    if rank > prev_rank:
+        return "alert", "escalated", new_state
+    if now - last_notified >= REMIND_SECONDS:
+        return "alert", "6h reminder", new_state
+    return "none", None, new_state
+
+
+def format_alert(active, reason):
+    worst = "critical" if any(s == "critical" for _, s, _ in active) else "warning"
+    icon = "🔴" if worst == "critical" else "🟡"
+    head = f"{icon} Health Monitor — {worst.upper()}"
+    if reason == "6h reminder":
+        head += " (still active, 6h update)"
+    elif reason == "escalated":
+        head += " (escalated)"
+    lines = [head]
+    for name, sev, detail in active:
+        lines.append(f"• {name} [{sev}]: {detail}" if detail else f"• {name} [{sev}]")
+    if any(n == "Memory" for n, _, _ in active):
+        lines.append("Hint: ps -eo rss,args --sort=-rss | head -10")
+    return "\n".join(lines)
+
+
+def format_recovery(recovered):
+    label = ", ".join(recovered) or "previous issue"
+    return f"✅ Health Monitor — recovered: {label}\n{_memory_summary()}"
+
+
+def run_self_test():
+    """Exercise the notification policy without sending or touching state."""
+    now = 1_700_000_000.0
+    ok = (None, None)
+    warn = ("warning", "RAM 480MB avail; swap 900/1987MB (45%)")
+    crit = ("critical", "RAM 200MB avail; swap 1950/1987MB (98%)")
+    cases = []
+
+    def case(name, state, checks, expect_action, expect_reason=None):
+        action, reason, _ = decide(state, checks, now)
+        good = action == expect_action and (expect_reason is None or reason == expect_reason)
+        cases.append((name, action, reason, good))
+
+    base = dict(DEFAULT_STATE)
+    case("healthy stays silent", base, [("Memory", *ok)], "none")
+    case("new warning alerts at once", base, [("Memory", *warn)], "alert", "new fault")
+
+    notified = dict(base, fingerprint="Memory:warning", max_severity=1,
+                    failed_components=["Memory"], last_notified_at=now - 60)
+    case("same warning within 6h is silent", notified, [("Memory", *warn)], "none")
+
+    stale = dict(notified, last_notified_at=now - REMIND_SECONDS - 1)
+    case("same warning after 6h reminds", stale, [("Memory", *warn)], "alert", "6h reminder")
+
+    case("escalation to critical alerts", notified, [("Memory", *crit)], "alert", "severity changed")
+
+    mixed = dict(base, fingerprint="Memory:warning", max_severity=1,
+                 failed_components=["Memory"], last_notified_at=now - 60)
+    case("new second component alerts",
+         mixed, [("Memory", *warn), ("Disk space", "warning", "Disk: 88% used")],
+         "alert", "severity changed")
+
+    failed = dict(base, fingerprint="Memory:critical", max_severity=2,
+                  failed_components=["Memory"], last_notified_at=now - 60)
+    case("recovery fires once", failed, [("Memory", *ok)], "recovery")
+
+    recovered = dict(base, fingerprint="", max_severity=0,
+                     failed_components=[], last_recovery_at=now - 60)
+    case("healthy after recovery stays silent", recovered, [("Memory", *ok)], "none")
+
+    detail_change = dict(notified, fingerprint="Memory:warning")
+    case("detail-only change does not spam", detail_change,
+         [("Memory", "warning", "RAM 410MB avail; swap 950/1987MB (48%)")], "none")
+
+    passed = sum(1 for *_, g in cases if g)
+    for name, action, reason, good in cases:
+        print(f"{'PASS' if good else 'FAIL'}  {name}: action={action} reason={reason}")
+    print(f"{passed}/{len(cases)} passed")
+    return 0 if passed == len(cases) else 1
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if "--self-test" in argv:
+        return run_self_test()
+
+    dry_run = "--dry-run" in argv
+    state = load_state()
+    now = time.time()
+    checks = collect_checks()
+    action, reason, new_state = decide(state, checks, now)
+    active = [(n, s, d) for n, s, d in checks if s]
+
+    message = None
+    if action == "alert":
+        message = format_alert(active, reason)
+    elif action == "recovery":
+        message = format_recovery(reason)
+
+    if dry_run:
+        print(f"action={action} reason={reason}")
+        print(message or "(silent — no notification)")
+        return 0
+
+    if message and notify(message):
+        new_state["last_notified_at"] = now
+    save_state(new_state)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

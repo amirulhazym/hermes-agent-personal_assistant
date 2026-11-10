@@ -650,7 +650,7 @@
       "destination": "/home/ubuntu/.hermes/plugins/hybrid-web/provider.py",
       "kind": "runtime-deploy",
       "source": "plugins/hybrid-web/provider.py",
-      "source_sha256": "1cb5e6f4c36ca0b260b56255bd0008a16664be88cfe41829e8f30dce9a1f3dff"
+      "source_sha256": "9a86f6b7978a314a91f86738db350ef04129873ab5c2f147c2fd3aa61b3f8ffb"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/__init__.py",
@@ -920,7 +920,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "scripts/health_check.py",
-      "source_sha256": "772f38df9d2157ecd5b966ddace26214c27ab5cef35de6b4f71d9750a160dbe8"
+      "source_sha256": "79903f2c18ddaa1f5425e5c5ab28f5eec8f8c9b15cde0af74e20608984904648"
     },
     {
       "destination": null,
