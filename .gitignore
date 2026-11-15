@@ -54,3 +54,16 @@ jobs.json
 gateway_state.json
 pairing/
 med-*.json
+
+# Huawei Health cloud sync (Option A) — secrets, telemetry and local artifacts
+secrets/
+*token*
+*.key
+*.pem
+.env
+huawei-health-sync/data/
+huawei-health-sync/logs/
+*.bak*
+*.staged
+__pycache__/
+*.py[cod]
