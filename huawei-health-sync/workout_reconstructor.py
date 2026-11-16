@@ -8,16 +8,25 @@ Verified 2026-11-15 on Watch Fit 4 Pro (HarmonyOS 6.1.0.117), MY account:
   * getHealthData(type 8) WEIGHT_BODYFAT_BROAD: bodyWeight (with 14-day lookback).
   * getHealthData(type 16) BLOOD_OXYGEN_SATURATION: avgSaturation (daily avg + latest).
 
-Hardening rules (owner decision 2026-11-15, Phase 4.5):
-  * a block must be >= 30 minutes AND carry >= 100 kcal attributed gap to count as a workout;
-  * a block already covered >= 50% by an explicit GPS workout is marked already_logged and
-    excluded from gap allocation (no double counting);
-  * raw payloads are dropped and gc.collect() is called right after extraction.
+Hardening rules:
+  * Phase 4.5 (owner decision 2026-11-15): a block must be >= 30 minutes AND carry
+    >= 100 kcal attributed gap to count as a workout; a block already covered >= 50%
+    by an explicit GPS workout is marked already_logged and excluded from allocation;
+    raw payloads are dropped and gc.collect() is called right after extraction.
+  * Phase 5 (owner SOP 2026-11-16): stationary-cadence overlap correction. Huawei's
+    daily step aggregator books part of a stationary session's wrist motion into
+    dimenDailyActivity.walkCalories, so raw subtraction under-attributes the workout.
+    Walking kcal is capped at the physical cost of the recorded steps
+    (0.035 kcal/step @ 60 kg) whenever an unlogged workout block exists.
+  * Phase 5: every workout carries `estimated_gross_kcal` (active + resting BMR for
+    the same minutes) and an explicit modality provenance pair
+    (`modality` + `modality_source`). Sensor data never implies a sport label.
 """
 from __future__ import annotations
 
 import gc
 import json
+import os
 from datetime import datetime, timedelta
 
 TYPE_EXERCISE_INTENSITY = 12
@@ -32,6 +41,17 @@ GPS_SPORT_TYPES = (3, 4, 9)     # outdoor cycling, running, swimming
 OVERLAP_THRESHOLD = 0.5
 WEIGHT_LOOKBACK_DAYS = 14
 HEALTH_RANGE_MAX_DAYS = 7       # cloud rejects wider getHealthData ranges (verified 1001)
+
+# Phase 5 additions
+STEP_KCAL_COEF = 0.035          # kcal per step at 60 kg (owner formula)
+STEP_KCAL_REF_WEIGHT = 60.0
+DEFAULT_WEIGHT_KG = 59.0        # last cloud-measured weight (2026-11-15)
+RESTING_KCAL_PER_MIN = 1449.0 / 1440.0
+SETTLING_MIN = 30               # watch->cloud settling window after a block ends
+ANNOTATIONS_FILENAME = "workout_annotations.json"
+MODALITY_UNCLASSIFIED = "unclassified_workout"
+MODALITY_SOURCE_RECONSTRUCTED = "reconstructed_intensity_hr"
+MODALITY_SOURCE_CONFIRMED = "user_confirmed"
 
 
 # ── parsing helpers ──────────────────────────────────────────────────────
@@ -95,7 +115,51 @@ def hr_within(series: list[tuple[int, float]], start_ms: int, end_ms: int) -> di
             "max_bpm": int(max(values)), "min_bpm": int(min(values))}
 
 
+# ── Phase 5: calorie attribution ─────────────────────────────────────────
+
+def max_step_kcal(steps, weight_kg: float | None) -> float | None:
+    """Physical upper bound for true walking cost of `steps` (kcal)."""
+    if steps is None:
+        return None
+    weight = float(weight_kg) if weight_kg else DEFAULT_WEIGHT_KG
+    return round(float(steps) * STEP_KCAL_COEF * (weight / STEP_KCAL_REF_WEIGHT), 1)
+
+
+def workout_active_pool(stat_row: dict, weight_kg: float | None,
+                        has_unlogged_block: bool) -> dict:
+    """Workout active kcal pool with the stationary-cadence overlap correction.
+
+    Stationary sessions inflate dimenDailyActivity.walkCalories, so raw
+    (total - walk - climb) under-attributes the workout. When an unlogged block
+    exists, walking kcal is capped at the physical cost of the recorded steps.
+    """
+    basic = (stat_row or {}).get("sportBasicInfo") or {}
+    dimen = (stat_row or {}).get("dimenDailyActivity") or {}
+    total_raw = basic.get("calorie")
+    if total_raw is None:
+        return {"total_active_kcal": None, "raw_walk_kcal": None, "climb_kcal": None,
+                "max_step_kcal": None, "effective_walk_kcal": None,
+                "workout_active_kcal": None, "walk_capped": False}
+    total = float(total_raw) / 1000.0
+    walk = float(dimen.get("walkCalories") or 0) / 1000.0
+    climb = float(dimen.get("climbCalories") or 0) / 1000.0
+    cap = max_step_kcal(basic.get("steps"), weight_kg)
+    walk_capped = bool(has_unlogged_block and cap is not None and walk > cap)
+    effective_walk = cap if walk_capped else walk
+    pool = round(max(0.0, total - effective_walk - climb), 1)
+    return {
+        "total_active_kcal": round(total, 1),
+        "raw_walk_kcal": round(walk, 1),
+        "climb_kcal": round(climb, 1),
+        "max_step_kcal": cap,
+        "effective_walk_kcal": round(effective_walk, 1),
+        "workout_active_kcal": pool,
+        "walk_capped": walk_capped,
+    }
+
+
 def workout_kcal_gap(stat_row: dict) -> float | None:
+    """Legacy raw subtraction (uncorrected). Prefer workout_active_pool()."""
     basic = (stat_row or {}).get("sportBasicInfo") or {}
     dimen = (stat_row or {}).get("dimenDailyActivity") or {}
     total = basic.get("calorie")
@@ -105,6 +169,36 @@ def workout_kcal_gap(stat_row: dict) -> float | None:
            - float(dimen.get("climbCalories") or 0)) / 1000.0
     return round(gap, 1) if gap > 0 else 0.0
 
+
+# ── Phase 5: modality provenance (sidecar annotations) ───────────────────
+
+def annotations_path(base_dir: str | None = None) -> str:
+    root = base_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    return os.path.join(root, ANNOTATIONS_FILENAME)
+
+
+def load_annotations(base_dir: str | None = None) -> dict:
+    """User-confirmed sport labels, keyed "YYYY-MM-DD_HH:MM" -> label."""
+    try:
+        with open(annotations_path(base_dir), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def annotation_key(start_ms: int) -> str:
+    return datetime.fromtimestamp(start_ms / 1000).astimezone().strftime("%Y-%m-%d_%H:%M")
+
+
+def modality_for(start_ms: int, annotations: dict) -> tuple[str, str]:
+    label = (annotations or {}).get(annotation_key(start_ms))
+    if isinstance(label, str) and label.strip():
+        return label.strip(), MODALITY_SOURCE_CONFIRMED
+    return MODALITY_UNCLASSIFIED, MODALITY_SOURCE_RECONSTRUCTED
+
+
+# ── session / biometrics helpers ─────────────────────────────────────────
 
 def _overlap_fraction(block: dict, session_start: int, session_end: int) -> float:
     start = max(block["start_ms"], session_start)
@@ -179,17 +273,17 @@ def spo2_stats(response: dict, day_int: int) -> tuple[float | None, float | None
 
 # ── orchestrator ─────────────────────────────────────────────────────────
 
-def reconstruct(client, day_int: int) -> dict:
+def reconstruct(client, day_int: int, annotations: dict | None = None) -> dict:
     ex = client.health_data(day_int, day_int, TYPE_EXERCISE_INTENSITY)
     hr = client.health_data(day_int, day_int, TYPE_DYNAMIC_HR)
     sp = client.health_data(day_int, day_int, TYPE_SPO2)
     stat = client.sports_stat(day_int, day_int)
     rows = stat.get("sportStat") or []
-    gap = workout_kcal_gap(rows[0] if rows else {})
 
     blocks = exercise_blocks(ex, day_int)
     hr_series = _hr_series(hr, day_int)
     gps = gps_sessions(client, day_int)
+    labels = annotations if annotations is not None else load_annotations()
 
     # drop bulky payloads before any formatting work
     counts = {"exercise_samples": sum(len(r.get("samplePoints") or []) for r in _day_records(ex, day_int)),
@@ -206,6 +300,12 @@ def reconstruct(client, day_int: int) -> dict:
                           "overlap": round(overlap, 2)})
 
     eligible = [b for b in annotated if not b["already_logged"]]
+
+    # weight is needed by the step-kcal cap, so resolve it before attribution
+    weight, weight_date = body_weight(client, day_int)
+    pool = workout_active_pool(rows[0] if rows else {}, weight, bool(eligible))
+    gap = pool["workout_active_kcal"]
+
     total_minutes = sum(b["duration_min"] for b in eligible) or 1
     workouts = []
     for index, block in enumerate(eligible):
@@ -214,6 +314,9 @@ def reconstruct(client, day_int: int) -> dict:
         if attributed is not None and attributed < MIN_WORKOUT_KCAL:
             continue                                   # owner rule: noise, not a workout
         stats = hr_within(hr_series, block["start_ms"], block["end_ms"])
+        modality, modality_source = modality_for(block["start_ms"], labels)
+        gross = (round(attributed + block["duration_min"] * RESTING_KCAL_PER_MIN, 1)
+                 if attributed is not None else None)
         workouts.append({
             "index": index,
             "start": datetime.fromtimestamp(block["start_ms"] / 1000).astimezone()
@@ -222,16 +325,22 @@ def reconstruct(client, day_int: int) -> dict:
                     .isoformat(timespec="seconds"),
             "duration_min": block["duration_min"],
             "active_kcal": attributed,
+            "estimated_gross_kcal": gross,
             "avg_bpm": (stats or {}).get("avg_bpm"),
             "max_bpm": (stats or {}).get("max_bpm"),
             "min_bpm": (stats or {}).get("min_bpm"),
             "hr_samples": (stats or {}).get("samples"),
+            "modality": modality,
+            "modality_source": modality_source,
             "already_logged": False,
             "reconstructed": True,
             "provenance": {
                 "duration": "/dataQuery/health/getHealthData type=12",
                 "heart_rate": "/dataQuery/health/getHealthData type=7",
-                "kcal_allocation": "daily gap apportioned by duration (no per-block kcal in cloud)",
+                "active_kcal": ("total daily active kcal - effective walk kcal (capped at "
+                                "0.035 kcal/step @ 60 kg) - climb kcal, apportioned by duration"),
+                "estimated_gross_kcal": "active_kcal + duration_min * (1449/1440) resting BMR",
+                "modality": "sidecar data/workout_annotations.json (owner-confirmed) else unclassified",
                 "source_device": "Huawei Watch Fit 4 Pro",
             },
         })
@@ -239,7 +348,6 @@ def reconstruct(client, day_int: int) -> dict:
     sp_avg, sp_latest = spo2_stats(sp, day_int)
     del sp
     gc.collect()
-    weight, weight_date = body_weight(client, day_int)
     excluded = [{"start_ms": b["start_ms"], "duration_min": b["duration_min"],
                  "reason": "below_min_kcal_or_minutes"}
                 for b in annotated if b not in eligible]
@@ -249,6 +357,7 @@ def reconstruct(client, day_int: int) -> dict:
     return {
         "workouts": workouts,
         "workout_kcal_gap": gap,
+        "workout_active_pool": pool,
         "excluded_blocks": excluded,
         "body_weight_kg": weight,
         "body_weight_measured_date": weight_date,
