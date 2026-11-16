@@ -29,6 +29,7 @@ VENDOR = os.path.join(BASE, "vendor")
 DATA = os.path.join(BASE, "data")
 LOGS = os.path.join(BASE, "logs")
 SECRETS = os.path.expanduser("~/secrets/huawei_tokens.json")
+DIET_LOG = os.path.expanduser("~/.hermes/diet-log.json")
 
 sys.path.insert(0, VENDOR)
 sys.path.insert(0, BASE)
@@ -36,9 +37,16 @@ import client  # noqa: E402
 import workout_reconstructor as wrec  # noqa: E402
 
 MYT = datetime.now().astimezone()
-BMR_KCAL = 1449
-PAL_FLOOR_KCAL = round(BMR_KCAL * 0.15, 2)          # 217.35
-LEGACY_PAL_1_20_TDEE = round(BMR_KCAL * 1.20, 1)    # 1738.8
+
+# ── energy model (Mifflin-St Jeor, must stay aligned with scripts/diet_report.py) ──
+# Owner profile: 157 cm, born July 1999 (27 y in 2026).
+HEIGHT_CM = 157.0
+AGE_YEARS = 27
+DEFAULT_WEIGHT_KG = 59.0        # fallback only when type=8 has no sample in the 14d window
+PAL_FLOOR_RATIO = 0.15
+LEGACY_PAL_RATIO = 1.20
+WEIGHT_PLAUSIBLE_KG = (30.0, 300.0)
+
 STALE_THRESHOLD_MIN = 180
 SETTLING_MIN = 30                                   # watch->cloud settling window
 SCHEMA_VERSION = "1.1.0"
@@ -56,13 +64,24 @@ def log(msg: str) -> None:
         pass
 
 
-def write_atomic(path: str, payload: dict) -> None:
+def write_atomic(path: str, payload: dict, mode: int | None = None) -> None:
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=1, ensure_ascii=False)
         fh.flush()
         os.fsync(fh.fileno())
+    if mode is not None:
+        os.chmod(tmp, mode)
     os.replace(tmp, path)
+
+
+def mifflin_bmr(weight_kg: float) -> int:
+    """Mifflin-St Jeor BMR for the owner profile (157 cm, 27 y).
+
+    BMR = 10*w + 6.25*157 - 5*27 + 5  ->  59.0 kg = 1441, 59.8 kg = 1449.
+    Same formula as scripts/diet_report.py::calculate_dynamic_bmr.
+    """
+    return round(10.0 * float(weight_kg) + 6.25 * HEIGHT_CM - 5.0 * AGE_YEARS + 5.0)
 
 
 def save_tokens(payload: dict) -> None:
@@ -176,7 +195,22 @@ def build_payload(cli, target_int: int, now: datetime, is_today: bool) -> dict:
         settling, settling_reason = False, None
 
     device_active = active_kcal if active_kcal is not None else None
-    candidate_tdee = (round(BMR_KCAL + max(PAL_FLOOR_KCAL, device_active), 1)
+
+    # Dynamic BMR from the resolved body weight (type=8 with 14d lookback upstream).
+    weight_for_bmr = extra.get("body_weight_kg")
+    bmr_weight_source = "huawei_type8_body_weight"
+    if weight_for_bmr is not None:
+        try:
+            weight_for_bmr = float(weight_for_bmr)
+        except (TypeError, ValueError):
+            weight_for_bmr = None
+    if weight_for_bmr is None or not (WEIGHT_PLAUSIBLE_KG[0] <= weight_for_bmr <= WEIGHT_PLAUSIBLE_KG[1]):
+        weight_for_bmr = DEFAULT_WEIGHT_KG
+        bmr_weight_source = "fallback_default_no_plausible_type8"
+    bmr_kcal = mifflin_bmr(weight_for_bmr)
+    pal_floor_kcal = round(bmr_kcal * PAL_FLOOR_RATIO, 2)
+    legacy_pal_tdee = round(bmr_kcal * LEGACY_PAL_RATIO, 1)
+    candidate_tdee = (round(bmr_kcal + max(pal_floor_kcal, device_active), 1)
                       if device_active is not None else None)
 
     return {
@@ -248,14 +282,24 @@ def build_payload(cli, target_int: int, now: datetime, is_today: bool) -> dict:
             "spo2_latest": "/dataQuery/health/getHealthData type=16 (last sample)",
         },
         "tdee_calibration": {
-            "bmr_kcal": BMR_KCAL,
-            "pal_floor_kcal": PAL_FLOOR_KCAL,
+            "bmr_kcal": bmr_kcal,
+            "bmr_basis": {
+                "formula": "Mifflin-St Jeor: 10*w + 6.25*157 - 5*27 + 5",
+                "weight_kg": round(float(weight_for_bmr), 2),
+                "weight_source": bmr_weight_source,
+                "height_cm": HEIGHT_CM,
+                "age_years": AGE_YEARS,
+            },
+            "pal_floor_kcal": pal_floor_kcal,
+            "pal_floor_ratio": PAL_FLOOR_RATIO,
             "device_active_kcal": device_active,
             "candidate_tdee_kcal": candidate_tdee,
-            "legacy_pal_1_20_tdee_kcal": LEGACY_PAL_1_20_TDEE,
-            "delta_vs_pal_1_20_kcal": (round(candidate_tdee - LEGACY_PAL_1_20_TDEE, 1)
+            "legacy_pal_1_20_tdee_kcal": legacy_pal_tdee,
+            "delta_vs_pal_1_20_kcal": (round(candidate_tdee - legacy_pal_tdee, 1)
                                        if candidate_tdee is not None else None),
-            "note": "PAL floor rule: TDEE = BMR + max(PAL_floor, device_active). 7-day lock before changing tracker formula.",
+            "note": "PAL floor rule: TDEE = BMR + max(PAL_floor, device_active). BMR is dynamic "
+                    "(Mifflin-St Jeor on the type=8 body weight, fallback 59.0 kg). "
+                    "7-day lock before changing tracker formula.",
         },
     }
 
@@ -270,6 +314,114 @@ def write_annotation(date_str: str, hhmm: str, label: str) -> str:
     return key
 
 
+def _iso_date(value) -> str | None:
+    """Normalise 'YYYYMMDD' or 'YYYY-MM-DD' to ISO 'YYYY-MM-DD' (None if unparseable).
+
+    The Huawei payload carries date_myt style stamps while diet-log.json stores ISO
+    dates; comparing the two raw strings treats 20261101 as newer than 2026-11-14.
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    for fmt in ("%Y%m%d", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
+def sync_diet_log(payload: dict) -> dict:
+    """Mirror today's burn/TDEE and the latest body weight into ~/.hermes/diet-log.json.
+
+    Guards (each learned from a live failure):
+      - never write while `sync_settling` is true (367.3 -> 375.0 -> 380.8 kcal drift);
+      - never invent intake: `deficit_uniform` is recomputed only when the day already
+        carries `estimated_total_calories`;
+      - never create a day entry the owner has not opened (report contract stays intact);
+      - atomic write, original file mode preserved (0600).
+    """
+    res: dict = {"written": False, "fields": [], "reason": None, "skipped": []}
+    if payload.get("sync_settling"):
+        res["reason"] = "sync_settling=true (watch still syncing to cloud)"
+        return res
+    try:
+        with open(DIET_LOG, encoding="utf-8") as fh:
+            diet = json.load(fh)
+        mode = os.stat(DIET_LOG).st_mode & 0o777
+    except (OSError, json.JSONDecodeError) as exc:
+        res["reason"] = f"cannot read {DIET_LOG}: {type(exc).__name__}: {exc}"
+        return res
+
+    # 1) profile weight (only move forward in time)
+    prof = diet.setdefault("profile", {})
+    weight = payload.get("body_weight_kg")
+    weight_date = _iso_date(payload.get("body_weight_measured_date"))
+    if weight is not None and weight_date:
+        cur_date = _iso_date(prof.get("latest_weight_date"))
+        cur_w = prof.get("latest_weight_kg")
+        if cur_date is None or weight_date >= cur_date:
+            new_w = round(float(weight), 1)
+            if cur_date != weight_date or cur_w != new_w:
+                prof["latest_weight_kg"] = new_w
+                prof["latest_weight_date"] = weight_date
+                res["fields"].append("profile.latest_weight_kg")
+    else:
+        res["skipped"].append("profile weight (no type=8 sample in payload)")
+
+    # 2) today's burn block (existing day entry only)
+    tdee = payload.get("tdee_calibration") or {}
+    date_str = payload["date_myt"]
+    logs = diet.get("logs") or {}
+    day = logs.get(date_str) if isinstance(logs, dict) else None
+    bmr = tdee.get("bmr_kcal")
+    floor = tdee.get("pal_floor_kcal")
+    device_active = (payload.get("metrics", {}).get("active_kcal") or {}).get("value")
+    cand = tdee.get("candidate_tdee_kcal")
+
+    if day is None:
+        res["skipped"].append(f"no diet-log entry for {date_str} (owner has not logged today yet)")
+    else:
+        if cand is not None and bmr is not None:
+            day["burn"] = {
+                "bmr_kcal": bmr,
+                "pal_used": None,
+                "tdee_kcal": cand,
+                "device_active_kcal": device_active,
+                "basis": (f"TDEE = {bmr} + max({floor}, {device_active}) = {cand} "
+                          f"(PAL-floor rule, Mifflin BMR at "
+                          f"{(tdee.get('bmr_basis') or {}).get('weight_kg')} kg)."),
+                "auto_synced_at": payload["fetched_at"],
+                "source": "hermes-huawei-sync/data/latest.json",
+            }
+            res["fields"].append("logs[%s].burn" % date_str)
+
+            intake = day.get("estimated_total_calories")
+            if intake is None:
+                res["skipped"].append("deficit_uniform (no logged intake for today)")
+            else:
+                deficit = round(float(cand) - float(intake), 1)
+                day["deficit_uniform"] = {
+                    "kcal": deficit,
+                    "tdee_kcal": cand,
+                    "intake_kcal": intake,
+                    "basis": (f"TDEE {cand} - intake {intake} = {deficit} kcal "
+                              f"(auto-synced {payload['fetched_at']})."),
+                    "auto_synced_at": payload["fetched_at"],
+                    "source": "hermes-huawei-sync/data/latest.json",
+                }
+                res["fields"].append("logs[%s].deficit_uniform" % date_str)
+        else:
+            res["skipped"].append("burn (no candidate_tdee in payload)")
+
+    if res["fields"]:
+        write_atomic(DIET_LOG, diet, mode=mode)
+        res["written"] = True
+    else:
+        res["reason"] = res["reason"] or "nothing to update"
+    return res
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Huawei Health cloud sync")
     group = parser.add_mutually_exclusive_group()
@@ -278,6 +430,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
                        help="re-sync yesterday so late-night activity is captured")
     group.add_argument("--annotate", nargs=3, metavar=("DATE", "HH:MM", "LABEL"),
                        help="store an owner-confirmed modality then sync that date")
+    parser.add_argument("--sync-diet-log", action="store_true",
+                        help="mirror today's burn/TDEE and latest weight into ~/.hermes/diet-log.json "
+                             "(today only, skipped while sync_settling is true)")
     return parser.parse_args(argv)
 
 
@@ -366,6 +521,21 @@ def main(argv: list[str] | None = None) -> int:
         payload["date_myt"], m["active_kcal"]["value"], m["steps"]["value"],
         pool.get("workout_active_kcal"), pool.get("raw_walk_kcal"),
         pool.get("walk_capped"), payload.get("sync_settling")))
+
+    if args.sync_diet_log:
+        if not is_today:
+            log("diet-log sync skipped (historical run: latest.json untouched)")
+        else:
+            res = sync_diet_log(payload)
+            if res["written"]:
+                log("diet-log sync OK updated=" + ",".join(res["fields"])
+                    + (" skipped=" + "; ".join(res["skipped"]) if res["skipped"] else ""))
+                print("DIET-LOG UPDATED " + ",".join(res["fields"]))
+            else:
+                log("diet-log sync skipped — " + str(res["reason"])
+                    + ("; " + "; ".join(res["skipped"]) if res["skipped"] else ""))
+                print("DIET-LOG SKIPPED " + str(res["reason"]))
+
     print(f"WROTE {daily_path}" + ("" if is_today else " (historical: latest.json untouched)"))
     return 0
 

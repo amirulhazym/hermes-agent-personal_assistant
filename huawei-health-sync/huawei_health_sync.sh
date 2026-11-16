@@ -25,7 +25,7 @@ if [ "${HUAWEI_SKIP_SYNC:-0}" != "1" ]; then
             echo "⚠️ Huawei finalize-yesterday gagal (exit $FRC) — fail semalam mungkin stale."
         fi
     fi
-    OUT=$(python3 "$SYNC" 2>&1)
+    OUT=$(python3 "$SYNC" --sync-diet-log 2>&1)
     RC=$?
     printf '%s\n' "$OUT" >> "$LOG"
 fi
