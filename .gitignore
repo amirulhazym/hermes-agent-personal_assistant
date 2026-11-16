@@ -58,6 +58,9 @@ med-*.json
 # Huawei Health cloud sync (Option A) — secrets, telemetry and local artifacts
 secrets/
 *token*
+# Documentation files that only describe token handling (verified secret-free by
+# scripts/guard/secret-scan.sh). Narrowly scoped so the guard still catches real token files.
+!skills/health/huawei-health-cloud-sync/references/*token*.md
 *.key
 *.pem
 .env
