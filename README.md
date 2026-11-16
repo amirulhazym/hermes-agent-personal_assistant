@@ -9,6 +9,36 @@
 
 > **Current-state note (2026-08-08):** This public repository is the durable application-source and recovery record. `main` is the only permanent application-source branch. The live operator runs on the Tencent Lighthouse VPS under `/home/ubuntu/.hermes`; older WSL2/Windows descriptions below are historical unless explicitly marked current. Promotion to `main` requires one tested exact-SHA owner release approval. See `AGENTS.md` v3.
 
+## 🧭 Live layout & active modules (2026-11-16)
+
+The runtime is the Tencent Lighthouse VPS (Ubuntu, Python 3.11) — **not** the WSL2/Windows host that
+most of this document was first written on. Authoritative paths:
+
+| Purpose | Live path |
+|---|---|
+| Hermes runtime (`$HERMES_HOME`) | `/home/ubuntu/.hermes` (config, `.env`, `diet-log.json`, skills, cron) |
+| Application-source SSOT (this repo) | `/home/ubuntu/hermes-agent-personal_assistant-work` |
+| Framework runtime (deployment-managed) | `/home/ubuntu/.hermes/hermes-agent` — never developed in place |
+| Secrets | `~/secrets/` (dir 700, files 600) |
+
+Active modules with their own documentation:
+
+- **[`huawei-health-sync/README.md`](huawei-health-sync/README.md)** — Huawei Watch Fit 4 Pro →
+  Huawei Health cloud (DRA Asia) → local JSON pipeline. Cron at 09:30 / 15:00 / 22:30 MYT through
+  `~/.hermes/scripts/huawei_health_sync.sh`; writes `~/hermes-huawei-sync/data/latest.json` and
+  mirrors burn/TDEE/weight into `~/.hermes/diet-log.json` via `sync_huawei.py --sync-diet-log`.
+- **[`skills/health/huawei-health-cloud-sync/`](skills/health/huawei-health-cloud-sync/)** — the
+  skill that operates that pipeline: token rotation, field maps, phase gates, drift/trust contract.
+- **`skills/diet-tracker/`** + **`skills/health/wearable-metrics-verification/`** — enforce the four
+  mandatory wearable rules (canonical file only, settling window, modality provenance, one dynamic
+  weight/BMR).
+- **`skills/operator/xcute/`** + `AGENTS.md` — the `/xcute` pipeline and operator constitution that
+  govern any change to this repository.
+
+Archived root documents from the WSL2 era now live under
+[`docs/archive/2026-11-legacy-briefs/`](docs/archive/2026-11-legacy-briefs/ARCHIVE_MANIFEST.md);
+the sections below that describe `F:\`, `wsl\`, or `Windows 11` are **historical record only**.
+
 ```
                          USER
                           │

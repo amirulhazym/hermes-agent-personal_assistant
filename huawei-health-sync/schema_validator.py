@@ -125,6 +125,54 @@ def main(argv: list[str]) -> int:
         else:
             print(f"  OK    tdee_calibration.candidate_tdee_kcal: {cand}")
 
+    # Dynamic BMR: must exist, match Mifflin-St Jeor on the recorded basis weight,
+    # and reproduce both the PAL floor and the candidate TDEE.
+    bmr = tdee.get("bmr_kcal")
+    if bmr is None:
+        problems.append("tdee_calibration.bmr_kcal missing (dynamic BMR not written)")
+    else:
+        try:
+            bmr_f = float(bmr)
+        except (TypeError, ValueError):
+            problems.append(f"tdee_calibration.bmr_kcal not numeric: {bmr!r}")
+            bmr_f = None
+        if bmr_f is not None:
+            if not (800 <= bmr_f <= 4000):
+                problems.append(f"tdee_calibration.bmr_kcal implausible: {bmr_f}")
+            basis = tdee.get("bmr_basis") or {}
+            weight = basis.get("weight_kg")
+            if weight is None:
+                problems.append("tdee_calibration.bmr_basis.weight_kg missing")
+            else:
+                try:
+                    height = float(basis.get("height_cm", 157.0))
+                    age = float(basis.get("age_years", 27.0))
+                    expected = round(10.0 * float(weight) + 6.25 * height - 5.0 * age + 5.0)
+                except (TypeError, ValueError):
+                    problems.append(f"tdee_calibration.bmr_basis non-numeric: {basis!r}")
+                    expected = None
+                if expected is not None:
+                    if abs(expected - bmr_f) > 1:
+                        problems.append(f"bmr_kcal {bmr_f} != Mifflin-St Jeor {expected} "
+                                        f"at {weight} kg")
+                    else:
+                        print(f"  OK    bmr_kcal {int(bmr_f)} = Mifflin({weight} kg)")
+            floor = tdee.get("pal_floor_kcal")
+            if floor is None:
+                problems.append("tdee_calibration.pal_floor_kcal missing")
+            elif abs(float(floor) - round(bmr_f * 0.15, 2)) > 0.01:
+                problems.append(f"pal_floor_kcal {floor} != 15% of BMR "
+                                f"({round(bmr_f * 0.15, 2)})")
+            cand2 = tdee.get("candidate_tdee_kcal")
+            device = tdee.get("device_active_kcal")
+            if cand2 is not None and device is not None and floor is not None:
+                expected_tdee = round(bmr_f + max(float(floor), float(device)), 1)
+                if abs(expected_tdee - float(cand2)) > 0.2:
+                    problems.append(f"candidate_tdee_kcal {cand2} != BMR + max(floor, "
+                                    f"device_active) = {expected_tdee}")
+                else:
+                    print(f"  OK    TDEE = {int(bmr_f)} + max({floor}, {device}) = {cand2}")
+
     if problems:
         print("\nFAIL:")
         for prob in problems:
