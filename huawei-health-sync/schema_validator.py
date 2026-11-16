@@ -69,6 +69,7 @@ def main(argv: list[str]) -> int:
     spo2 = d.get("spo2_avg")
     if spo2 is not None:
         check_range("spo2_avg", spo2, 70, 100, problems)
+    MODALITY_SOURCES = ("user_confirmed", "reconstructed_intensity_hr")
     for idx, w in enumerate(d.get("workouts") or []):
         if not w.get("duration_min") or not w.get("start"):
             problems.append(f"workouts[{idx}] missing duration_min/start")
@@ -78,6 +79,35 @@ def main(argv: list[str]) -> int:
         kcal = w.get("active_kcal")
         if kcal is None or float(kcal) < 100.0:
             problems.append(f"workouts[{idx}] active_kcal {kcal} < 100 kcal filter")
+        # Phase 5: gross calories + explicit modality provenance
+        gross = w.get("estimated_gross_kcal")
+        if gross is None:
+            problems.append(f"workouts[{idx}] missing estimated_gross_kcal")
+        elif kcal is not None and float(gross) < float(kcal):
+            problems.append(f"workouts[{idx}] estimated_gross_kcal {gross} < active_kcal {kcal}")
+        elif kcal is not None and float(gross) > float(kcal) * 3 + 400:
+            problems.append(f"workouts[{idx}] estimated_gross_kcal implausible: {gross}")
+        modality = w.get("modality")
+        if not isinstance(modality, str) or not modality.strip():
+            problems.append(f"workouts[{idx}] missing modality")
+        source = w.get("modality_source")
+        if source not in MODALITY_SOURCES:
+            problems.append(f"workouts[{idx}] modality_source invalid: {source!r} "
+                            f"(expected one of {MODALITY_SOURCES})")
+        if source == "user_confirmed" and modality == "unclassified_workout":
+            problems.append(f"workouts[{idx}] user_confirmed label cannot be unclassified_workout")
+
+    if "sync_settling" not in d:
+        problems.append("missing top-level key: sync_settling")
+    elif not isinstance(d.get("sync_settling"), bool):
+        problems.append(f"sync_settling must be bool: {d.get('sync_settling')!r}")
+    elif d.get("sync_settling") and not d.get("sync_settling_reason"):
+        problems.append("sync_settling is true but sync_settling_reason is empty")
+
+    pool = d.get("workout_active_pool")
+    if pool is not None and not isinstance(pool, dict):
+        problems.append("workout_active_pool must be an object")
+
     if "devices" in d:
         problems.append("top-level 'devices' must not be written (lean schema)")
 

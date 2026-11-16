@@ -3,17 +3,26 @@
 
 Read-only. Stdlib only. Tokens live in ~/secrets/huawei_tokens.json (0600).
 
+Modes (Phase 5, owner SOP 2026-11-16):
+  (no args)              sync today -> data/YYYY-MM-DD.json + data/latest.json
+  --date YYYYMMDD        sync one historical day -> data/YYYY-MM-DD.json only
+  --finalize-yesterday   re-sync yesterday (late-night activity after the 22:30 cron)
+  --annotate DATE HH:MM "Label"
+                         store an owner-confirmed modality in
+                         data/workout_annotations.json, then sync that date
+
 Exit codes: 0 ok | 2 auth expired (re-login needed) | 3 other failure
 """
 from __future__ import annotations
 
+import argparse
 import gc
 import json
 import os
 import sys
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 
 BASE = os.path.expanduser("~/hermes-huawei-sync")
 VENDOR = os.path.join(BASE, "vendor")
@@ -31,6 +40,8 @@ BMR_KCAL = 1449
 PAL_FLOOR_KCAL = round(BMR_KCAL * 0.15, 2)          # 217.35
 LEGACY_PAL_1_20_TDEE = round(BMR_KCAL * 1.20, 1)    # 1738.8
 STALE_THRESHOLD_MIN = 180
+SETTLING_MIN = 30                                   # watch->cloud settling window
+SCHEMA_VERSION = "1.1.0"
 MAX_RETRIES = 3
 
 
@@ -92,8 +103,27 @@ def num(value):
     return None if value is None else float(value)
 
 
-def build_payload(cli, today_int: int, now: datetime) -> dict:
+def settling_state(workouts: list, now: datetime) -> tuple[bool, str | None]:
+    """True when a workout block ended < SETTLING_MIN minutes ago (cloud still updating)."""
+    for workout in workouts or []:
+        end = workout.get("end")
+        if not end:
+            continue
+        try:
+            end_dt = datetime.fromisoformat(end)
+        except ValueError:
+            continue
+        if end_dt.tzinfo is None:
+            end_dt = end_dt.astimezone()
+        if (now - end_dt) < timedelta(minutes=SETTLING_MIN):
+            return True, (f"Workout ended <{SETTLING_MIN}m ago; cloud aggregates may still "
+                          "update")
+    return False, None
+
+
+def build_payload(cli, target_int: int, now: datetime, is_today: bool) -> dict:
     fetched_at = now.isoformat(timespec="seconds")
+    date_str = datetime.strptime(str(target_int), "%Y%m%d").strftime("%Y-%m-%d")
     prov = lambda endpoint, raw: {  # noqa: E731
         "endpoint": endpoint,
         "raw_field": raw,
@@ -101,14 +131,15 @@ def build_payload(cli, today_int: int, now: datetime) -> dict:
         "fetched_at": fetched_at,
     }
 
-    stat = call_with_retry(lambda: cli.sports_stat(today_int, today_int), "sports_stat")
+    stat = call_with_retry(lambda: cli.sports_stat(target_int, target_int), "sports_stat")
     health = call_with_retry(
-        lambda: cli.health_stat(today_int, today_int, (7, 9, 11, 12)), "health_stat")
+        lambda: cli.health_stat(target_int, target_int, (7, 9, 11, 12)), "health_stat")
     try:
-        extra = wrec.reconstruct(cli, today_int)
+        extra = wrec.reconstruct(cli, target_int, annotations=wrec.load_annotations())
     except client.HuaweiError as exc:
-        extra = {"workouts": [], "workout_kcal_gap": None, "body_weight_kg": None,
-                 "spo2_pct": None, "raw_counts": {}, "error": f"{type(exc).__name__}: {exc}"}
+        extra = {"workouts": [], "workout_kcal_gap": None, "workout_active_pool": {},
+                 "body_weight_kg": None, "spo2_avg": None, "source_counts": {},
+                 "error": f"{type(exc).__name__}: {exc}"}
 
     stat_rows = stat.get("sportStat") or []
     basic = (stat_rows[0].get("sportBasicInfo") if stat_rows else None) or {}
@@ -132,22 +163,29 @@ def build_payload(cli, today_int: int, now: datetime) -> dict:
     latest_ms = max(stamps) if stamps else None
 
     stale_min = None
-    if latest_ms:
+    if latest_ms and is_today:
         stale_min = int((now.timestamp() - latest_ms / 1000) / 60)
 
     is_stale = bool(
-        (stale_min is not None and stale_min > STALE_THRESHOLD_MIN)
-        or (steps == 0 and now.hour >= 10)
+        is_today and ((stale_min is not None and stale_min > STALE_THRESHOLD_MIN)
+                      or (steps == 0 and now.hour >= 10))
     )
+
+    settling, settling_reason = settling_state(extra.get("workouts") or [], now)
+    if not is_today:
+        settling, settling_reason = False, None
 
     device_active = active_kcal if active_kcal is not None else None
     candidate_tdee = (round(BMR_KCAL + max(PAL_FLOOR_KCAL, device_active), 1)
                       if device_active is not None else None)
 
     return {
-        "schema_version": "1.0.0",
-        "date_myt": now.strftime("%Y-%m-%d"),
+        "schema_version": SCHEMA_VERSION,
+        "date_myt": date_str,
         "fetched_at": fetched_at,
+        "is_historical": not is_today,
+        "sync_settling": settling,
+        "sync_settling_reason": settling_reason,
         "sync_status": {
             "auth_state": "VALID",
             "cloud_last_record_at": (datetime.fromtimestamp(latest_ms / 1000).astimezone()
@@ -155,7 +193,8 @@ def build_payload(cli, today_int: int, now: datetime) -> dict:
             "staleness_minutes": stale_min,
             "is_stale": is_stale,
             "stale_threshold_minutes": STALE_THRESHOLD_MIN,
-            "source": "latest record generateTime (getSyncVersions deferred)",
+            "source": ("latest record generateTime (getSyncVersions deferred)"
+                       if is_today else "historical backfill; staleness not evaluated"),
         },
         "metrics": {
             "active_kcal": {"value": active_kcal, "unit": "kcal",
@@ -196,6 +235,7 @@ def build_payload(cli, today_int: int, now: datetime) -> dict:
         },
         "workouts": extra.get("workouts") or [],
         "workout_kcal_gap": extra.get("workout_kcal_gap"),
+        "workout_active_pool": extra.get("workout_active_pool") or {},
         "workout_excluded_blocks": extra.get("excluded_blocks") or [],
         "workout_source_counts": extra.get("source_counts"),
         "body_weight_kg": extra.get("body_weight_kg"),
@@ -220,9 +260,53 @@ def build_payload(cli, today_int: int, now: datetime) -> dict:
     }
 
 
-def main() -> int:
+def write_annotation(date_str: str, hhmm: str, label: str) -> str:
+    path = wrec.annotations_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    data = wrec.load_annotations()
+    key = f"{date_str}_{hhmm}"
+    data[key] = label
+    write_atomic(path, data)
+    return key
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Huawei Health cloud sync")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--date", metavar="YYYYMMDD", help="sync one historical day (no latest.json write)")
+    group.add_argument("--finalize-yesterday", action="store_true",
+                       help="re-sync yesterday so late-night activity is captured")
+    group.add_argument("--annotate", nargs=3, metavar=("DATE", "HH:MM", "LABEL"),
+                       help="store an owner-confirmed modality then sync that date")
+    return parser.parse_args(argv)
+
+
+def resolve_target(args: argparse.Namespace, now: datetime) -> tuple[int, bool]:
+    """Return (target YYYYMMDD int, is_today)."""
+    today_int = int(now.strftime("%Y%m%d"))
+    if args.date:
+        return int(args.date), int(args.date) == today_int
+    if args.finalize_yesterday:
+        yesterday = (now - timedelta(days=1)).strftime("%Y%m%d")
+        return int(yesterday), False
+    if args.annotate:
+        target = int(args.annotate[0].replace("-", ""))
+        return target, target == today_int
+    return today_int, True
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv if argv is not None else sys.argv[1:])
     now = datetime.now().astimezone()
     os.makedirs(DATA, exist_ok=True)
+
+    if args.annotate:
+        date_arg, hhmm, label = args.annotate
+        date_str = datetime.strptime(date_arg.replace("-", ""), "%Y%m%d").strftime("%Y-%m-%d")
+        key = write_annotation(date_str, hhmm, label)
+        log(f"annotation saved {key}={label}")
+
+    target_int, is_today = resolve_target(args, now)
     tokens = load_tokens()
 
     try:
@@ -241,16 +325,15 @@ def main() -> int:
         return 3
 
     cli = client.HuaweiHealthClient(tokens)
-    today_int = int(now.strftime("%Y%m%d"))
 
     try:
-        payload = build_payload(cli, today_int, now)
+        payload = build_payload(cli, target_int, now, is_today)
     except client.HuaweiApiError as exc:
         if exc.code in client.AUTH_FAILED_CODES:
             log(f"auth failed resultCode={exc.code}; refreshing once and retrying")
             try:
                 client.refresh_tokens(tokens)
-                payload = build_payload(cli, today_int, now)
+                payload = build_payload(cli, target_int, now, is_today)
             except client.HuaweiApiError as exc2:
                 log(f"retry failed resultCode={exc2.code}")
                 return 2 if exc2.code == client.RT_INVALID_CODE else 3
@@ -270,16 +353,20 @@ def main() -> int:
     gc.collect()
     daily_path = os.path.join(DATA, f"{payload['date_myt']}.json")
     write_atomic(daily_path, payload)
-    write_atomic(os.path.join(DATA, "latest.json"), payload)
-    write_atomic(os.path.join(DATA, "status.json"),
-                 {"auth_state": "VALID", "at": payload["fetched_at"],
-                  "is_stale": payload["sync_status"]["is_stale"],
-                  "staleness_minutes": payload["sync_status"]["staleness_minutes"]})
+    if is_today:
+        write_atomic(os.path.join(DATA, "latest.json"), payload)
+        write_atomic(os.path.join(DATA, "status.json"),
+                     {"auth_state": "VALID", "at": payload["fetched_at"],
+                      "is_stale": payload["sync_status"]["is_stale"],
+                      "staleness_minutes": payload["sync_status"]["staleness_minutes"]})
 
     m = payload["metrics"]
-    log("OK kcal={} steps={} stale={}min".format(
-        m["active_kcal"]["value"], m["steps"]["value"],
-        payload["sync_status"]["staleness_minutes"]))
+    pool = payload.get("workout_active_pool") or {}
+    log("OK date={} kcal={} steps={} workout_active={} walk_raw={} walk_capped={} settling={}".format(
+        payload["date_myt"], m["active_kcal"]["value"], m["steps"]["value"],
+        pool.get("workout_active_kcal"), pool.get("raw_walk_kcal"),
+        pool.get("walk_capped"), payload.get("sync_settling")))
+    print(f"WROTE {daily_path}" + ("" if is_today else " (historical: latest.json untouched)"))
     return 0
 
 

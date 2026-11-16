@@ -15,6 +15,16 @@ STATUS_FILE="${HUAWEI_STATUS_FILE:-/home/ubuntu/hermes-huawei-sync/data/status.j
 
 RC=0
 if [ "${HUAWEI_SKIP_SYNC:-0}" != "1" ]; then
+    # 09:30 MYT run: finalize yesterday first so activity after the 22:30 cron is captured.
+    # Silent on success (stdout = message); failures are logged and surfaced by the main run.
+    if [ "$(date +%H)" = "09" ]; then
+        FIN=$(python3 "$SYNC" --finalize-yesterday 2>&1)
+        FRC=$?
+        printf '%s\n' "$FIN" >> "$LOG"
+        if [ "$FRC" -ne 0 ]; then
+            echo "⚠️ Huawei finalize-yesterday gagal (exit $FRC) — fail semalam mungkin stale."
+        fi
+    fi
     OUT=$(python3 "$SYNC" 2>&1)
     RC=$?
     printf '%s\n' "$OUT" >> "$LOG"
