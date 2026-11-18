@@ -481,7 +481,16 @@ def _workflow_run_cmd(
     cwd: Path,
     env: dict[str, str] | None = None,
     timeout: int = 120,
+    max_output_chars: int | None = 4000,
 ) -> tuple[int, str]:
+    """Run a command and optionally cap the captured output.
+
+    The 4,000-char cap is a DISPLAY/log safety valve. Callers that parse the
+    output (Git status) must pass ``max_output_chars=None``; capping before
+    parsing truncates the head of the stream, silently losing records and
+    leaving a half-path at the cut (observed 2026-11-19: 35 lost entries and a
+    bogus `rovider-refresh-…` path).
+    """
     if not cwd.exists():
         return 1, f"directory does not exist: {cwd}"
     merged_env = os.environ.copy()
@@ -503,7 +512,9 @@ def _workflow_run_cmd(
     output = result.stdout.strip()
     if result.stderr.strip():
         output = (output + "\n" + result.stderr.strip()).strip()
-    return result.returncode, output[-4000:]
+    if max_output_chars is not None:
+        output = output[-max_output_chars:]
+    return result.returncode, output
 
 
 def _fetch_remote_with_retry(repo: Path, remote: str, ref: str = "main", max_attempts: int = 3, backoff: float = 2.0) -> tuple[int, str]:
@@ -527,8 +538,16 @@ def _fetch_remote_with_retry(repo: Path, remote: str, ref: str = "main", max_att
     return last_rc, last_out
 
 
-def _workflow_git(repo: Path, args: list[str], *, env: dict[str, str] | None = None) -> tuple[int, str]:
-    return _workflow_run_cmd(["git", *args], cwd=repo, env=env)
+def _workflow_git(
+    repo: Path,
+    args: list[str],
+    *,
+    env: dict[str, str] | None = None,
+    max_output_chars: int | None = 4000,
+) -> tuple[int, str]:
+    return _workflow_run_cmd(
+        ["git", *args], cwd=repo, env=env, max_output_chars=max_output_chars
+    )
 
 
 def _status_records(raw: str) -> list[dict[str, Any]]:
@@ -560,6 +579,139 @@ def _status_records(raw: str) -> list[dict[str, Any]]:
             "is_generated_receipt": is_receipt,
         })
     return records
+
+
+LEDGER_FILENAME = "nightly_git_hygiene_ledger.json"
+BUILTIN_LOCAL_PREFIXES = (".scratch/",)
+
+
+def _ledger_path(home: Path) -> Path:
+    return home / "state" / LEDGER_FILENAME
+
+
+def _load_ledger(home: Path | None) -> dict[str, Any]:
+    """Load the owner-classification ledger. Fail safe: any problem => no approvals."""
+    if home is None:
+        return {"approved_prefixes": []}
+    path = _ledger_path(home)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"approved_prefixes": []}
+    if not isinstance(data, dict):
+        return {"approved_prefixes": []}
+    prefixes = data.get("approved_prefixes")
+    if not isinstance(prefixes, list):
+        return {"approved_prefixes": []}
+    cleaned: list[str] = []
+    for item in prefixes:
+        if isinstance(item, str) and item.strip():
+            prefix = item.strip().replace("\\", "/")
+            if not prefix.endswith("/") and "." not in prefix.rsplit("/", 1)[-1]:
+                prefix += "/"
+            if prefix not in cleaned:
+                cleaned.append(prefix)
+    return {"approved_prefixes": cleaned}
+
+
+def _save_ledger(home: Path, ledger: dict[str, Any]) -> Path:
+    path = _ledger_path(home)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(ledger, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    tmp.replace(path)
+    return path
+
+
+SUMMARY_FILENAME = "nightly_git_hygiene_last_summary.json"
+
+
+def _summary_path(home: Path) -> Path:
+    return home / "state" / SUMMARY_FILENAME
+
+
+def _classify_delta_against_previous(home: Path, summary: dict[str, Any]) -> str:
+    """Return a one-line human delta vs the previous run, then persist tonight's.
+
+    Persisting here means tomorrow's run can say "no change" instead of re-reading
+    a wall of paths. A corrupt/missing file just means "no baseline" — never a crash.
+    """
+    previous: dict[str, Any] = {}
+    try:
+        loaded = json.loads(_summary_path(home).read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            previous = loaded
+    except (OSError, ValueError):
+        previous = {}
+
+    tonight = {
+        "unclassified": int(summary.get("unclassified") or 0),
+        "known_local": int(summary.get("known_local") or 0),
+        "tracked_changes": int(summary.get("tracked_changes") or 0),
+    }
+    try:
+        path = _summary_path(home)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(tonight, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+    if not previous:
+        return ""
+    try:
+        prior = int(previous.get("unclassified") or 0)
+    except (TypeError, ValueError):
+        return ""
+    diff = tonight["unclassified"] - prior
+    if diff == 0:
+        return "tiada perubahan"
+    if diff > 0:
+        return f"+{diff} fail baharu"
+    return f"{-diff} fail sudah diklasifikasi"
+
+
+def _approve_prefix(home: Path, prefix: str) -> dict[str, Any]:
+    """Persist one owner-approved local-only prefix (idempotent)."""
+    normalised = prefix.strip().replace("\\", "/")
+    if not normalised:
+        raise ValueError("prefix must not be empty")
+    if not normalised.endswith("/"):
+        normalised += "/"
+    ledger = _load_ledger(home)
+    if normalised not in ledger["approved_prefixes"]:
+        ledger["approved_prefixes"].append(normalised)
+        _save_ledger(home, ledger)
+    return ledger
+
+
+def classify_status_records(
+    records: list[dict[str, Any]], ledger: dict[str, Any] | None
+) -> dict[str, list[dict[str, Any]]]:
+    """Split status records into known-local / unclassified / tracked changes.
+
+    Only UNTRACKED paths can be known-local. A modification, deletion, rename or
+    staged addition is always a tracked change and always requires the owner.
+    """
+    prefixes = list(BUILTIN_LOCAL_PREFIXES)
+    if ledger:
+        prefixes.extend(ledger.get("approved_prefixes") or [])
+    known_local: list[dict[str, Any]] = []
+    unclassified: list[dict[str, Any]] = []
+    tracked_changes: list[dict[str, Any]] = []
+    for record in records:
+        path = str(record.get("path", "")).replace("\\", "/")
+        untracked = record.get("untracked") or str(record.get("status", "")).startswith("??")
+        if not untracked:
+            tracked_changes.append(record)
+        elif any(path == p.rstrip("/") or path.startswith(p) for p in prefixes):
+            known_local.append(record)
+        else:
+            unclassified.append(record)
+    return {
+        "known_local": known_local,
+        "unclassified": unclassified,
+        "tracked_changes": tracked_changes,
+    }
 
 
 def _is_generated_reconciliation_receipt(path: str) -> bool:
@@ -829,7 +981,7 @@ def _worktree_branches(repo: Path) -> set[str]:
     return result
 
 
-def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
+def _inspect_git(repo: Path, now: datetime, home: Path | None = None) -> dict[str, Any]:
     result: dict[str, Any] = {
         "repo": str(repo),
         "git_state": {"is_clean": False, "status_porcelain": [], "status_records": []},
@@ -841,7 +993,11 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
     if not repo.is_dir():
         result["errors"].append(f"repository does not exist: {repo}")
         return result
-    rc, status = _workflow_git(repo, ["status", "--porcelain", "--untracked-files=all"])
+    rc, status = _workflow_git(
+        repo,
+        ["status", "--porcelain", "--untracked-files=all"],
+        max_output_chars=None,
+    )
     if rc != 0:
         result["errors"].append(f"git status failed: {status}")
         return result
@@ -856,6 +1012,8 @@ def _inspect_git(repo: Path, now: datetime) -> dict[str, Any]:
         "status_records": records,
         "excluded_private_paths": [r["path"] for r in records if r["path"] in EXCLUDED_PRIVATE_PATHS],
     }
+    if home is not None:
+        result["file_classification"] = classify_status_records(records, _load_ledger(home))
     if has_private_diff:
         result["holds"].append("private uncommitted files present (SOUL.md); no automated push/commit")
     rc, branch = _workflow_git(repo, ["branch", "--show-current"])
@@ -1060,9 +1218,30 @@ def _build_actions(
     if branch != "main":
         holds.append(f"current branch is {branch or 'unknown'}, not main")
     records = git_state.get("status_records", [])
-    arbitrary_records = [r for r in records if not r.get("is_generated_receipt")]
-    receipt_records = [r for r in records if r.get("is_generated_receipt")]
+    classification_map = snapshot.get("file_classification")
+    tracked_records: list[dict[str, Any]] = []
+    known_local: list[dict[str, Any]] = []
+    if classification_map:
+        known_local = list(classification_map.get("known_local", []))
+        tracked_records = list(classification_map.get("tracked_changes", []))
+        candidate_records = list(classification_map.get("unclassified", []))
+    else:
+        candidate_records = list(records)
+    arbitrary_records = [r for r in candidate_records if not r.get("is_generated_receipt")]
+    receipt_records = [r for r in candidate_records if r.get("is_generated_receipt")]
 
+    snapshot["_file_summary"] = {
+        "unclassified": len(arbitrary_records),
+        "known_local": len(known_local),
+        "tracked_changes": len(tracked_records),
+        "unclassified_paths": sorted(r["path"] for r in arbitrary_records),
+    }
+
+    if tracked_records:
+        paths = ", ".join(sorted(record["path"] for record in tracked_records))
+        holds.append(
+            "tracked files modified; owner decision required (never auto-committed): " + paths
+        )
     if arbitrary_records:
         paths = ", ".join(sorted(record["path"] for record in arbitrary_records))
         holds.append("dirty work requires owner classification; no automated commit: " + paths)
@@ -1254,55 +1433,69 @@ def _human_report(result: dict[str, Any]) -> str:
     is_preview = result.get("mode") == "preview"
     run_id_display = result.get("run_id") or ("null (preview)" if is_preview else "unknown")
 
+    status_header = (
+        "Keadaan: ✅ HIJAU (Semua Teratur)"
+        if status == "PASS"
+        else "Keadaan: 🟡 KUNING (HOLD — Perlu Semakan)"
+        if status == "HOLD"
+        else "Keadaan: 🔴 MERAH (Perlu Perhatian)"
+    )
+    summary = result.get("file_summary") or {}
+    unclassified_count = summary.get("unclassified")
+    known_local_count = summary.get("known_local")
+    tracked_count = summary.get("tracked_changes")
+
     lines = [
-        f"# Nightly Git report — {result['date']}",
+        f"# Nightly Git report — 🛡️ Status Projek Harian — {result['date']}",
         "",
-        f"Overall: **{status}**",
-        f"Run: `{run_id_display}`",
+        status_header,
+        f"ID Semakan: `{run_id_display}`",
         "",
-        "What I found:",
+        "🔍 Ringkasan Status:",
     ]
     state = result.get("git_state", {})
     if state.get("is_clean"):
-        lines.append("- Keadaan working tree bersih — tiada fail tergantung atau perubahan belum disimpan.")
+        lines.append("• Fail kerja     : Bersih (tiada draf atau fail tertinggal)")
+    elif unclassified_count is not None:
+        extra = f" ({known_local_count} known-local dikecualikan)" if known_local_count else ""
+        lines.append(f"• Fail kerja     : {unclassified_count} belum diklasifikasi{extra}")
     elif state.get("status_porcelain"):
-        lines.append("- Working tree mengandungi perubahan: " + ", ".join(state["status_porcelain"]))
+        lines.append(f"• Fail kerja     : {len(state['status_porcelain'])} fail belum disimpan")
+    if tracked_count is not None:
+        lines.append(f"• Perubahan kod  : {tracked_count} fail tracked berubah")
     origin = result.get("sync_state", {}).get("origin")
     if origin:
         ahead = origin.get("ahead", 0)
         behind = origin.get("behind", 0)
         if ahead == 0 and behind == 0:
-            lines.append("- Local main seiring sepenuhnya dengan origin/main di GitHub.")
+            lines.append("• Sambungan Web  : Seiring dengan GitHub (0 ahead / 0 behind)")
         elif ahead > 0 and behind == 0:
-            lines.append(f"- Local main berada {ahead} commit di hadapan origin/main (GitHub).")
+            lines.append(f"• Sambungan Web  : {ahead} commit belum dihantar ke GitHub")
         elif ahead == 0 and behind > 0:
-            lines.append(f"- Local main berada {behind} commit di belakang origin/main (GitHub).")
+            lines.append(f"• Sambungan Web  : {behind} commit baru di GitHub belum diselaraskan")
         else:
-            lines.append(f"- Local main diverged dengan origin/main (ahead {ahead}, behind {behind}).")
+            lines.append(f"• Sambungan Web  : Berbeza dengan GitHub ({ahead} ahead, {behind} behind)")
+    if summary.get("delta"):
+        lines.append(f"• Berubah semalam: {summary['delta']}")
     if result.get("daily_delta", {}).get("commits"):
-        lines.append(f"- Delta MYT hari ini mengandungi {len(result['daily_delta']['commits'])} commit.")
+        lines.append(f"• Rekod Hari Ini : {len(result['daily_delta']['commits'])} commit dicatat")
     retained_branches = result.get("branches", {}).get("retained", [])
     if retained_branches:
         retained_names = ", ".join(f"`{item['name']}`" for item in retained_branches)
-        lines.append(f"- Branch unmerged yang owner tetapkan untuk kekal: {retained_names}.")
-    lines.extend(["", "Healthy:"])
-    healthy = [
-        name.replace("_", " ")
-        for name, gate in result.get("gates", {}).items()
-        if (gate.get("status") if isinstance(gate, dict) else gate) == "PASS"
-    ]
-    lines.extend(f"- ✅ {name} passed." for name in healthy)
-    if not healthy:
-        lines.append("- Tiada tapisan kualiti/keselamatan direkodkan sebagai lulus.")
+        lines.append(f"• Simpanan Khas  : {retained_names}")
+    gates_dict = result.get("gates", {})
+    if any("secret" in k and (g.get("status") if isinstance(g, dict) else g) == "PASS" for k, g in gates_dict.items()):
+        lines.append("• Kunci & Data   : Selamat")
+    if any("contract" in k and (g.get("status") if isinstance(g, dict) else g) == "PASS" for k, g in gates_dict.items()):
+        lines.append("• Ujian Kualiti  : Lulus")
     execution = result.get("execution", {})
     if execution.get("script_path"):
         lines.extend([
             "",
-            "Execution evidence:",
-            f"- Target: `{execution.get('script_path')}`",
-            f"- Target SHA-256: `{execution.get('script_sha256')}`",
-            f"- Audited repository HEAD: `{execution.get('audited_repo_head')}`",
-            "- Delivery: report emitted to scheduler stdout; destination delivery is verified separately from the cron execution record.",
+            "🧾 Bukti Larian:",
+            f"• Skrip   : `{Path(str(execution.get('script_path'))).name}`",
+            f"• SHA-256 : `{str(execution.get('script_sha256'))[:12]}…`",
+            f"• HEAD    : `{str(execution.get('audited_repo_head'))[:12]}…`",
         ])
 
     if actions and remediation.get("status") == "pending_confirmation":
@@ -1331,12 +1524,19 @@ def _human_report(result: dict[str, Any]) -> str:
     elif status == "PASS":
         lines.extend(["", "Tonight’s action:", "- None. Semua kerja Git dalam keadaan sah & teratur. Tiada remedi diperlukan.", "- Confirmation needed: no."])
     elif category == "provenance_insufficient":
+        pending_n = summary.get("unclassified")
+        subject = (
+            f"{pending_n} fail di atas"
+            if pending_n
+            else f"{origin.get('ahead', 0) if origin else 'beberapa'} commit local"
+        )
         lines.extend([
             "",
-            "Tonight’s action:",
-            "- Tiada mutasi atau push automatik dicadangkan kerana bukti workflow belum mencukupi untuk membezakan sama ada commit local adalah disengajakan atau kerja tertinggal.",
-            "- Tiada per-run one-shot timer dibuat; job 00:25 yang sedia ada akan buat investigation/safe remediation yang tidak perlukan owner approval.",
-            f"- Perlu satu pengesahan daripada anda: adakah {origin.get('ahead', 0) if origin else 'commit'} commit ini memang sengaja dibiarkan di local, atau sepatutnya sudah dihantar ke GitHub?",
+            "👉 Tindakan:",
+            "- Tiada commit atau push automatik. Fail-fail ni kekal di local sehingga kau klasifikasi.",
+            f"- Perlu satu pengesahan daripada anda: {subject} ni memang sengaja disimpan local, atau patut dihantar ke GitHub?",
+            "- Balas sekali sahaja, aku simpan jawapan dan tak tanya lagi tiap malam.",
+            "- Untuk hentikan notifikasi bagi folder yang memang local (contoh `.scratch/`), guna `--approve-prefix <path>/`.",
         ])
     elif actions:
         lines.extend(["", "Proposed action is blocked:", "- Pelan yang disimpan tidak boleh diteruskan tanpa menyelesaikan sekatan."])
@@ -1345,13 +1545,44 @@ def _human_report(result: dict[str, Any]) -> str:
 
     if result.get("proposal_path"):
         lines.append(f"- Recurring-issue proposal: `{result['proposal_path']}`.")
-    unresolved = list(dict.fromkeys(remediation.get("holds", []) + result.get("holds", [])))
+    needs_attention = list(summary.get("unclassified_paths") or [])
+    if not needs_attention and summary.get("unclassified"):
+        # Older/persisted payloads carry counts only — fall back to the records.
+        needs_attention = sorted(
+            record.get("path", "")
+            for record in (state.get("status_records") or [])
+            if record.get("untracked") and not record.get("is_generated_receipt")
+        )
+    if needs_attention:
+        shown = needs_attention[:8]
+        lines.extend(["", "🟡 Perlu perhatian:"])
+        lines.extend(f"   - {path}" for path in shown)
+        if len(needs_attention) > len(shown):
+            lines.append(f"   …+{len(needs_attention) - len(shown)} lagi (senarai penuh dalam log harian)")
+
+    unresolved = [
+        hold
+        for hold in dict.fromkeys(remediation.get("holds", []) + result.get("holds", []))
+        if not hold.startswith(
+            (
+                "dirty work requires owner classification",
+                "tracked files modified; owner decision required",
+            )
+        )
+    ]
     if unresolved:
-        lines.extend(["", "Unresolved:"])
-        lines.extend(f"- ⚠️ {hold}" for hold in unresolved)
+        lines.extend(["", "⚠️ Catatan Tambahan:"])
+        lines.extend(f"- {hold}" for hold in unresolved)
     if result.get("errors"):
-        lines.extend(["", "Errors / blockers:"])
-        lines.extend(f"- ❌ {error}" for error in result["errors"])
+        lines.extend(["", "❌ Isu / Halangan:"])
+        lines.extend(f"- {error}" for error in result["errors"])
+        failed_gates = [
+            name
+            for name, gate in (result.get("gates") or {}).items()
+            if (gate.get("status") if isinstance(gate, dict) else gate) == "FAIL"
+        ]
+        if failed_gates:
+            lines.append(f"- Gate gagal: {', '.join(failed_gates)}")
     return "\n".join(lines)
 
 
@@ -1376,7 +1607,7 @@ def run_nightly(
     home = hermes_home.expanduser().resolve()
     paths = _runtime_paths(home)
     scheduler_execution = primary_scheduler_execution_evidence(home, current)
-    snapshot = _inspect_git(repo, current)
+    snapshot = _inspect_git(repo, current, home=home)
     head = snapshot["git_state"].get("head") or "unknown"
     run_id = _run_id(current, head if len(head) >= 12 else "0" * 12)
     gates = run_full_delta_gates(repo, current) if not snapshot["errors"] else {}
@@ -1396,6 +1627,8 @@ def run_nightly(
         _write_workflow_outputs(result, paths)
         return result
     actions, holds, classification = _build_actions(snapshot)
+    file_summary = dict(snapshot.get("_file_summary") or {})
+    file_summary["unclassified_paths"] = list(snapshot.get("_file_summary", {}).get("unclassified_paths", []))
     errors = list(snapshot.get("errors", []))
     if gates and not _gates_pass(gates):
         errors.append("one or more required nightly quality/security gates failed")
@@ -1479,6 +1712,7 @@ def run_nightly(
         else:
             remediation["status"] = "blocked"
 
+    file_summary["delta"] = _classify_delta_against_previous(home, file_summary)
     result: dict[str, Any] = {
         "schema_version": 2,
         "run_id": run_id,
@@ -1492,6 +1726,7 @@ def run_nightly(
         "owner_approval_required_for_push": True,
         "gates": gates,
         "git_state": snapshot["git_state"],
+        "file_summary": file_summary,
         "branches": snapshot["branches"],
         "sync_state": snapshot["sync_state"],
         "daily_delta": snapshot["daily_delta"],
@@ -2760,7 +2995,7 @@ def preview_audit(
     repo = repo_root.expanduser().resolve()
     home = hermes_home.expanduser().resolve()
     paths = _runtime_paths(home)
-    snapshot = _inspect_git(repo, current)
+    snapshot = _inspect_git(repo, current, home=home)
     head = snapshot["git_state"].get("head") or "unknown"
 
     is_preview = (mode == "preview" or dry_run)
@@ -2768,6 +3003,8 @@ def preview_audit(
     gates = run_full_delta_gates(repo, current) if not snapshot["errors"] else {}
 
     actions, holds, classification = _build_actions(snapshot)
+    file_summary = dict(snapshot.get("_file_summary") or {})
+    file_summary["unclassified_paths"] = list(snapshot.get("_file_summary", {}).get("unclassified_paths", []))
     errors = list(snapshot.get("errors", []))
     if gates and not _gates_pass(gates):
         errors.append("one or more required nightly quality/security gates failed")
@@ -2805,6 +3042,7 @@ def preview_audit(
         "owner_approval_required_for_push": True,
         "gates": gates,
         "git_state": snapshot["git_state"],
+        "file_summary": file_summary,
         "branches": snapshot["branches"],
         "sync_state": snapshot["sync_state"],
         "daily_delta": snapshot["daily_delta"],
@@ -2837,7 +3075,25 @@ def main() -> int:
     parser.add_argument("--set-json-display", choices=("show", "hide"), default=None)
     parser.add_argument("--json-display", choices=("show", "hide"), default=None)
     parser.add_argument("--human-only", action="store_true")
+    parser.add_argument(
+        "--approve-prefix",
+        default=None,
+        help=(
+            "Record an owner-approved local-only path prefix (e.g. "
+            "'docs/superpowers/') in the classification ledger, then exit"
+        ),
+    )
     args = parser.parse_args()
+    if args.approve_prefix:
+        prefix = args.approve_prefix.strip()
+        if not prefix:
+            parser.error("--approve-prefix needs a non-empty path prefix")
+        ledger = _approve_prefix(args.hermes_home.expanduser().resolve(), prefix)
+        print(f"Approved local-only prefix: {prefix}")
+        print("Ledger now treats these as known-local (untracked only):")
+        for item in ledger["approved_prefixes"]:
+            print(f"  - {item}")
+        return 0
     if sum(bool(value) for value in (args.approve, args.reject, args.timeout, args.status, args.set_json_display, args.preview)) > 1:
         parser.error("choose only one workflow operation")
     if args.set_json_display:
