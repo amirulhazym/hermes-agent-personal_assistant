@@ -106,7 +106,7 @@ def test_protected_main_publication_on_direct_push_refusal(tmp_path: Path, monke
 
     real_workflow_git = HYGIENE._workflow_git
 
-    def mock_workflow_git(r: Path, cmd: list[str], env: dict[str, str] | None = None) -> tuple[int, str]:
+    def mock_workflow_git(r: Path, cmd: list[str], env: dict[str, str] | None = None, **kwargs) -> tuple[int, str]:
         if cmd[:3] == ["push", "origin", "main"]:
             return 1, "remote: error: GH006: Protected branch hook declined"
         if cmd[:2] == ["remote", "get-url"]:
@@ -159,7 +159,7 @@ def test_protected_main_publication_stops_on_failing_ci_checks(tmp_path: Path, m
 
     real_workflow_git = HYGIENE._workflow_git
 
-    def mock_workflow_git(r: Path, cmd: list[str], env: dict[str, str] | None = None) -> tuple[int, str]:
+    def mock_workflow_git(r: Path, cmd: list[str], env: dict[str, str] | None = None, **kwargs) -> tuple[int, str]:
         if cmd[:3] == ["push", "origin", "main"]:
             return 1, "remote: error: GH006: Protected branch hook declined"
         if cmd[:2] == ["remote", "get-url"]:
@@ -230,7 +230,7 @@ def _rehearsal_git(monkeypatch: Any, fail_delete_once: bool = False) -> dict[str
     real_workflow_git = HYGIENE._workflow_git
     counts = {"pub_push": 0, "delete": 0}
 
-    def mock_workflow_git(r: Path, cmd: list[str], env: dict[str, str] | None = None) -> tuple[int, str]:
+    def mock_workflow_git(r: Path, cmd: list[str], env: dict[str, str] | None = None, **kwargs) -> tuple[int, str]:
         if cmd[:3] == ["push", "origin", "main"]:
             return 1, "remote: error: GH006: Protected branch hook declined"
         if len(cmd) >= 4 and cmd[0] == "push" and cmd[2].startswith("HEAD:refs/heads/nightly/publication-"):
