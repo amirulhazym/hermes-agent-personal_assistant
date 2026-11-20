@@ -258,11 +258,12 @@ def test_scan_manifest_applies_allowlist_to_untracked_bytes(tmp_path: Path):
     git(repo, "add", "tracked.txt")
     git(repo, "commit", "-q", "-m", "base")
 
-    candidate_root = repo / ".scratch" / "candidate"
+    # Non-scratch untracked paths keep the whitespace allowlist contract.
+    candidate_root = repo / "notes-candidate"
     candidate_root.mkdir(parents=True)
     note = candidate_root / "note.md"
     note.write_bytes(b"intentional break  \n")
-    path = ".scratch/candidate/note.md"
+    path = "notes-candidate/note.md"
     allowlist = [{
         "path": path,
         "line": 1,
@@ -279,6 +280,34 @@ def test_scan_manifest_applies_allowlist_to_untracked_bytes(tmp_path: Path):
     failing = SCAN.scan_manifest(SCAN.collect_delta_manifest(repo, candidate_root), allowlist=allowlist)
     assert failing.status == "FAIL"
     assert any(f.path == path and f.rule == "trailing-whitespace" and f.count == 1 for f in failing.findings)
+
+
+def test_scan_manifest_skips_whitespace_for_local_scratch_only(tmp_path: Path):
+    """Owner-approved 2026-11-20: untracked .scratch/ paths skip the whitespace
+    lane (regenerated diff artifacts carry legitimate lone-space context lines),
+    while secret and PII detectors still scan them."""
+    repo = tmp_path / "scratch-ws-repo"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repo)], check=True)
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
+    git(repo, "add", "tracked.txt")
+    git(repo, "commit", "-q", "-m", "base")
+
+    candidate_root = repo / ".scratch" / "candidate"
+    candidate_root.mkdir(parents=True)
+    # Lone-space context line, exactly like a regenerated unified diff.
+    (candidate_root / "live-vs-source.diff").write_bytes(b" context line\n \n+added\n")
+    fake_key = "sk-" + ("B" * 48)
+    (candidate_root / "leak.txt").write_text(f"{fake_key}\n", encoding="utf-8")
+
+    result = SCAN.scan_manifest(SCAN.collect_delta_manifest(repo, candidate_root), allowlist=[])
+    assert not any(f.rule == "trailing-whitespace" for f in result.findings)
+    assert any(
+        f.path == ".scratch/candidate/leak.txt" and f.rule == "openai-key"
+        for f in result.findings
+    )
+    assert result.status == "FAIL"  # secret still blocks; whitespace no longer does
 
 
 def test_scan_manifest_uses_git_diff_check_for_tracked_whitespace(tmp_path: Path):
