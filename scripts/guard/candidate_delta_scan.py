@@ -431,6 +431,22 @@ def _tracked_whitespace_findings(repo: Path) -> tuple[list[ScanFinding], list[st
     return findings, errors
 
 
+LOCAL_SCRATCH_PREFIXES = (".scratch/",)
+
+
+def _is_local_scratch_path(path: str) -> bool:
+    """Return True for known-local scratch paths (mirrors nightly BUILTIN_LOCAL_PREFIXES).
+
+    Scratch trees are declared local/never-published by the nightly classifier, and
+    regeneration artifacts such as unified diffs legitimately contain lone-space
+    context lines. Secret and PII detectors still scan these paths.
+    """
+    normalised = str(path).replace(os.sep, "/")
+    while normalised.startswith("./"):
+        normalised = normalised[2:]
+    return any(normalised == prefix.rstrip("/") or normalised.startswith(prefix) for prefix in LOCAL_SCRATCH_PREFIXES)
+
+
 def scan_manifest(manifest: DeltaManifest, *, allowlist: list[dict[str, Any]] | None = None) -> ScanResult:
     findings: dict[tuple[str, str], int] = {}
     errors: list[str] = []
@@ -482,7 +498,7 @@ def scan_manifest(manifest: DeltaManifest, *, allowlist: list[dict[str, Any]] | 
             record_detector(entry, pii_review.findings(entry.path, data, field_scope=scope), allowed_pii_rules, "PII")
         except Exception as exc:
             errors.append(f"PII scanner failed path={_escaped(entry.path)} ({type(exc).__name__})")
-        if not entry.tracked:
+        if not entry.tracked and not _is_local_scratch_path(entry.path):
             try:
                 issues = whitespace_review.issues_from_bytes(entry.path, data, whitespace_allowlist)
                 _allowed, unexpected = whitespace_review.evaluate_issues(issues, whitespace_allowlist)
