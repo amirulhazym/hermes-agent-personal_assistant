@@ -1,6 +1,4 @@
 {
-  "manifest_role": "application-source-coverage-non-authoritative-for-hermes-runtime",
-  "runtime_authority": "docs/reconciliation/hermes-runtime-source-lock.json",
   "base_main_sha": "13baa13950223c090a9fc97e31baa748874c0edf",
   "candidate_sha": "PENDING_OWNER_RELEASE",
   "entries": [
@@ -1939,12 +1937,6 @@
     {
       "destination": null,
       "kind": "source-only",
-      "source": "skills/data-science/jupyter-live-kernel/SKILL.md",
-      "source_sha256": "d93c4b4f50e66c0c074d49e43e28bf5ab87531eaa48884d0083568db827f5869"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
       "source": "skills/devops/ci-failure-reproduction/SKILL.md",
       "source_sha256": "b705329e3637e95a3f293644512dbf14f07ea50560a47355b95e2bf82732459b"
     },
@@ -2899,42 +2891,6 @@
     {
       "destination": null,
       "kind": "source-only",
-      "source": "skills/mlops/models/audiocraft/SKILL.md",
-      "source_sha256": "eebe52632e3312a55a352d766828e7153b2ee23e2e67c0e4e874474e5c52198c"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/mlops/models/audiocraft/references/advanced-usage.md",
-      "source_sha256": "5efe98c6ebcd0107e48c809cadc0e48591f9c235ac47014f39a40772fc45116d"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/mlops/models/audiocraft/references/troubleshooting.md",
-      "source_sha256": "af0c56aca0902aca6f05350caab3750de608cf904a4e6bb9dd0967c664d8de0e"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/mlops/models/segment-anything/SKILL.md",
-      "source_sha256": "86440d99e8ec3bd7f0a92640d62bf307915ec2a7154e45dd55a214d58ee6966d"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/mlops/models/segment-anything/references/advanced-usage.md",
-      "source_sha256": "73a46290ac6986333e5ef65b785afc7c9463d6835d8a67c5f74f418fa284fb39"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/mlops/models/segment-anything/references/troubleshooting.md",
-      "source_sha256": "cbab544d97ddc3813b4f74c805086579e7bd51547ccf9830dd44fa5936b07b4e"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
       "source": "skills/note-taking/DESCRIPTION.md",
       "source_sha256": "fb28a609372460b2788d3b7dbc551985d24d4042057971f4d6345144d2d78caa"
     },
@@ -3003,24 +2959,6 @@
       "kind": "source-only",
       "source": "skills/operator/hermes-session-diagnostics/references/stale-lineage-tip-20260815.md",
       "source_sha256": "7342cf6e46b12bcc146781db2fea5c817184c389469932ff63607f339e1f55ee"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/operator/hermes-session-troubleshooting/SKILL.md",
-      "source_sha256": "37008a19cf7fcef74d7d20252692d4fe8b819a586fa685b711ee3a07c8d38a9a"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/operator/hermes-session-troubleshooting/references/session-db-schema.md",
-      "source_sha256": "9363e9455a0a3e3b38cb8dd3eab2a8999dbe1732c30e1e037c8bb6c01fb945f6"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/operator/hermes-session-troubleshooting/scripts/backfill_session_routing.py",
-      "source_sha256": "05db3d6f795b7264db0257462b87b3169a9255a7260c996ba1d9de3a4b467586"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/operator/hermes-source-change/SKILL.md",
@@ -3103,18 +3041,6 @@
     {
       "destination": null,
       "kind": "source-only",
-      "source": "skills/productivity/grill-me/SKILL.md",
-      "source_sha256": "6189dfceb7304a6e5558f75d87e68fa3bc7fcf7ba120e44f21f8a61fe01eba54"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/productivity/grill-me/agents/openai.yaml",
-      "source_sha256": "c061e39c3e0f9d865fb1b97556d485704af2a8a58f4b8221a8917a5c2074a32b"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
       "source": "skills/productivity/grilling/SKILL.md",
       "source_sha256": "fa5c1e5ee76b1c8f1ae56101f52c9e239de75d5c578adc61227b92d10b7e52ef"
     },
@@ -3129,12 +3055,6 @@
       "kind": "source-only",
       "source": "skills/productivity/handoff/SKILL.md",
       "source_sha256": "78469e67a635def89953bc0faf6d53a226aa78a77d61b3f2b9897a9d2cdea735"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/productivity/petdex/SKILL.md",
-      "source_sha256": "ca52cda72a9c49d60c4a3c2dbfa6c64c87e62562857b598599cc496b30116fd1"
     },
     {
       "destination": null,
@@ -3195,30 +3115,6 @@
       "kind": "source-only",
       "source": "skills/research/DESCRIPTION.md",
       "source_sha256": "a7bc842330a491de5f73cd63e87521e53724d94d4f53949bfa2171beb8200e18"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/job-role-research/SKILL.md",
-      "source_sha256": "deba9ade52eef01e484d1a131fabe1ef7d9e183ce0c1cc3a2b70ca47b1593d24"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/job-role-research/references/research-pattern.md",
-      "source_sha256": "214ffb89c63c2f15c272331ef6bff8c724311e0eedb18e4a6c691b4d9bf34678"
-    },
-    {
-      "destination": "/home/ubuntu/.hermes/skills/research/malaysia-telco-research/SKILL.md",
-      "kind": "runtime-deploy",
-      "source": "skills/research/malaysia-telco-research/SKILL.md",
-      "source_sha256": "c947f8b68bd25b3daff5651178f05230b919d138bf9cf0e4a2abc6ff0e3d1c08"
-    },
-    {
-      "destination": "/home/ubuntu/.hermes/skills/research/malaysia-telco-research/references/port-in-procedures.md",
-      "kind": "runtime-deploy",
-      "source": "skills/research/malaysia-telco-research/references/port-in-procedures.md",
-      "source_sha256": "b4556e1401f330233129f8ffd197b4b6ac0f5c29006f473e29815b420ed8fd0d"
     },
     {
       "destination": "/home/ubuntu/.hermes/skills/research/medication-safety-research/SKILL.md",
@@ -3297,54 +3193,6 @@
       "kind": "runtime-deploy",
       "source": "skills/research/medication-safety-research/references/wikipedia-api-medical-research.md",
       "source_sha256": "9577c15d4446f23bc65257cbd481bb27fa30246a648c5ea2700648618bbb3e97"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/polymarket/SKILL.md",
-      "source_sha256": "becfa71e730b482c3f087c4de4071fd25f0feb475aec1293aee0b845c10fa190"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/polymarket/references/api-endpoints.md",
-      "source_sha256": "d000b3c89c51fee874d5e097f9b9f057c353734710b567915b4189e54ca176a3"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/polymarket/scripts/polymarket.py",
-      "source_sha256": "7873e054539a8c782a671dd84686e1ee763e29fe20245c1d10798b767d76980f"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/web-research-benchmark/SKILL.md",
-      "source_sha256": "7d5e375d6ba1938e96b6de41e7ffed53ebdba4a969ae2aa681fc16c7f3a63285"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/web-research-benchmark/references/web_compat_suite.py",
-      "source_sha256": "5962e3f80a4e3c7039b5668e4bfa559e800268bdb145af6fc9e258af0a228f0a"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/web-source-verification/SKILL.md",
-      "source_sha256": "e9673737507182acf53452480b2226fa0563301a2d844db6151ade1500ca2448"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/web-source-verification/references/x-post-to-wiki.md",
-      "source_sha256": "1d9cd75099c2d1cf3cf0dafa5912418b12fa0682dee04527c3e9cbfa1e3cf3aa"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/research/web-source-verification/scripts/github_repo_batch_verify.py",
-      "source_sha256": "240ed82d7cf0f0c9f02318fda5a8c45b8d48c29b950b750da703cde1dde6b828"
     },
     {
       "destination": null,
@@ -3919,30 +3767,6 @@
     {
       "destination": null,
       "kind": "source-only",
-      "source": "skills/software-development/tdd/SKILL.md",
-      "source_sha256": "5e6b9c16b547113e90afbb946489d1c1384be5c2128f0159bd0bee57251ecf08"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/tdd/agents/openai.yaml",
-      "source_sha256": "ea6f01cf1b8c06a4b0f5b649d74b1b8ce8685e72af1b38d70d877693e092af0b"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/tdd/mocking.md",
-      "source_sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
-      "source": "skills/software-development/tdd/tests.md",
-      "source_sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a"
-    },
-    {
-      "destination": null,
-      "kind": "source-only",
       "source": "skills/software-development/test-isolation-hygiene/SKILL.md",
       "source_sha256": "858e1e8be4606472a24536680ed97e9e0632676862812de95825cdf228261e10"
     },
@@ -4350,7 +4174,9 @@
     }
   ],
   "manifest_path": "docs/reconciliation/v3-source-coverage-manifest.json",
+  "manifest_role": "application-source-coverage-non-authoritative-for-hermes-runtime",
   "payload_definition": "sha256(canonical JSON of entries sorted by source; candidate SHA is intentionally separate)",
   "payload_sha256": "f735deed3d5ad87ad0056e096c5130e30befe529cd36d444ce76479c143a302d",
+  "runtime_authority": "docs/reconciliation/hermes-runtime-source-lock.json",
   "schema_version": 1
 }
