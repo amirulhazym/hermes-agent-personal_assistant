@@ -110,14 +110,23 @@ class HybridWebSearchProvider(WebSearchProvider):
             html = resp.text
             html_title = self._extract_title(html)
 
-            # Step 3: detect SPA, choose backend
+            # Step 3: detect SPA, choose backend (with Jina Reader low-RAM fallback)
             if self._is_spa(html):
-                logger.info("Detected SPA: %s -> using Crawl4AI/Playwright", url)
-                content, backend = self._extract_js_heavy(url)
+                logger.info("Detected SPA: %s -> trying Jina Reader then Crawl4AI/Playwright", url)
+                content = self._extract_with_jina(url)
+                if content:
+                    backend = "jina-reader"
+                else:
+                    content, backend = self._extract_js_heavy(url)
             else:
                 logger.info("Detected static: %s -> using Trafilatura", url)
                 backend = "trafilatura"
                 content = self._extract_with_trafilatura(url)
+                if not content or len(content.strip()) < 120:
+                    jina_content = self._extract_with_jina(url)
+                    if jina_content:
+                        content = jina_content
+                        backend = "jina-reader"
 
             if content is None:
                 return self._err_result(url, f"{backend} extraction failed", html_title)
@@ -155,6 +164,23 @@ class HybridWebSearchProvider(WebSearchProvider):
         if m:
             return m.group(1).strip()
         return ""
+
+
+    def _extract_with_jina(self, url: str) -> Optional[str]:
+        """Lightweight markdown extraction via Jina Reader (zero local browser RAM)."""
+        try:
+            import requests
+            jina_url = f"https://r.jina.ai/{url}"
+            resp = requests.get(
+                jina_url,
+                headers={"User-Agent": "HermesAgent/1.0", "X-Return-Format": "markdown"},
+                timeout=15,
+            )
+            if resp.status_code == 200 and resp.text and len(resp.text.strip()) >= 120:
+                return resp.text.strip()
+        except Exception as exc:
+            logger.warning("Jina Reader failed for %s: %s", url, exc)
+        return None
 
     def _extract_with_trafilatura(self, url: str):
         try:
