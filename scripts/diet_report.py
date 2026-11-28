@@ -47,16 +47,107 @@ def load_diet_log(path: str) -> dict:
 
 def calculate_dynamic_bmr(weight_kg: float) -> int:
     """
-    Mifflin-St Jeor formula baseline for Amirulhazym:
-    BMR = 10 * weight (kg) + 6.25 * height (168 cm) - 5 * age (28) + 5
-        = 10 * weight + 1050 - 140 + 5
-        = 10 * weight + 915
-    For 62.8 kg -> ~1543 kcal (calibrated baseline ~1,500 kcal).
+    Mifflin-St Jeor formula baseline for Amirulhazym.
+    Profile (owner-confirmed 2026-11-11): height 157 cm, born July 1999 (27 y).
+    BMR = 10 * weight (kg) + 6.25 * 157 - 5 * 27 + 5
+        = 10 * weight + 981.25 - 135 + 5
+        = 10 * weight + 851.25
+    For 62.8 kg -> 1479 kcal.
+    Prior version hardcoded 168 cm / 28 y (= 10*w + 915) which was wrong profile data.
     """
-    bmr = round(10 * weight_kg + 6.25 * 168 - 5 * 28 + 5)
-    if 62.0 <= weight_kg <= 63.5:
-        return 1500
+    bmr = round(10 * weight_kg + 6.25 * 157 - 5 * 27 + 5)
     return bmr
+
+
+# ---------------------------------------------------------------------------
+# Integrity helpers (owner decision 2026-11-28)
+#
+# Rule: advisory text may be ADDED to a report; a computed number may never be
+# rewritten. The owner rejected a `min(deficit, 750)` clamp and an intake floor
+# because both would falsify his own record. `reported_deficit` is therefore the
+# single formula, and tests assert it equals tdee - intake for every case.
+# ---------------------------------------------------------------------------
+
+PROTEIN_FLOOR_G_PER_KG = 1.2
+PROTEIN_OPTIMUM_G_PER_KG = 1.6
+DEFICIT_TARGET_TOLERANCE_KCAL = 50.0
+
+
+def reported_deficit(tdee_kcal: float, intake_kcal: float) -> float:
+    """The one and only deficit formula. No clamp, no floor, no rewriting."""
+    return tdee_kcal - intake_kcal
+
+
+def render_weight(weight_kg, measured_date: str | None = None) -> str:
+    """Weight string that can never present a stale sample as current."""
+    if measured_date:
+        return f"{weight_kg} kg (timbang {measured_date})"
+    return f"{weight_kg} kg (tarikh tiada — jangan anggap semasa)"
+
+
+def protein_floor_lines(protein_g, weight_kg: float) -> list[str]:
+    """Both protein floors, with a verdict that cannot overstate the gap."""
+    floor = round(PROTEIN_FLOOR_G_PER_KG * weight_kg, 1)
+    optimum = round(PROTEIN_OPTIMUM_G_PER_KG * weight_kg, 1)
+    header = (
+        f"  - Lantai protein: *{floor} g* (1.2 g/kg) / optimum "
+        f"*{optimum} g* (1.6 g/kg)"
+    )
+    if protein_g is None:
+        return [header]
+    if protein_g >= floor:
+        return [f"{header} — ✅ capai lantai"]
+    gap = round(floor - float(protein_g), 1)
+    return [f"{header} — ⚠️ BELUM capai lantai (gap {gap} g)"]
+
+
+def advisory_warnings(
+    protein_g,
+    weight_kg: float,
+    intake_kcal,
+    tdee_kcal,
+) -> list[str]:
+    """Advisory lines only. The caller's numbers are never modified."""
+    out: list[str] = []
+    floor = round(PROTEIN_FLOOR_G_PER_KG * weight_kg, 1)
+    if isinstance(protein_g, (int, float)) and protein_g < floor:
+        out.append(
+            f"⚠️ Protein {protein_g} g < lantai {floor} g — naikkan protein dulu, "
+            "jangan potong kalori lagi."
+        )
+    bmr = calculate_dynamic_bmr(weight_kg)
+    if (
+        isinstance(intake_kcal, (int, float))
+        and isinstance(tdee_kcal, (int, float))
+        and intake_kcal < bmr
+    ):
+        out.append(
+            f"⚠️ Intake {intake_kcal:,.0f} kcal di bawah BMR ~{bmr:,} kcal — "
+            "amaran sahaja, angka defisit tidak diubah."
+        )
+    return out
+
+
+def format_deficit_range(low: float, high: float) -> str:
+    """Collapse a degenerate range instead of printing `1,253 hingga 1,253`."""
+    if abs(low - high) < 1:
+        return f"*~{low:,.0f} kcal*"
+    return f"*~{low:,.0f} hingga {high:,.0f} kcal*"
+
+
+def profile_target_warnings(profile: dict) -> list[str]:
+    """Flag the two mutually exclusive deficit fields disagreeing."""
+    target = profile.get("daily_deficit_target_kcal")
+    est = profile.get("est_loss_per_week_kg")
+    if isinstance(target, (int, float)) and isinstance(est, (int, float)):
+        implied = est * 7700 / 7
+        if abs(target - implied) > DEFICIT_TARGET_TOLERANCE_KCAL:
+            return [
+                f"⚠️ Profil bercanggah: target {target} kcal/hari vs "
+                f"est_loss {est} kg/mgg (= {implied:.0f} kcal/hari)."
+            ]
+    return []
+
 
 
 # ---------------------------------------------------------------------------
@@ -86,10 +177,71 @@ def _met_band(day_log: dict) -> tuple[float, float, str] | None:
         if isinstance(low, (int, float)) and isinstance(high, (int, float)):
             low, high = sorted((float(low), float(high)))
             return low, high, str(band.get("label") or "")
+        # Nested schema actually used by the log:
+        #   workout_met_band = {"source": ..., "today": {...}, "verdict": ...}
+        inner = band.get("today")
+        if isinstance(inner, dict):
+            low, high = inner.get("met_low"), inner.get("met_high")
+            if isinstance(low, (int, float)) and isinstance(high, (int, float)):
+                low, high = sorted((float(low), float(high)))
+                return low, high, str(inner.get("label") or band.get("source") or "")
     if isinstance(band, str) and band in MET_BICYCLE_BANDS:
         low, high = MET_BICYCLE_BANDS[band]
         return low, high, band.replace("_", " ")
     return None
+
+
+def _resolved_band_burn(day_log: dict) -> dict | None:
+    """Return a burn ALREADY resolved inside the log's workout block.
+
+    Three historical shapes exist in diet-log.json; all are net/active values
+    (never the device's gross total):
+
+      1. nested  {"today": {"net_active_kcal": 293, "band_net_kcal": [260, 326]}}
+      2. flat    {"net_kcal": 614, ...}
+      3. flat    {"active_kcal_working": [372, 481], ...}
+
+    Preferring a recorded value over re-deriving keeps the nightly report and
+    the in-chat number identical. Returns None when nothing is resolvable.
+    """
+    band = day_log.get("workout_met_band")
+    if not isinstance(band, dict) or not band:
+        return None
+    inner = band.get("today") if isinstance(band.get("today"), dict) else band
+
+    band_key = None
+    kb = inner.get("band_net_kcal")
+    if isinstance(kb, (list, tuple)) and len(kb) == 2:
+        band_key = "band_net_kcal"
+    else:
+        kb = inner.get("active_kcal_working")
+        if isinstance(kb, (list, tuple)) and len(kb) == 2:
+            band_key = "active_kcal_working"
+        else:
+            kb = None
+
+    mid = inner.get("net_active_kcal")
+    if not isinstance(mid, (int, float)):
+        mid = inner.get("net_kcal")
+
+    if kb is not None and all(isinstance(v, (int, float)) for v in kb):
+        low, high = sorted(float(v) for v in kb)
+        mid = float(mid) if isinstance(mid, (int, float)) else round((low + high) / 2, 0)
+    elif isinstance(mid, (int, float)):
+        low = high = float(mid)
+        band_key = "net_kcal" if inner.get("net_kcal") is not None else "net_active_kcal"
+    else:
+        return None
+
+    return {
+        "low": low, "mid": mid, "high": high,
+        "basis": (
+            f"direkod dalam workout_met_band ({band_key}): net {mid:g} kcal "
+            f"(band {low:g}-{high:g} kcal)"
+            + (f"; {band.get('source')}" if band.get("source") else "")
+        ),
+        "method": "recorded_band",
+    }
 
 
 def estimate_burn(day_log: dict, weight_kg: float) -> tuple[dict | None, str]:
@@ -97,8 +249,9 @@ def estimate_burn(day_log: dict, weight_kg: float) -> tuple[dict | None, str]:
 
     Precedence:
       1. ``active_burn_kcal_estimate`` recorded in the log (authoritative).
-      2. Derived from ``workout_duration_min`` x ``workout_met_band`` x weight.
-      3. None + reason naming the missing input.
+      2. ``workout_met_band.today`` net band already resolved when logged.
+      3. Derived from ``workout_duration_min`` x ``workout_met_band`` x weight.
+      4. None + reason naming the missing input.
     """
     explicit = day_log.get("active_burn_kcal_estimate")
     if isinstance(explicit, (int, float)) and explicit >= 0:
@@ -113,6 +266,10 @@ def estimate_burn(day_log: dict, weight_kg: float) -> tuple[dict | None, str]:
         low, high = sorted((low, high))
         return {"low": low, "mid": mid, "high": high,
                 "basis": str(explicit.get("basis") or ""), "method": "recorded"}, ""
+
+    resolved = _resolved_band_burn(day_log)
+    if resolved is not None:
+        return resolved, ""
 
     # Step 0: a log that STATES there was no activity yields zero burn.
     # Without this guard, "tiada workout hari ini" reads as "unknown duration"
@@ -507,6 +664,10 @@ def format_eod_report(
     report.append("🧪 *2. PROFIL NUTRISI*")
     report.append("")
     report.extend(format_macronutrients(log_data))
+    protein_g = log_data.get("estimated_protein_g")
+    report.extend(protein_floor_lines(protein_g, weight_kg))
+    for line in profile_target_warnings(profile):
+        report.append(line)
     report.append("")
     report.extend(format_micronutrients(log_data, med_status))
     report.append("")
@@ -529,14 +690,16 @@ def format_eod_report(
 
     # ⚖️ DEFISIT
     report.append("⚖️ *STATUS DEFISIT & KALORI*")
-    report.append(f"• ⚖️ *Berat Terkini:* *{weight_kg} kg*")
+    report.append(
+        f"• ⚖️ *Berat Terkini:* *{render_weight(weight_kg, profile.get('latest_weight_date'))}*"
+    )
     report.append(f"• 🔋 *BMR Asas:* *~{bmr:,} kcal*")
     report.append(f"• 🚶 *TDEE Sedentary:* *~{sedentary_tdee:,} kcal*")
     if burn:
         tdee_low = sedentary_tdee + burn["low"]
         tdee_high = sedentary_tdee + burn["high"]
-        deficit_low = tdee_low - intake_high
-        deficit_high = tdee_high - intake_low
+        deficit_low = reported_deficit(tdee_low, intake_high)
+        deficit_high = reported_deficit(tdee_high, intake_low)
         if burn["high"] <= 0:
             report.append(
                 f"• 📊 *Total TDEE:* *~{sedentary_tdee:,} kcal* (sedentary; tiada burn workout)"
@@ -547,20 +710,25 @@ def format_eod_report(
                 f"(julat {tdee_low:,.0f}–{tdee_high:,.0f})"
             )
         report.append(
-            f"• 🎯 *Anggaran Defisit:* *~{deficit_low:,.0f} hingga {deficit_high:,.0f} kcal* "
+            f"• 🎯 *Anggaran Defisit:* {format_deficit_range(deficit_low, deficit_high)} "
             "(julat, bukan bacaan tepat)"
         )
     else:
-        deficit_low = sedentary_tdee - intake_high
-        deficit_high = sedentary_tdee - intake_low
+        deficit_low = reported_deficit(sedentary_tdee, intake_high)
+        deficit_high = reported_deficit(sedentary_tdee, intake_low)
         report.append(
             "• 📊 *Total TDEE:* sedentary sahaja — belum masuk burn workout"
         )
         report.append(
             f"• 🎯 *Anggaran Defisit (tanpa burn workout):* "
-            f"*~{deficit_low:,.0f} hingga {deficit_high:,.0f} kcal*"
+            f"{format_deficit_range(deficit_low, deficit_high)}"
         )
         report.append(f"• ❓ *Perlu diisi:* {burn_missing} untuk kira burn.")
+    tdee_for_advisory = sedentary_tdee + (burn["mid"] if burn else 0)
+    for line in advisory_warnings(
+        log_data.get("estimated_protein_g"), weight_kg, total_kcal, tdee_for_advisory
+    ):
+        report.append(line)
     report.append("")
     report.append("---")
     report.append("")

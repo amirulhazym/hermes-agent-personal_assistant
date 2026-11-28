@@ -112,9 +112,11 @@ def test_burn_comes_from_log_not_hardcoded_heuristic(diet_log_file, med_status_f
     # The removed heuristic would have printed this exact burn line at 500.
     assert "*Tenaga Terbakar (anggaran log):* ~500 kcal" not in out
     assert "~500 kcal (julat" not in out
-    assert "2,150" in out  # 1800 + 350
-    # 2050-800 .. 2200-640
-    assert "1,250" in out and "1,560" in out
+    # Sedentary TDEE is now 1775 (owner-confirmed 157 cm / 27 y profile,
+    # 2026-11-11) instead of the retired 1500 special case. 1775 + 350 = 2125.
+    assert "2,125" in out
+    # 2025-800 .. 2175-640
+    assert "1,225" in out and "1,535" in out
 
 
 def test_burn_derived_from_duration_and_met_band(tmp_path, med_status_file):
