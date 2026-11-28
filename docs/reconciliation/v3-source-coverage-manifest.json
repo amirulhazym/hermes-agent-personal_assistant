@@ -126,7 +126,7 @@
       "destination": null,
       "kind": "source-only",
       "source": "README.md",
-      "source_sha256": "86e7ffd4d4283fd888ee66eb46c93e0af813076d85c4a3c89d1fba33fc46626a"
+      "source_sha256": "519386dda3529823e3efe52264f64f1f91ad41c87aaf7e7b14ee03d170b05fb7"
     },
     {
       "destination": null,
@@ -648,7 +648,7 @@
       "destination": "/home/ubuntu/.hermes/plugins/hybrid-web/provider.py",
       "kind": "runtime-deploy",
       "source": "plugins/hybrid-web/provider.py",
-      "source_sha256": "9a86f6b7978a314a91f86738db350ef04129873ab5c2f147c2fd3aa61b3f8ffb"
+      "source_sha256": "a10a4de6af8b56a47288436bb34e60a96adb66aecf102bfb7910b551254d7a61"
     },
     {
       "destination": "/home/ubuntu/.hermes/plugins/lightclawbot/__init__.py",

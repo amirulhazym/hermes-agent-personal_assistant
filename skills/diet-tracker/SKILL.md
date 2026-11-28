@@ -1,6 +1,6 @@
 ---
 name: diet-tracker
-description: Deterministic diet, nutrition macros, and caloric deficit tracking for Amirulhazym. Enforces ADHD-friendly 5-category visual reports on WhatsApp and counters Dexa-induced sodium retention.
+description: Deterministic diet, nutrition macros, and caloric deficit tracking for Amirulhazym. Enforces natural Bahasa Melayu WhatsApp formatting, official label verification, and unit-complete step-by-step math.
 disable-model-invocation: false
 license: MIT
 metadata:
@@ -10,55 +10,34 @@ metadata:
     related_skills: [med-tracker, i-have-adhd]
 ---
 
-# Diet Tracker & ADHD Nutrition Protocol
+# Diet Tracker & Nutrition Protocol
 
-## Domain Rules & Constraints
-1. **ADHD Visual Formatting (WhatsApp):**
-   - Strictly prohibit unstructured dense paragraphs or conversational rambling when discussing diet.
-   - All diet and nutrition responses MUST follow the structured format:
-     - 📋 1. LOG PEMAKANAN HARIAN (INTAKE)
-     - 🧪 2. PROFIL NUTRISI (MACROS)
-     - 🔬 3. KAJIAN BIOMEDIKAL: PROS & CONS (Khas Dexa & Pemulihan)
-     - ⚖️ 4. TENAGA KELUAR & STATUS DEFISIT (BURN)
-     - ⚡ 5. NEXT ACTION MALAM INI
-2. **Clinical Dexa Taper Rules:**
-   - Dexamethasone induces mineralocorticoid sodium retention, causing edema / water retention.
-   - NEVER suggest adding salt/sodium to drinks or electrolytes post-workout. Prioritize potassium-rich sources (e.g. bananas, ulam) to promote natural renal sodium clearance.
-   - Sparing lean muscle: prioritize high-biological-value protein (eggs, chicken, fish) to counteract steroid catabolism while maintaining calorie deficit.
-   - Low-carb / zero rice preferred to prevent steroid-induced insulin resistance and visceral fat deposition.
-3. **Execution Tool:**
-   - Always update `~/.hermes/diet-log.json` when the user reports meal/exercise events.
-   - Use `python3 scripts/diet_report.py [--mode eod|compact]` to generate deterministic formatted reports rather than constructing ad-hoc prose.
+## 1. Gaya Bahasa & Format Laporan WhatsApp (MANDATORY)
+1. **Mula dengan Verdict:** Baris pertama jawapan mesti terus memberikan rumusan atau *verdict* utama (status kalori, protein, dan baki/defisit). Jangan mula dengan ayat defensif atau nota sistem.
+2. **Bahasa Melayu Natural & Penuh:** Tulis menggunakan ayat Bahasa Melayu yang penuh, natural, sopan, dan mudah difahami. **DILARANG** menggunakan gaya nota fragment pendek sekerat-sekerat (`"Sekarang dah tak relevan"`, `"Data gap aku tak tutup"`), nada biadab, atau ayat yang berbunyi seperti terjemahan terus dari bahasa Inggeris.
+3. **Setiap Angka Wajib Ada Unit:** Jangan tulis angka bogel seperti `P 8.7 · C 41.4 · F 3.9` atau `deficit 643`. Tulis dengan unit lengkap: `Protein: 8.7 g | Karbohidrat: 41.4 g | Lemak: 3.9 g` dan `Defisit: 643.2 kcal`.
+4. **Susunan Visual & Kiraan Langkah Demi Langkah:**
+   - Gunakan pembahagi `━━━`, emoji kategori, dan baris kosong antara seksyen supaya mudah dibaca di telefon.
+   - Tunjukkan kiraan jumlah secara berperingkat (**Langkah 1, Langkah 2, Langkah 3**), bukan terus melompat ke jawapan akhir.
+   - Struktur laporan diet WhatsApp:
+     - 📋 **1. LOG PEMAKANAN HARIAN (INTAKE)**
+     - 🧪 **2. PROFIL NUTRISI & MAKRO**
+     - ⚖️ **3. TENAGA KELUAR & STATUS DEFISIT (BURN)**
+     - ⚡ **4. TINDAKAN SETERUSNYA**
+   - Fokus jawapan diet kepada **kalori, protein, makro, dan defisit**. Jangan selitkan syarahan perubatan Dexamethasone kecuali ditanya secara khusus, tetapi kekalkan prinsip pemakanan rendah garam, tanpa gula tambahan, dan tanpa kanji proses.
 
-## Wearable Burn Inputs — 4 Mandatory Rules (Phase 6, 2026-11-16)
+## 2. Protokol Pengesahan Label Rasmi & Ketepatan Kiraan
+1. **Cari & Baca Sumber Rasmi Pengeluar Dahulu:** Untuk sebarang produk komersial (roti, tuna tin, susu, serbuk protein), wajib cari dan baca panel nutrisi rasmi laman web pengeluar Malaysia/Singapura menggunakan `web_search`, `web_extract` (dengan Jina Reader fallback), atau CLI `agent-reach web search` / `agent-reach read <url>` sebelum menggunakan sebarang anggaran generik. Jangan menyerah awal atau guna data komuniti tidak sahih jika laman rasmi boleh diakses.
+2. **Sertakan Pautan Rujukan:** Letakkan URL sumber rasmi yang digunakan di bahagian akhir laporan.
+3. **Jangan Double-Count Minyak Produk Tin:** Untuk produk tin dalam minyak (seperti *Tuna in Olive Oil*):
+   - Jika pengguna menapis/membuang minyak atau membilas dengan air, kira nilai isi ikan *drained* sahaja tanpa menambah minyak bebas tambahan.
+   - Jika pengguna makan habis tanpa membuang minyak, tolak lemak yang sudah terkandung dalam isi ikan *drained* daripada jumlah minyak dalam senarai bahan tin sebelum mengira baki minyak bebas — jangan kira dua kali.
+4. **Integriti Matematik Defisit & Berat:**
+   - Kekalkan kiraan sebenar `Defisit = TDEE - Intake` tanpa sebarang *clamp* atau pemotongan nombor. Tambah baris amaran `⚠️` jika protein jatuh bawah lantai `1.2 g/kg` (`70.8 g` pada `59.0 kg`) atau optimum `1.6 g/kg` (`94.4 g`).
+   - Setiap paparan berat badan wajib menyertakan tarikh timbangan (`measured_date`), contohnya: `59.0 kg (rekod 2026-11-15)`.
 
-Burn, TDEE and deficit must never be argued from memory, a screenshot, or an ad-hoc cloud
-probe. One canonical feed, one settling rule, one modality rule, one weight.
-
-1. **Canonical file only — no ad-hoc cloud probes.**
-   - Wearable calories, steps, HR, sleep, SpO₂, body weight and workouts come from
-     `/home/ubuntu/hermes-huawei-sync/data/latest.json` (today) or
-     `data/YYYY-MM-DD.json` (history). That file is the SSOT; quote its `fetched_at`.
-   - If freshness is genuinely required mid-query, run
-     `python3 /home/ubuntu/hermes-huawei-sync/sync_huawei.py --sync-diet-log` first, then
-     read the file. **Never** run inline Python against Huawei Cloud endpoints — ad-hoc probes
-     are what produced 367.3 → 375.0 → 380.8 kcal for one session on 2026-11-16.
-2. **Settling window is part of the answer.**
-   - Read `sync_settling` and `fetched_at` before quoting any device number.
-   - `sync_settling == true` (workout block ended < 30 min ago) → prefix the number with
-     `[PRELIMINARY — watch masih sync ke cloud]` and say when it settles. Do not revise the
-     same figure twice in a row; label it preliminary instead.
-3. **Modality provenance is not optional.**
-   - A sport name may only be stated as fact when `modality_source == "user_confirmed"`.
-   - `modality_source == "reconstructed_intensity_hr"` → report
-     `"unclassified workout (reconstructed from intensity + HR)"` and offer
-     `--annotate DATE HH:MM "Label"` once. Never call it "indoor bike" because it looks like one.
-4. **One weight, one BMR, both dynamic.**
-   - Weight: `body_weight_kg` + `body_weight_measured_date` from `latest.json`.
-     `profile.latest_weight_kg` in `diet-log.json` is auto-mirrored from it by
-     `--sync-diet-log` on every cron run — if the two disagree, the JSON payload wins and the
-     mismatch gets stated, not silently averaged.
-   - BMR: read `tdee_calibration.bmr_kcal` (Mifflin-St Jeor on that weight; 1441 kcal at 59.0 kg,
-     1449 at 59.8 kg). Never hardcode 1449. TDEE stays
-     `BMR + max(0.15×BMR, device_active_kcal)` and stays a **candidate** until ~7 days of
-     side-by-side data.
+## 3. Wearable Burn Inputs — 4 Mandatory Rules (Phase 6, 2026-11-16)
+1. **Canonical file only — no ad-hoc cloud probes:** Baca data wearable dari `/home/ubuntu/hermes-huawei-sync/data/latest.json` (hari ini) atau `data/YYYY-MM-DD.json` (sejarah) dan nyatakan `fetched_at`.
+2. **Settling window:** Semak `sync_settling` sebelum memetik angka jam tangan; label `[PRELIMINARY]` jika `sync_settling == true`.
+3. **Modality provenance:** Nyatakan nama senaman hanya jika disahkan pengguna atau direkodkan dalam `workout_annotations.json`.
+4. **One weight, one BMR, both dynamic:** Guna `body_weight_kg` + `body_weight_measured_date` daripada `latest.json` dan `tdee_calibration.bmr_kcal` (`1441 kcal` pada `59.0 kg`).

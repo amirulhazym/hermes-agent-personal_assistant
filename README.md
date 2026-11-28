@@ -9,14 +9,14 @@
 
 > **Current-state note (2026-08-08):** This public repository is the durable application-source and recovery record. `main` is the only permanent application-source branch. The live operator runs on the Tencent Lighthouse VPS under `/home/ubuntu/.hermes`; older WSL2/Windows descriptions below are historical unless explicitly marked current. Promotion to `main` requires one tested exact-SHA owner release approval. See `AGENTS.md` v3.
 
-## 🧭 Live layout & active modules (2026-11-16)
+## 🧭 Live layout & active modules (2026-11-28)
 
 The runtime is the Tencent Lighthouse VPS (Ubuntu, Python 3.11) — **not** the WSL2/Windows host that
 most of this document was first written on. Authoritative paths:
 
 | Purpose | Live path |
 |---|---|
-| Hermes runtime (`$HERMES_HOME`) | `/home/ubuntu/.hermes` (config, `.env`, `diet-log.json`, skills, cron) |
+| Hermes runtime (`$HERMES_HOME`) | `/home/ubuntu/.hermes` (config, `.env`, `diet-log.json`, skills, cron; `SOUL.md` stays untracked) |
 | Application-source SSOT (this repo) | `/home/ubuntu/hermes-agent-personal_assistant-work` |
 | Framework runtime (deployment-managed) | `/home/ubuntu/.hermes/hermes-agent` — never developed in place |
 | Secrets | `~/secrets/` (dir 700, files 600) |
@@ -31,7 +31,11 @@ Active modules with their own documentation:
   skill that operates that pipeline: token rotation, field maps, phase gates, drift/trust contract.
 - **`skills/diet-tracker/`** + **`skills/health/wearable-metrics-verification/`** — enforce the four
   mandatory wearable rules (canonical file only, settling window, modality provenance, one dynamic
-  weight/BMR).
+  weight/BMR), official manufacturer nutrition-label verification before generic estimates, non-double-counting
+  for canned oil items, and natural Bahasa Melayu WhatsApp report formatting with explicit units.
+- **`plugins/hybrid-web/`** + **`plugins/search-cascade/`** + **Agent-Reach v1.6.1** (`~/.hermes/skills/research/agent-reach/SKILL.md`) —
+  web research and extraction stack combining Tavily/DDGS search cascade, Trafilatura/Crawl4AI extraction,
+  low-RAM Jina Reader (`r.jina.ai`) fallback, and `agent-reach` CLI for public web, GitHub, YouTube, and V2EX.
 - **`skills/operator/xcute/`** + `AGENTS.md` — the `/xcute` pipeline and operator constitution that
   govern any change to this repository.
 

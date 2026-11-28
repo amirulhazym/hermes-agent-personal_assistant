@@ -131,3 +131,32 @@ def test_prefers_system_chrome_before_bundled(hw):
 
 def test_reexport_driver_marker_matches_playwright_layout(hw):
     assert hw._PLAYWRIGHT_DRIVER_MARKER == "playwright/driver/package/cli.js"
+
+
+def test_jina_fallback_used_when_trafilatura_empty(hw, monkeypatch):
+    """When Trafilatura returns empty/short text, extract falls back to Jina Reader."""
+    import requests
+
+    class FakeResp:
+        def __init__(self, status_code=200, text="", headers=None):
+            self.status_code = status_code
+            self.text = text
+            self.headers = headers or {"content-type": "text/html; charset=utf-8"}
+
+    def fake_head(url, timeout=5, allow_redirects=True):
+        return FakeResp(200, "", {"content-type": "text/html; charset=utf-8"})
+
+    def fake_get(url, headers=None, timeout=10):
+        if url.startswith("https://r.jina.ai/"):
+            return FakeResp(200, "Official Nutrition Information: Energy 162 kcal per 2 slices (61.5g) " * 3)
+        return FakeResp(200, "<html><head><title>Product Page</title></head><body>thin</body></html>")
+
+    monkeypatch.setattr(requests, "head", fake_head)
+    monkeypatch.setattr(requests, "get", fake_get)
+    monkeypatch.setattr(hw.HybridWebSearchProvider, "_extract_with_trafilatura", lambda self, u: "")
+
+    provider = hw.HybridWebSearchProvider()
+    res = provider.extract(["https://example.com/product"])
+    assert len(res) == 1
+    assert res[0]["metadata"]["backend"] == "jina-reader"
+    assert "162 kcal" in res[0]["content"]
